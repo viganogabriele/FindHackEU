@@ -16,6 +16,11 @@ interface SourceResult {
   success: boolean;
   parsed: number;
   error: string | null;
+  // Explicit outcome reported by the parser itself ("ok" | "partial" |
+  // "failed"), as opposed to `success`/`error` above which also cover
+  // failures raised outside the parser (e.g. it throwing on
+  // construction). Undefined when the source never ran.
+  status?: "ok" | "partial" | "failed";
 }
 
 export async function POST(request: Request) {
@@ -102,15 +107,28 @@ export async function POST(request: Request) {
     // ---------------------------------------------------------
     try {
       const lumaParser = new LumaParser();
-      const lumaHackathons = await lumaParser.parse();
+      const lumaResult = await lumaParser.parse();
 
-      sourceResults.luma.success = true;
-      sourceResults.luma.parsed = lumaHackathons.length;
+      // Honor the parser's own explicit status instead of inferring
+      // success from "did an exception propagate" - a provider that
+      // failed every slug/category it attempted must be reported as
+      // failed even though `parse()` itself resolved normally.
+      sourceResults.luma.status = lumaResult.status;
+      sourceResults.luma.success = lumaResult.status !== "failed";
+      sourceResults.luma.parsed = lumaResult.hackathons.length;
 
-      parsedHackathons.push(...lumaHackathons);
+      if (lumaResult.errors.length > 0) {
+        sourceResults.luma.error = lumaResult.errors.join("; ");
+      }
 
-      console.log(`Parsed ${lumaHackathons.length} hackathons from Luma`);
+      parsedHackathons.push(...lumaResult.hackathons);
+
+      console.log(
+        `Parsed ${lumaResult.hackathons.length} hackathons from Luma ` +
+          `(status: ${lumaResult.status})`,
+      );
     } catch (error) {
+      sourceResults.luma.status = "failed";
       sourceResults.luma.success = false;
       sourceResults.luma.error =
         error instanceof Error ? error.message : "Luma parser failed";

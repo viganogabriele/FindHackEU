@@ -1,4 +1,9 @@
-import { BaseParser, ParsedHackathon } from "@/lib/parsers/base-parser";
+import {
+  BaseParser,
+  ParsedHackathon,
+  ParseResult,
+  ParseStatus,
+} from "@/lib/parsers/base-parser";
 import { europeanCountries } from "@/lib/european-countries";
 import {
   MAX_FUTURE_DAYS,
@@ -69,8 +74,9 @@ export class LumaParser extends BaseParser {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  async parse(): Promise<ParsedHackathon[]> {
+  async parse(): Promise<ParseResult> {
     const allHackathons: ParsedHackathon[] = [];
+    const errors: string[] = [];
 
     for (const slug of this.slugs) {
       try {
@@ -87,11 +93,28 @@ export class LumaParser extends BaseParser {
 
         allHackathons.push(...hackathons);
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+
         console.error(`Error parsing slug ${slug}:`, error);
+        errors.push(`[${slug}] ${message}`);
       }
     }
 
-    return this.deduplicateHackathons(allHackathons);
+    const hackathons = this.deduplicateHackathons(allHackathons);
+
+    let status: ParseStatus;
+
+    if (errors.length === 0) {
+      status = "ok";
+    } else if (errors.length >= this.slugs.length) {
+      // Every slug we attempted failed: this is a real provider
+      // failure, not "zero matching events this run".
+      status = "failed";
+    } else {
+      status = "partial";
+    }
+
+    return { hackathons, errors, status };
   }
 
   private async fetchEventsForSlug(
