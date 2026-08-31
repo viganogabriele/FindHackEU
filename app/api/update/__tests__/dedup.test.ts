@@ -10,43 +10,17 @@
  * blocks is meant to fix — see CLAUDE.md's roadmap section and issue #35's
  * "Blocks" field.
  *
- * In the meantime, this test characterizes the dedup algorithm by copying it
- * verbatim from app/api/update/route.ts (see the reduce() there, currently
- * around lines 154-171) and exercising it directly against fixtures shaped
- * like ParsedHackathon. If that algorithm changes, keep this copy in sync.
+ * As of issue #22, the cross-provider dedup step in route.ts is no longer a
+ * private inline reduce() — it's the shared, directly-testable
+ * `mergeHackathonDuplicates` from lib/dedup/dedupe-hackathons.ts (also used
+ * by LumaParser's own dedup). This file now imports and exercises that real
+ * function instead of maintaining a hand-copied algorithm in sync with
+ * route.ts; lib/dedup/__tests__/dedupe-hackathons.test.ts covers the
+ * normalized-URL / fuzzy-title / provenance behavior in more depth.
  */
 import { describe, expect, it } from "vitest";
 import type { ParsedHackathon } from "@/lib/parsers/base-parser";
-
-/**
- * Verbatim copy of the dedup reduce() in app/api/update/route.ts.
- * Key = lowercase-trimmed name + calendar day (not full timestamp), and the
- * key does NOT include `source` — so two events with the same name and
- * start date from two different providers ARE treated as duplicates, which
- * is the intended cross-provider behavior.
- */
-function deduplicateAcrossProviders(
-  parsedHackathons: ParsedHackathon[],
-): ParsedHackathon[] {
-  return parsedHackathons.reduce(
-    (acc, hackathon) => {
-      const key = `${hackathon.name.toLowerCase().trim()}-${
-        hackathon.date_start.toISOString().split("T")[0]
-      }`;
-
-      if (!acc.seen.has(key)) {
-        acc.seen.add(key);
-        acc.hackathons.push(hackathon);
-      }
-
-      return acc;
-    },
-    {
-      seen: new Set<string>(),
-      hackathons: [] as ParsedHackathon[],
-    },
-  ).hackathons;
-}
+import { mergeHackathonDuplicates } from "@/lib/dedup/dedupe-hackathons";
 
 function makeHackathon(overrides: Partial<ParsedHackathon>): ParsedHackathon {
   return {
@@ -58,7 +32,7 @@ function makeHackathon(overrides: Partial<ParsedHackathon>): ParsedHackathon {
   };
 }
 
-describe("app/api/update/route.ts dedup logic (characterization)", () => {
+describe("app/api/update/route.ts dedup logic", () => {
   it("collapses same-name/same-day events reported by two different providers", () => {
     const lumaEvent = makeHackathon({
       name: "Berlin AI Hackathon",
@@ -69,23 +43,28 @@ describe("app/api/update/route.ts dedup logic (characterization)", () => {
     const lablabEvent = makeHackathon({
       name: "Berlin AI Hackathon",
       // Same calendar day, different time-of-day — still deduped, because
-      // the key truncates to the date (`.split("T")[0]`), not the instant.
+      // the same-day check truncates to the date, not the instant.
       date_start: new Date("2025-09-01T18:30:00.000Z"),
       url: "https://lablab.ai/event/berlin-ai-hackathon",
       source: "lablab",
     });
 
-    const result = deduplicateAcrossProviders([lumaEvent, lablabEvent]);
+    const result = mergeHackathonDuplicates([lumaEvent, lablabEvent]);
 
     expect(result).toHaveLength(1);
     expect(result[0].source).toBe("luma"); // first one wins
+    // The second provider's URL is retained as provenance rather than
+    // discarded (in-memory only — see issue #22's scope note).
+    expect(result[0].alternateUrls).toEqual([
+      "https://lablab.ai/event/berlin-ai-hackathon",
+    ]);
   });
 
-  it("treats differently-cased names on the same day as duplicates (case-insensitive key)", () => {
+  it("treats differently-cased names on the same day as duplicates (case-insensitive title match)", () => {
     const eventA = makeHackathon({ name: "Paris Web3 Hackathon" });
     const eventB = makeHackathon({ name: "PARIS WEB3 HACKATHON  " });
 
-    const result = deduplicateAcrossProviders([eventA, eventB]);
+    const result = mergeHackathonDuplicates([eventA, eventB]);
 
     expect(result).toHaveLength(1);
   });
@@ -100,26 +79,30 @@ describe("app/api/update/route.ts dedup logic (characterization)", () => {
       date_start: new Date("2025-10-01T09:00:00.000Z"),
     });
 
-    const result = deduplicateAcrossProviders([eventA, eventB]);
+    const result = mergeHackathonDuplicates([eventA, eventB]);
 
     expect(result).toHaveLength(2);
   });
 
-  it("[documents a behavioral difference, not a bug] is case-insensitive and day-granular, unlike LumaParser's own internal dedup which is case-sensitive and full-timestamp-granular", () => {
-    // LumaParser.deduplicateHackathons() (private, exercised indirectly via
-    // parse() in lib/parsers/__tests__/luma-parser.test.ts) keys on
-    // `${name}-${date_start.toISOString()}` with no case-folding. The
-    // repo-wide dedup above is deliberately looser (case-insensitive, whole
-    // day) because it also has to catch duplicates *across* providers whose
-    // timestamps and capitalization may not match exactly. Both are
-    // "correct" for their own layer; this test just pins the difference so
-    // a future refactor (issue #9) doesn't accidentally unify them in a way
-    // that silently changes what counts as a duplicate.
-    const sameDayDifferentCase = [
-      makeHackathon({ name: "edge case hackathon" }),
-      makeHackathon({ name: "Edge Case Hackathon" }),
-    ];
+  it("[guard rail, issue #22] keeps two same-day, similarly-named events in different known cities distinct", () => {
+    // Previously (lowercased-name + date-only key), these would have been
+    // wrongly collapsed into one. The shared matcher now vetoes a fuzzy
+    // title match when city/country actively conflict.
+    const berlinEvent = makeHackathon({
+      name: "AI Hackathon",
+      url: "https://luma.com/ai-hackathon-berlin",
+      city: "Berlin",
+      country_code: "DE",
+    });
+    const munichEvent = makeHackathon({
+      name: "AI Hackathon",
+      url: "https://luma.com/ai-hackathon-munich",
+      city: "Munich",
+      country_code: "DE",
+    });
 
-    expect(deduplicateAcrossProviders(sameDayDifferentCase)).toHaveLength(1);
+    const result = mergeHackathonDuplicates([berlinEvent, munichEvent]);
+
+    expect(result).toHaveLength(2);
   });
 });

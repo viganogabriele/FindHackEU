@@ -24,6 +24,16 @@ export interface ParsedHackathon {
   notes?: string;
   url: string;
   source: string;
+  /**
+   * Additional source URLs recognized as referring to this same event
+   * during in-process dedup (see lib/dedup/dedupe-hackathons.ts and issue
+   * #22). In-memory provenance only — deliberately NOT part of the
+   * database schema/insert payload. Persisting this (e.g. a
+   * `hackathon_sources` table) is deferred to issue #24 (DB schema
+   * versioning), which needs the maintainer's own Supabase instance to
+   * design and test a migration against.
+   */
+  alternateUrls?: string[];
 }
 
 /**

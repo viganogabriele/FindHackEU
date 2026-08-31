@@ -165,7 +165,7 @@ describe("LumaParser", () => {
           status: 200,
           json: async () =>
             buildLumaResponse(
-              [{ name: "Page One Hackathon", start_at: FUTURE, url: "page-one-hackathon" }],
+              [{ name: "Winter Robotics Hackathon", start_at: FUTURE, url: "winter-robotics-hackathon" }],
               { has_more: true, next_cursor: "cursor-page-2" },
             ),
           text: async () => "",
@@ -177,7 +177,7 @@ describe("LumaParser", () => {
         status: 200,
         json: async () =>
           buildLumaResponse([
-            { name: "Page Two Hackathon", start_at: FUTURE, url: "page-two-hackathon" },
+            { name: "Autumn Sailing Buildathon", start_at: FUTURE, url: "autumn-sailing-buildathon" },
           ]),
         text: async () => "",
       } as Response;
@@ -200,8 +200,8 @@ describe("LumaParser", () => {
     ).toBe("cursor-page-2");
 
     expect(results.map((h) => h.name).sort()).toEqual([
-      "Page One Hackathon",
-      "Page Two Hackathon",
+      "Autumn Sailing Buildathon",
+      "Winter Robotics Hackathon",
     ]);
   });
 
