@@ -80,9 +80,36 @@ function normalizeSearchText(value: string): string {
     .trim();
 }
 
+/**
+ * Counts DISTINCT matched words across all patterns/texts, not the number
+ * of patterns that happen to match. This matters because the multilingual
+ * keyword lists (lib/classification/keywords.ts) contain patterns that are
+ * equivalent or literally identical across languages (e.g. English
+ * `/\bteams?\b/` and German `/\bteam(s)?\b/` both match the word "team"),
+ * so a single occurrence of a cognate word must not be double-counted as
+ * two separate signals just because two language-specific patterns happen
+ * to match it. Without this, a title/description with only one or two
+ * genuinely weak secondary signals could reach the auto-publish threshold
+ * purely from pattern duplication (found via real Luma data - see issue
+ * #7's follow-up).
+ */
 function countMatches(patterns: RegExp[], texts: string[]): number {
-  return patterns.filter((pattern) => texts.some((text) => pattern.test(text)))
-    .length;
+  const matchedWords = new Set<string>();
+
+  for (const pattern of patterns) {
+    const globalPattern = new RegExp(
+      pattern.source,
+      pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`,
+    );
+
+    for (const text of texts) {
+      for (const match of text.matchAll(globalPattern)) {
+        matchedWords.add(match[0].toLowerCase());
+      }
+    }
+  }
+
+  return matchedWords.size;
 }
 
 /**
