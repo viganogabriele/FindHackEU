@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useMemo } from "react";
 import de from "@/i18n/de.json";
 import en from "@/i18n/en.json";
 import es from "@/i18n/es.json";
@@ -58,6 +58,16 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const locale = useLocaleStore((s) => s.locale);
   const setLocale = useLocaleStore((s) => s.setLocale);
+
+  // Rehydrate the persisted locale from localStorage only after the
+  // initial client render has committed (skipHydration: true in
+  // lib/locale-store.ts) - this is what actually avoids the SSR/client
+  // text mismatch: the state change happens in an effect, after React's
+  // one-time hydration-mismatch check has already passed, instead of
+  // during the hydration render itself.
+  useEffect(() => {
+    useLocaleStore.persist.rehydrate();
+  }, []);
 
   const messages = useMemo(() => MESSAGES[locale] || MESSAGES["en"], [locale]);
 
