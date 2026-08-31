@@ -100,7 +100,7 @@ describe("LumaParser", () => {
       ],
     });
 
-    const results = await new LumaParser().parse();
+    const results = (await new LumaParser().parse()).hackathons;
 
     expect(results).toHaveLength(1);
     expect(results[0].city).toBe("Zurich");
@@ -108,7 +108,15 @@ describe("LumaParser", () => {
   });
 
   // Case 2: a genuinely non-English-titled hackathon.
-  it("[documents known gap -> issue #7] does NOT classify a French-titled hackathon with no English keywords as a hackathon", async () => {
+  //
+  // Updated after issue #7's fix landed: classification now goes through
+  // the multilingual, score-based classifier in
+  // lib/classification/hackathon-classifier.ts, which recognizes French
+  // competition ("compétition"/"concours") and technical
+  // ("développeurs"/"programmation") vocabulary. This title used to be
+  // silently dropped by the old English-only regex chain; it is now
+  // correctly accepted.
+  it("classifies a French-titled hackathon with no English keywords as a hackathon", async () => {
     mockFetchPerSlug({
       tech: [
         {
@@ -122,37 +130,79 @@ describe("LumaParser", () => {
       ],
     });
 
-    const results = await new LumaParser().parse();
+    const results = (await new LumaParser().parse()).hackathons;
 
-    // isHackathon()'s strongHackathonPatterns/competitionPatterns/
-    // technicalPatterns in luma-parser.ts are English-only regexes. A real
-    // hackathon whose title and description are written entirely in French
-    // (or Italian/German) with no English loanwords is silently dropped.
-    // This pins today's behavior; issue #7 (multilingual classifier) is
-    // tracked to fix it, at which point this assertion should flip and the
-    // test should be updated rather than left pinning a fixed bug forever.
-    expect(results).toHaveLength(0);
+    expect(results).toHaveLength(1);
+    expect(results[0].name).toBe("Concours de programmation pour développeurs");
   });
 
   // Case 3: pagination.
-  it("[documents known gap -> issue #3] never requests a second Luma page even when the API reports one exists", async () => {
-    const fetchMock = mockFetchPerSlug(
-      { tech: [{ name: "Page One Hackathon", start_at: FUTURE, url: "page-one-hackathon" }] },
-      { has_more: true, next_cursor: "cursor-page-2" },
+  //
+  // Updated after issue #3's fix landed (maxPagesPerSlug is no longer
+  // hard-coded to 1): the parser now follows Luma's has_more/next_cursor
+  // pagination. Each slug's second page here reports has_more: false so
+  // the loop terminates after exactly 2 pages, matching real behavior
+  // without needing to advance the fake clock past LumaParser's
+  // inter-page delay (see fetchEventsForSlug's `pageDelayMs`).
+  it("follows Luma's pagination and fetches a second page when has_more is true", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(input.toString());
+      const slug = url.searchParams.get("slug") ?? "";
+      const cursor = url.searchParams.get("pagination_cursor");
+
+      if (slug !== "tech") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => buildLumaResponse([]),
+          text: async () => "",
+        } as Response;
+      }
+
+      if (!cursor) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () =>
+            buildLumaResponse(
+              [{ name: "Page One Hackathon", start_at: FUTURE, url: "page-one-hackathon" }],
+              { has_more: true, next_cursor: "cursor-page-2" },
+            ),
+          text: async () => "",
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () =>
+          buildLumaResponse([
+            { name: "Page Two Hackathon", start_at: FUTURE, url: "page-two-hackathon" },
+          ]),
+        text: async () => "",
+      } as Response;
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const pendingParse = new LumaParser().parse();
+    // Let the inter-page delay (`pageDelayMs`) elapse under the fake clock
+    // so the second-page request actually fires before we await the result.
+    await vi.advanceTimersByTimeAsync(1000);
+    const results = (await pendingParse).hackathons;
+
+    const techCalls = fetchMock.mock.calls.filter(
+      ([input]) => new URL(input.toString()).searchParams.get("slug") === "tech",
     );
+    expect(techCalls).toHaveLength(2);
+    expect(
+      new URL(techCalls[1][0].toString()).searchParams.get("pagination_cursor"),
+    ).toBe("cursor-page-2");
 
-    await new LumaParser().parse();
-
-    // One request per slug (tech, ai, crypto) = 3, and never a second page,
-    // because `maxPagesPerSlug` is hard-coded to 1 in luma-parser.ts. An
-    // event that only appears on Luma's second page for a slug is never
-    // fetched at all. Tracked by issue #3.
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-
-    const requestedCursors = fetchMock.mock.calls.map(([input]) =>
-      new URL(input.toString()).searchParams.get("pagination_cursor"),
-    );
-    expect(requestedCursors.every((cursor) => cursor === null)).toBe(true);
+    expect(results.map((h) => h.name).sort()).toEqual([
+      "Page One Hackathon",
+      "Page Two Hackathon",
+    ]);
   });
 
   // Case 4: date + timezone handling.
@@ -168,7 +218,7 @@ describe("LumaParser", () => {
       ],
     });
 
-    const results = await new LumaParser().parse();
+    const results = (await new LumaParser().parse()).hackathons;
 
     expect(results).toHaveLength(1);
     expect(results[0].date_start.toISOString()).toBe(FUTURE);
@@ -176,7 +226,13 @@ describe("LumaParser", () => {
   });
 
   // Case 5: known city, no country in the payload.
-  it("[documents known gap] leaves country_code undefined for a known city when Luma sends no country data", async () => {
+  //
+  // Updated after issue #5's fix landed: mapEventToHackathon() now falls
+  // back to `europeanCountries.inferCountryFromCity` (the same known-city
+  // map lablab-parser.ts already used) before leaving country_code
+  // undetermined, so a known city with no explicit country/region resolves
+  // correctly with `location_confidence: "low"`.
+  it("resolves a known city with no country data via the known-city fallback", async () => {
     mockFetchPerSlug({
       tech: [
         {
@@ -188,16 +244,12 @@ describe("LumaParser", () => {
       ],
     });
 
-    const results = await new LumaParser().parse();
+    const results = (await new LumaParser().parse()).hackathons;
 
     expect(results).toHaveLength(1);
     expect(results[0].city).toBe("Berlin");
-    // lib/european-countries.ts exposes `inferCountryFromCity`, and
-    // lib/parsers/lablab-parser.ts already calls it to fill in exactly this
-    // gap, but luma-parser.ts's mapEventToHackathon() never does — so for
-    // the currently-active Luma source, a known city ("Berlin" -> DE) with
-    // no country/region/city_state in the payload is left unresolved.
-    expect(results[0].country_code).toBeUndefined();
+    expect(results[0].country_code).toBe("DE");
+    expect(results[0].location_confidence).toBe("low");
   });
 
   // Case 7 (Luma-level half): duplicate events collapse to one.
@@ -210,7 +262,7 @@ describe("LumaParser", () => {
 
     mockFetchPerSlug({ tech: [event], ai: [event] });
 
-    const results = await new LumaParser().parse();
+    const results = (await new LumaParser().parse()).hackathons;
 
     expect(results).toHaveLength(1);
   });
@@ -221,13 +273,18 @@ describe("LumaParser", () => {
       tech: [{ name: "Already Started Hackathon", start_at: PAST, url: "already-started" }],
     });
 
-    const results = await new LumaParser().parse();
+    const results = (await new LumaParser().parse()).hackathons;
 
     expect(results).toHaveLength(0);
   });
 
   // Case 9: unreachable page / network errors must not crash the parser.
-  it("returns an empty list instead of throwing when every request rejects (network error)", async () => {
+  //
+  // Updated after issue #6's fix landed: a total failure across every slug
+  // is no longer indistinguishable from "zero real results" - it's now
+  // reported as an empty hackathon list PLUS an explicit `status: "failed"`
+  // and per-slug error messages, instead of silently resolving to `[]`.
+  it("reports status 'failed' (not a thrown error, not a silent empty success) when every request rejects", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
@@ -235,10 +292,14 @@ describe("LumaParser", () => {
       }),
     );
 
-    await expect(new LumaParser().parse()).resolves.toEqual([]);
+    const result = await new LumaParser().parse();
+
+    expect(result.hackathons).toEqual([]);
+    expect(result.status).toBe("failed");
+    expect(result.errors.length).toBeGreaterThan(0);
   });
 
-  it("returns an empty list instead of throwing when Luma responds with a non-OK HTTP status", async () => {
+  it("reports status 'failed' when Luma responds with a non-OK HTTP status on every slug", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(
@@ -252,7 +313,11 @@ describe("LumaParser", () => {
       ),
     );
 
-    await expect(new LumaParser().parse()).resolves.toEqual([]);
+    const result = await new LumaParser().parse();
+
+    expect(result.hackathons).toEqual([]);
+    expect(result.status).toBe("failed");
+    expect(result.errors.length).toBeGreaterThan(0);
   });
 
   // Case 10: false positives (post-event announcements) are rejected.
@@ -267,7 +332,7 @@ describe("LumaParser", () => {
       ],
     });
 
-    const results = await new LumaParser().parse();
+    const results = (await new LumaParser().parse()).hackathons;
 
     expect(results).toHaveLength(0);
   });
