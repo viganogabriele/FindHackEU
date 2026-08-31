@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { Octokit } from "@octokit/rest";
 import { supabaseAdmin } from "@/lib/supabase";
 import { LumaParser } from "@/lib/parsers/luma-parser";
+import { LablabParser } from "@/lib/parsers/lablab-parser";
 import { ParsedHackathon } from "@/lib/parsers/base-parser";
+import type { Provider } from "@/lib/providers/provider.interface";
 import { DiscordBot } from "@/lib/bots/discord-bot";
 import { TelegramBot } from "@/lib/bots/telegram-bot";
 import { TwitterBot } from "@/lib/bots/twitter-bot";
@@ -16,11 +18,6 @@ interface SourceResult {
   success: boolean;
   parsed: number;
   error: string | null;
-  // Explicit outcome reported by the parser itself ("ok" | "partial" |
-  // "failed"), as opposed to `success`/`error` above which also cover
-  // failures raised outside the parser (e.g. it throwing on
-  // construction). Undefined when the source never ran.
-  status?: "ok" | "partial" | "failed";
 }
 
 export async function POST(request: Request) {
@@ -53,24 +50,30 @@ export async function POST(request: Request) {
     // ---------------------------------------------------------
     // Source configuration
     //
+    // Adding a new source means creating a class that implements
+    // `Provider` (see lib/providers/provider.interface.ts) and
+    // adding an instance to this array - no other change to this
+    // orchestrator should be required.
+    //
     // LabLab is intentionally disabled for now because its
     // public web surface is protected by Cloudflare and cannot
     // currently be queried reliably server-side.
     // ---------------------------------------------------------
-    const sourceResults: Record<string, SourceResult> = {
-      luma: {
-        enabled: true,
-        success: false,
+    const providers: Provider[] = [new LumaParser(), new LablabParser()];
+
+    const sourceResults: Record<string, SourceResult> = {};
+
+    for (const provider of providers) {
+      sourceResults[provider.name] = {
+        enabled: provider.enabled,
+        // A disabled source never runs, so it never "fails" - mirrors
+        // the previous hardcoded defaults (luma: success false until
+        // it runs, lablab: success true since it's a no-op).
+        success: !provider.enabled,
         parsed: 0,
         error: null,
-      },
-      lablab: {
-        enabled: false,
-        success: true,
-        parsed: 0,
-        error: null,
-      },
-    };
+      };
+    }
 
     // ---------------------------------------------------------
     // 0. Reset is_new flags
@@ -102,48 +105,42 @@ export async function POST(request: Request) {
     // ---------------------------------------------------------
     const parsedHackathons: ParsedHackathon[] = [];
 
-    // ---------------------------------------------------------
-    // Luma
-    // ---------------------------------------------------------
-    try {
-      const lumaParser = new LumaParser();
-      const lumaResult = await lumaParser.parse();
-
-      // Honor the parser's own explicit status instead of inferring
-      // success from "did an exception propagate" - a provider that
-      // failed every slug/category it attempted must be reported as
-      // failed even though `parse()` itself resolved normally.
-      sourceResults.luma.status = lumaResult.status;
-      sourceResults.luma.success = lumaResult.status !== "failed";
-      sourceResults.luma.parsed = lumaResult.hackathons.length;
-
-      if (lumaResult.errors.length > 0) {
-        sourceResults.luma.error = lumaResult.errors.join("; ");
+    for (const provider of providers) {
+      if (!provider.enabled) {
+        console.log(
+          `${provider.name} parser disabled: source is currently unavailable server-side`,
+        );
+        continue;
       }
 
-      parsedHackathons.push(...lumaResult.hackathons);
+      try {
+        // Honor the provider's own explicit success/errors instead of
+        // inferring success from "did an exception propagate" - a
+        // provider that failed every unit of work it attempted (see
+        // BaseParser.parse()/DiscoverResult) must be reported as failed
+        // even though `parse()` itself resolved normally.
+        const result = await provider.parse();
 
-      console.log(
-        `Parsed ${lumaResult.hackathons.length} hackathons from Luma ` +
-          `(status: ${lumaResult.status})`,
-      );
-    } catch (error) {
-      sourceResults.luma.status = "failed";
-      sourceResults.luma.success = false;
-      sourceResults.luma.error =
-        error instanceof Error ? error.message : "Luma parser failed";
+        sourceResults[provider.name].success = result.success;
+        sourceResults[provider.name].parsed = result.count;
 
-      console.error("Luma parser failed:", error);
+        if (result.errors.length > 0) {
+          sourceResults[provider.name].error = result.errors.join("; ");
+        }
+
+        parsedHackathons.push(...result.hackathons);
+
+        console.log(`Parsed ${result.count} hackathons from ${provider.name}`);
+      } catch (error) {
+        sourceResults[provider.name].success = false;
+        sourceResults[provider.name].error =
+          error instanceof Error
+            ? error.message
+            : `${provider.name} parser failed`;
+
+        console.error(`${provider.name} parser failed:`, error);
+      }
     }
-
-    // ---------------------------------------------------------
-    // LabLab
-    //
-    // Intentionally disabled for now.
-    // ---------------------------------------------------------
-    console.log(
-      "Lablab parser disabled: source is currently unavailable server-side",
-    );
 
     console.log(`Total parsed ${parsedHackathons.length} hackathons`);
 

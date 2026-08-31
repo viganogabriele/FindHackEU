@@ -295,7 +295,7 @@ describe("LumaParser", () => {
     const result = await new LumaParser().parse();
 
     expect(result.hackathons).toEqual([]);
-    expect(result.status).toBe("failed");
+    expect(result.success).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
   });
 
@@ -316,7 +316,7 @@ describe("LumaParser", () => {
     const result = await new LumaParser().parse();
 
     expect(result.hackathons).toEqual([]);
-    expect(result.status).toBe("failed");
+    expect(result.success).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
   });
 

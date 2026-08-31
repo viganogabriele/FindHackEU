@@ -1,5 +1,9 @@
 import { defaultTopicExtractor } from "@/lib/topic-extractor";
 import type { HackathonTopic } from "@/lib/constants/topics";
+import type {
+  Provider,
+  ProviderResult,
+} from "@/lib/providers/provider.interface";
 
 export interface ParsedHackathon {
   name: string;
@@ -23,7 +27,7 @@ export interface ParsedHackathon {
 }
 
 /**
- * Explicit outcome of a single provider's `parse()` run.
+ * Explicit outcome of a single provider's `discover()` run.
  *
  * - "ok": every unit of work (e.g. slug/category) the provider
  *   attempted succeeded. Zero matching hackathons is still "ok"
@@ -38,14 +42,59 @@ export interface ParsedHackathon {
  */
 export type ParseStatus = "ok" | "partial" | "failed";
 
-export interface ParseResult {
+/**
+ * Result of a provider's own `discover()` implementation: its raw
+ * hackathons plus an honest per-run status. This is intentionally a
+ * smaller shape than `ProviderResult` (no `success`/`count`) - those are
+ * mechanically derivable from `hackathons`/`status` and are added once, in
+ * `BaseParser.parse()`, so every provider doesn't have to recompute them.
+ */
+export interface DiscoverResult {
   hackathons: ParsedHackathon[];
   errors: string[];
   status: ParseStatus;
 }
 
-export abstract class BaseParser {
-  abstract parse(): Promise<ParseResult>;
+/**
+ * Shared base for every `Provider` implementation.
+ *
+ * Subclasses implement `discover()` with their source-specific
+ * fetch/normalize logic (as `parse()` used to do before the `Provider`
+ * interface existed) and declare `name`/`enabled`. `discover()` is
+ * responsible for its own honest per-unit error handling (e.g. per-slug
+ * try/catch) and must never let "zero real results" and "everything
+ * failed" collapse into the same `status`. `BaseParser.parse()` wraps
+ * `discover()`'s result (or a thrown error, for a provider that couldn't
+ * even start) into the standard `ProviderResult` shape so every source is
+ * uniform from the orchestrator's point of view.
+ */
+export abstract class BaseParser implements Provider {
+  abstract readonly name: string;
+  abstract readonly enabled: boolean;
+
+  protected abstract discover(): Promise<DiscoverResult>;
+
+  async parse(): Promise<ProviderResult> {
+    try {
+      const { hackathons, errors, status } = await this.discover();
+
+      return {
+        hackathons,
+        success: status !== "failed",
+        count: hackathons.length,
+        errors,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      return {
+        hackathons: [],
+        success: false,
+        count: 0,
+        errors: [message],
+      };
+    }
+  }
 
   protected formatDate(
     start_date_str: string,

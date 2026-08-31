@@ -1,7 +1,7 @@
 import {
   BaseParser,
   ParsedHackathon,
-  ParseResult,
+  DiscoverResult,
   ParseStatus,
 } from "@/lib/parsers/base-parser";
 import { europeanCountries } from "@/lib/european-countries";
@@ -38,6 +38,9 @@ interface LumaApiResponse {
 }
 
 export class LumaParser extends BaseParser {
+  readonly name = "luma";
+  readonly enabled = true;
+
   private readonly slugs = ["tech", "ai", "crypto"];
 
   // Bounding box originale: invariata.
@@ -74,7 +77,7 @@ export class LumaParser extends BaseParser {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  async parse(): Promise<ParseResult> {
+  protected async discover(): Promise<DiscoverResult> {
     const allHackathons: ParsedHackathon[] = [];
     const errors: string[] = [];
 

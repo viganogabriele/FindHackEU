@@ -1,7 +1,7 @@
 import {
   BaseParser,
   ParsedHackathon,
-  ParseResult,
+  DiscoverResult,
 } from "@/lib/parsers/base-parser";
 import { europeanCountries } from "@/lib/european-countries";
 
@@ -28,10 +28,13 @@ interface LablabApiResponse {
 }
 
 export class LablabParser extends BaseParser {
+  readonly name = "lablab";
+  readonly enabled = false;
+
   private readonly baseUrl = "https://lablab.ai";
   private readonly eventsPath = "/event.json";
 
-  async parse(): Promise<ParseResult> {
+  protected async discover(): Promise<DiscoverResult> {
     try {
       // 1. Ottieni il build ID dalla homepage
       const buildId = await this.getBuildId();
