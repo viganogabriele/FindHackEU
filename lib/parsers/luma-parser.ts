@@ -1,5 +1,6 @@
 import { BaseParser, ParsedHackathon } from "@/lib/parsers/base-parser";
 import { europeanCountries } from "@/lib/european-countries";
+import { fetchWithRetry } from "@/lib/http/fetch-with-retry";
 
 interface LumaGeoInfo {
   city?: string;
@@ -92,7 +93,11 @@ export class LumaParser extends BaseParser {
 
       page++;
 
-      const response = await fetch(url, {
+      // 10s timeout / 2 retries: Luma's discover endpoint is unauthenticated
+      // and occasionally slow or flaky; these defaults keep a single bad
+      // request from blocking the whole pipeline run (see issue #30) while
+      // still giving transient failures a couple of chances to recover.
+      const response = await fetchWithRetry(url, {
         headers: {
           Accept: "*/*",
           "User-Agent": "Mozilla/5.0",

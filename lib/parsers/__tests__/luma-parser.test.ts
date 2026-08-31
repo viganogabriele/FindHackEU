@@ -137,7 +137,15 @@ describe("LumaParser", () => {
   // Case 3: pagination.
   it("[documents known gap -> issue #3] never requests a second Luma page even when the API reports one exists", async () => {
     const fetchMock = mockFetchPerSlug(
-      { tech: [{ name: "Page One Hackathon", start_at: FUTURE, url: "page-one-hackathon" }] },
+      {
+        tech: [
+          {
+            name: "Page One Hackathon",
+            start_at: FUTURE,
+            url: "page-one-hackathon",
+          },
+        ],
+      },
       { has_more: true, next_cursor: "cursor-page-2" },
     );
 
@@ -218,7 +226,13 @@ describe("LumaParser", () => {
   // Case 8: past events are filtered out.
   it("filters out an event whose start date is already in the past", async () => {
     mockFetchPerSlug({
-      tech: [{ name: "Already Started Hackathon", start_at: PAST, url: "already-started" }],
+      tech: [
+        {
+          name: "Already Started Hackathon",
+          start_at: PAST,
+          url: "already-started",
+        },
+      ],
     });
 
     const results = await new LumaParser().parse();
@@ -227,6 +241,13 @@ describe("LumaParser", () => {
   });
 
   // Case 9: unreachable page / network errors must not crash the parser.
+  //
+  // Note: fetchEventsForSlug now routes through fetchWithRetry (issue #30),
+  // which retries transient failures with backoff before giving up. This
+  // suite runs under `vi.useFakeTimers()` (for the fixed NOW clock above),
+  // so the backoff's `setTimeout` calls never fire on their own — we drive
+  // them forward with `vi.advanceTimersByTimeAsync` instead of real waits.
+  // The assertions themselves (empty result, no throw) are unchanged.
   it("returns an empty list instead of throwing when every request rejects (network error)", async () => {
     vi.stubGlobal(
       "fetch",
@@ -235,7 +256,12 @@ describe("LumaParser", () => {
       }),
     );
 
-    await expect(new LumaParser().parse()).resolves.toEqual([]);
+    const resultPromise = new LumaParser().parse();
+
+    // 3 slugs x 2 retries each, backoff of 500ms/1000ms per slug.
+    await vi.advanceTimersByTimeAsync(1500 * 3);
+
+    await expect(resultPromise).resolves.toEqual([]);
   });
 
   it("returns an empty list instead of throwing when Luma responds with a non-OK HTTP status", async () => {
@@ -252,7 +278,12 @@ describe("LumaParser", () => {
       ),
     );
 
-    await expect(new LumaParser().parse()).resolves.toEqual([]);
+    const resultPromise = new LumaParser().parse();
+
+    // 3 slugs x 2 retries each, backoff of 500ms/1000ms per slug.
+    await vi.advanceTimersByTimeAsync(1500 * 3);
+
+    await expect(resultPromise).resolves.toEqual([]);
   });
 
   // Case 10: false positives (post-event announcements) are rejected.
