@@ -11,9 +11,10 @@
  * end-to-end for a single, realistic, fully-documented example that future
  * providers can copy.
  *
- * Note: luma-expected-output.json pins `topics: []` for both events even
- * though their descriptions clearly contain AI/Crypto/Web3 keywords -- see
- * that fixture's `_comment` for why (tracked topic-extractor bug, issue #8).
+ * Note: luma-expected-output.json's topics were pinned to `[]` for both
+ * events by an earlier revision of this fixture, documenting a
+ * topic-extractor regex bug (issue #8). That bug is now fixed, and the
+ * fixture has been updated to the real ['AI'] / ['Crypto', 'Web3'] output.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LumaParser } from "@/lib/parsers/luma-parser";
@@ -46,7 +47,9 @@ function mockFetchWithFixture() {
 // The expected-output fixture stores dates as ISO strings (JSON has no
 // native Date type); convert both sides to comparable shapes before
 // asserting.
-function toComparable(hackathons: ReturnType<LumaParser["parse"]> extends Promise<infer T> ? T : never) {
+function toComparable(
+  hackathons: Awaited<ReturnType<LumaParser["parse"]>>["hackathons"],
+) {
   return hackathons.map((hackathon) => ({
     ...hackathon,
     date_start: hackathon.date_start.toISOString(),
@@ -69,8 +72,10 @@ describe("LumaParser fixture pair (issue #38)", () => {
   it("normalizes luma-response-example.json into exactly luma-expected-output.json", async () => {
     mockFetchWithFixture();
 
-    const results = await new LumaParser().parse();
+    const result = await new LumaParser().parse();
 
-    expect(toComparable(results)).toEqual(expectedOutputFixture.hackathons);
+    expect(toComparable(result.hackathons)).toEqual(
+      expectedOutputFixture.hackathons,
+    );
   });
 });

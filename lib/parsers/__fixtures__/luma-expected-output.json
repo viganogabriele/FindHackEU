@@ -1,13 +1,14 @@
 {
-  "_comment": "Expected ParsedHackathon[] produced by LumaParser.parse() when the mocked fetch call returns luma-response-example.json for every slug ('tech', 'ai', 'crypto'), with the test clock frozen at 2026-01-01T00:00:00.000Z (see NOW in luma-fixtures.test.ts). Dates are stored as ISO strings here because JSON has no Date type -- the consuming test parses them back into Date objects (`new Date(...)`) before comparing against LumaParser's actual Date output. The third event in the raw fixture ('Hackathon Winners Celebration Party') is intentionally absent: LumaParser's isHackathon() exclusion patterns filter out post-event celebration posts, so it never reaches the output. Because the same raw fixture is served for all three Luma slugs, LumaParser's own deduplication (by name + date_start) collapses the 3x-duplicated entries down to one of each. `topics` is pinned to `[]` for both events even though the raw descriptions clearly mention AI/blockchain/web3 keywords: lib/topic-extractor.ts's TopicExtractor constructor escapes the '|' alternation separator it just joined its keyword list with (its char-class escape regex includes '|'), so every compiled topic pattern is currently unmatchable and extractTopics() always returns []. This is a known, tracked production bug (issue #8, 'Fix topic-extractor regex bug'), not a mistake in this fixture -- once #8 is fixed, this fixture's `topics` arrays should be updated to ['AI'] and ['Crypto', 'Web3'] respectively.",
+  "_comment": "Expected ParsedHackathon[] produced by LumaParser.parse() (unwrap .hackathons from the ProviderResult it returns) when the mocked fetch call returns luma-response-example.json for every slug ('tech', 'ai', 'crypto'), with the test clock frozen at 2026-01-01T00:00:00.000Z (see NOW in luma-fixtures.test.ts). Dates are stored as ISO strings here because JSON has no Date type -- the consuming test parses them back into Date objects (`new Date(...)`) before comparing against LumaParser's actual Date output. The third event in the raw fixture ('Hackathon Winners Celebration Party') is intentionally absent: the classifier's exclusion patterns filter out post-event celebration posts, so it never reaches the output. Because the same raw fixture is served for all three Luma slugs, LumaParser's own deduplication collapses the 3x-duplicated entries down to one of each. `topics` was originally pinned to `[]` here because of a topic-extractor regex bug (issue #8); now that #8 is fixed, both events get their real topics. `location_confidence: \"high\"` on both reflects that country_code was resolved directly from the source's own structured geo data (explicit country_code for Berlin, the city_state fallback for Amsterdam), not a heuristic guess (issue #5).",
   "hackathons": [
     {
       "name": "Berlin AI Builders Hackathon",
       "city": "Berlin",
       "country_code": "DE",
+      "location_confidence": "high",
       "date_start": "2026-03-14T09:00:00.000Z",
       "date_end": "2026-03-15T18:00:00.000Z",
-      "topics": [],
+      "topics": ["AI"],
       "url": "https://luma.com/berlin-ai-builders-hackathon-example",
       "source": "luma"
     },
@@ -15,9 +16,10 @@
       "name": "Amsterdam Web3 Buildathon",
       "city": "Amsterdam",
       "country_code": "NL",
+      "location_confidence": "high",
       "date_start": "2026-04-20T08:30:00.000Z",
       "date_end": "2026-04-21T20:00:00.000Z",
-      "topics": [],
+      "topics": ["Crypto", "Web3"],
       "url": "https://luma.com/amsterdam-web3-buildathon-example",
       "source": "luma"
     }
