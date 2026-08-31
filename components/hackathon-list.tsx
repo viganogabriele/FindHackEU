@@ -26,6 +26,7 @@ import Link from "next/link";
 import { useFilters } from "@/contexts/filter-context";
 import { europeanCountries } from "@/lib/european-countries";
 import { getTopicDisplay } from "@/lib/constants/topics";
+import { looksNonEnglish } from "@/lib/detect-non-english";
 
 interface HackathonListProps {
   upcoming: Hackathon[];
@@ -72,6 +73,10 @@ export default function HackathonList({
           if (!hasMatchingTopic) {
             return false;
           }
+        }
+
+        if (!filters.includeNonEnglish && looksNonEnglish(hackathon.name)) {
+          return false;
         }
 
         if (filters.dateRange?.from || filters.dateRange?.to) {
