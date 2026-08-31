@@ -1,5 +1,9 @@
 import { BaseParser, ParsedHackathon } from "@/lib/parsers/base-parser";
 import { europeanCountries } from "@/lib/european-countries";
+import {
+  MAX_FUTURE_DAYS,
+  getMaxFutureCutoff,
+} from "@/lib/config/discovery-config";
 
 interface LumaGeoInfo {
   city?: string;
@@ -70,11 +74,14 @@ export class LumaParser extends BaseParser {
     for (const slug of this.slugs) {
       try {
         const { events, pagesFetched } = await this.fetchEventsForSlug(slug);
-        const hackathons = this.filterHackathons(events);
+        const stats = { excludedPastFutureWindow: 0 };
+        const hackathons = this.filterHackathons(events, stats);
 
         console.log(
           `Luma [${slug}]: fetched ${pagesFetched} page(s), ` +
-            `${events.length} raw events, matched ${hackathons.length} hackathons`,
+            `${events.length} raw events, matched ${hackathons.length} hackathons, ` +
+            `excluded ${stats.excludedPastFutureWindow} beyond the ` +
+            `${MAX_FUTURE_DAYS}-day future window`,
         );
 
         allHackathons.push(...hackathons);
@@ -169,10 +176,13 @@ export class LumaParser extends BaseParser {
    *
    * Obvious post-event / celebration entries are rejected.
    */
-  private filterHackathons(events: LumaEventEntry[]): ParsedHackathon[] {
+  private filterHackathons(
+    events: LumaEventEntry[],
+    stats: { excludedPastFutureWindow: number },
+  ): ParsedHackathon[] {
     return events
       .filter((entry) => this.isHackathon(entry.event))
-      .map((entry) => this.mapEventToHackathon(entry))
+      .map((entry) => this.mapEventToHackathon(entry, stats))
       .filter((hackathon): hackathon is ParsedHackathon => hackathon !== null);
   }
 
@@ -284,7 +294,10 @@ export class LumaParser extends BaseParser {
       .trim();
   }
 
-  private mapEventToHackathon(entry: LumaEventEntry): ParsedHackathon | null {
+  private mapEventToHackathon(
+    entry: LumaEventEntry,
+    stats: { excludedPastFutureWindow: number },
+  ): ParsedHackathon | null {
     try {
       const event = entry.event;
 
@@ -299,6 +312,15 @@ export class LumaParser extends BaseParser {
       const now = new Date();
 
       if (dates.start < now) {
+        return null;
+      }
+
+      // Scarta eventi oltre la finestra di ricerca futura configurata
+      // (vedi lib/config/discovery-config.ts). Senza questo limite,
+      // l'orizzonte di ricerca dipende solo dall'ordinamento interno di
+      // Luma, che non è né configurabile né documentato.
+      if (dates.start > getMaxFutureCutoff(now)) {
+        stats.excludedPastFutureWindow++;
         return null;
       }
 
