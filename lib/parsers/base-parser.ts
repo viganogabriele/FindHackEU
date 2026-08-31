@@ -13,8 +13,30 @@ export interface ParsedHackathon {
   source: string;
 }
 
+/**
+ * Explicit outcome of a single provider's `parse()` run.
+ *
+ * - "ok": every unit of work (e.g. slug/category) the provider
+ *   attempted succeeded. Zero matching hackathons is still "ok"
+ *   as long as nothing errored.
+ * - "partial": at least one unit succeeded and at least one failed.
+ * - "failed": every unit attempted failed (or the provider could
+ *   not attempt any work at all, e.g. it couldn't authenticate).
+ *
+ * This lets callers distinguish "genuinely zero results this run"
+ * from "the provider is broken" instead of inferring success from
+ * whether an exception happened to propagate out of `parse()`.
+ */
+export type ParseStatus = "ok" | "partial" | "failed";
+
+export interface ParseResult {
+  hackathons: ParsedHackathon[];
+  errors: string[];
+  status: ParseStatus;
+}
+
 export abstract class BaseParser {
-  abstract parse(): Promise<ParsedHackathon[]>;
+  abstract parse(): Promise<ParseResult>;
 
   protected formatDate(
     start_date_str: string,
