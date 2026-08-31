@@ -43,6 +43,7 @@ import {
   FileCheck,
   Shield,
   Palette,
+  RefreshCw,
 } from "lucide-react";
 import { FaDiscord, FaTelegram, FaXTwitter } from "react-icons/fa6";
 import Link from "next/link";
@@ -179,6 +180,73 @@ const ExternalLinksSection = ({
     </div>
   );
 };
+
+// Dev-only convenience button that triggers the discovery pipeline
+// (POST /api/update, always in test mode - see app/api/dev/trigger-update)
+// without needing a separate terminal command. `process.env.NODE_ENV` is
+// inlined at build time, so this never renders (and the backing route
+// always 404s) outside a local development build.
+function DevTriggerUpdateButton() {
+  const [state, setState] = useState<
+    | { status: "idle" }
+    | { status: "loading" }
+    | { status: "done"; parsed: number; inserted: number }
+    | { status: "error"; message: string }
+  >({ status: "idle" });
+
+  const trigger = async () => {
+    setState({ status: "loading" });
+    try {
+      const res = await fetch("/api/dev/trigger-update", { method: "POST" });
+      const body = await res.json();
+      if (!res.ok || body.success === false) {
+        setState({
+          status: "error",
+          message: body.error || "Update failed",
+        });
+        return;
+      }
+      setState({
+        status: "done",
+        parsed: body.parsed ?? 0,
+        inserted: body.inserted ?? 0,
+      });
+    } catch (error) {
+      setState({
+        status: "error",
+        message: error instanceof Error ? error.message : "Update failed",
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <Button
+        variant="outline"
+        size="sm"
+        className="w-full justify-start"
+        onClick={trigger}
+        disabled={state.status === "loading"}
+      >
+        <RefreshCw
+          className={cn(
+            "mr-2 h-4 w-4",
+            state.status === "loading" && "animate-spin",
+          )}
+        />
+        {state.status === "loading" ? "Aggiornamento..." : "Aggiorna ora (dev)"}
+      </Button>
+      {state.status === "done" && (
+        <p className="text-xs text-muted-foreground">
+          {state.parsed} trovati, {state.inserted} nuovi
+        </p>
+      )}
+      {state.status === "error" && (
+        <p className="text-xs text-destructive">{state.message}</p>
+      )}
+    </div>
+  );
+}
 
 // Mobile collapsed sidebar (moved out to avoid remounting on each render)
 function MobileCollapsedSidebar({
@@ -541,6 +609,13 @@ function SidebarContent({
           </Select>
         </div>
       </div>
+
+      {process.env.NODE_ENV !== "production" && (
+        <>
+          <Separator />
+          <DevTriggerUpdateButton />
+        </>
+      )}
 
       <Separator />
 

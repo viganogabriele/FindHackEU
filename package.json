@@ -15,6 +15,7 @@
     "sitemap": "next-sitemap",
     "update-themes": "node scripts/update-themes.js && npm run format",
     "backfill-topics": "tsx scripts/backfill-topics.ts",
+    "trigger-update": "node scripts/trigger-update.mjs",
     "update": "npx npm-check-updates -u && npm install && npm run update-themes",
     "reinstall": "rm -rf node_modules package-lock.json .next && npm install"
   },
