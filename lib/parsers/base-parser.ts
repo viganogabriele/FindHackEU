@@ -5,6 +5,15 @@ export interface ParsedHackathon {
   name: string;
   city?: string;
   country_code?: string;
+  /**
+   * Lightweight confidence marker for `country_code` (issue #5). Kept
+   * in-memory only, not persisted to the DB, to avoid a schema change.
+   * "high" = the country came straight from the source's own structured
+   * data. "low" = it was inferred heuristically (known-city lookup or
+   * geocoding) and could be wrong for ambiguous/misspelled input.
+   * Undefined = no country could be determined at all.
+   */
+  location_confidence?: "high" | "low";
   date_start: Date;
   date_end?: Date;
   topics?: HackathonTopic[];

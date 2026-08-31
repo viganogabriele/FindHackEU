@@ -416,6 +416,10 @@ export const EUROPEAN_CITY_TO_COUNTRY: Record<string, string> = {
   bern: "CH",
   winterthur: "CH",
   lucerne: "CH",
+  // Non-English names for Zurich (issue #5 test case): "Zürich" folds to
+  // "zurich" via foldDiacritics(), but "Zurigo" (Italian) is a distinct
+  // word and needs its own entry.
+  zurigo: "CH",
 
   // Austria
   vienna: "AT",
@@ -638,11 +642,22 @@ export const EUROPEAN_CITY_TO_COUNTRY: Record<string, string> = {
 export class EuropeanCountriesUtil {
   private countryMap: Map<string, string>;
   private countryCodeSet: Set<string>;
+  private cityMap: Map<string, string>;
 
   constructor() {
     this.countryMap = new Map();
     this.countryCodeSet = new Set();
+    this.cityMap = new Map();
     this.buildMaps();
+  }
+
+  /**
+   * Strip diacritics (accents, umlauts, etc.) so multilingual variants of
+   * the same name normalize to the same lookup key, e.g. "Zürich" and
+   * "Zurich" both fold to "zurich" (issue #5).
+   */
+  private static foldDiacritics(value: string): string {
+    return value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
   }
 
   private buildMaps(): void {
@@ -653,10 +668,19 @@ export class EuropeanCountriesUtil {
       // Add the code itself
       this.countryMap.set(country.code.toLowerCase(), country.code);
 
-      // Add all aliases
+      // Add all aliases (diacritic-folded so "österreich"/"osterreich"
+      // both resolve regardless of which form the caller supplies)
       for (const alias of country.aliases) {
-        this.countryMap.set(alias.toLowerCase(), country.code);
+        const key = EuropeanCountriesUtil.foldDiacritics(alias.toLowerCase());
+
+        this.countryMap.set(key, country.code);
       }
+    }
+
+    for (const [city, code] of Object.entries(EUROPEAN_CITY_TO_COUNTRY)) {
+      const key = EuropeanCountriesUtil.foldDiacritics(city.toLowerCase());
+
+      this.cityMap.set(key, code);
     }
   }
 
@@ -669,7 +693,9 @@ export class EuropeanCountriesUtil {
       return undefined;
     }
 
-    const normalized = input.trim().toLowerCase();
+    const normalized = EuropeanCountriesUtil.foldDiacritics(
+      input.trim().toLowerCase(),
+    );
 
     // If it's already a valid 2-letter code, return it
     if (normalized.length === 2 && this.countryMap.has(normalized)) {
@@ -782,8 +808,11 @@ export class EuropeanCountriesUtil {
    * Try to infer country from city name using known city mappings
    */
   inferCountryFromCity(city: string): string | undefined {
-    const normalizedCity = city.toLowerCase();
-    return EUROPEAN_CITY_TO_COUNTRY[normalizedCity];
+    const normalizedCity = EuropeanCountriesUtil.foldDiacritics(
+      city.toLowerCase(),
+    );
+
+    return this.cityMap.get(normalizedCity);
   }
 
   /**
