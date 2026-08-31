@@ -45,6 +45,8 @@
   "header.found": "trovati",
   "topics.more": "altro",
   "noResults.message": "Nessun hackathon trovato che corrisponda ai tuoi criteri",
+  "error.loadFailed": "Impossibile caricare gli hackathon",
+  "error.retry": "Riprova",
   "aria.register": "Iscriviti a {name}",
   "action.join": "Partecipa",
   "export.description": "Partecipa a {name} hackathon!",

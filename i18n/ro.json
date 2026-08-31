@@ -45,6 +45,8 @@
   "header.found": "găsite",
   "topics.more": "mai mult",
   "noResults.message": "Nu s-au găsit hackathoane care să corespundă criteriilor tale",
+  "error.loadFailed": "Încărcarea hackathoanelor a eșuat",
+  "error.retry": "Reîncearcă",
   "aria.register": "Înregistrează-te pentru {name}",
   "action.join": "Alătură-te",
   "export.description": "Alătură-te hackathonului {name}!",

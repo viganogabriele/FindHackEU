@@ -45,6 +45,8 @@
   "header.found": "gevonden",
   "topics.more": "meer",
   "noResults.message": "Geen hackathons gevonden die aan je criteria voldoen",
+  "error.loadFailed": "Laden van hackathons mislukt",
+  "error.retry": "Opnieuw proberen",
   "aria.register": "Inschrijven voor {name}",
   "action.join": "Deelnemen",
   "export.description": "Doe mee aan de {name} hackathon!",

@@ -45,6 +45,8 @@
   "header.found": "gefunden",
   "topics.more": "mehr",
   "noResults.message": "Keine Hackathons gefunden, die deinen Kriterien entsprechen",
+  "error.loadFailed": "Hackathons konnten nicht geladen werden",
+  "error.retry": "Erneut versuchen",
   "aria.register": "Für {name} registrieren",
   "action.join": "Teilnehmen",
   "export.description": "Nimm am {name} Hackathon teil!",
