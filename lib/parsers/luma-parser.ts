@@ -42,22 +42,39 @@ export class LumaParser extends BaseParser {
     "https://api.luma.com/discover/get-paginated-events";
 
   // Luma accetta 50 eventi per richiesta.
-  // Limitiamo intenzionalmente a una sola pagina per slug
-  // per evitare ulteriori verifiche/anti-abuse.
   private readonly paginationLimit = 50;
-  private readonly maxPagesPerSlug = 1;
+
+  // Configurabile via env var per bilanciare copertura e rischio
+  // di anti-abuse checks lato Luma; default a più di una pagina
+  // per superare gli hackathon oltre la posizione 50.
+  private readonly maxPagesPerSlug = LumaParser.resolveMaxPagesPerSlug();
+
+  // Piccolo delay tra le richieste di pagine successive per restare
+  // ben al di sotto di eventuali rate limit impliciti di Luma.
+  private readonly pageDelayMs = 350;
+
+  private static resolveMaxPagesPerSlug(): number {
+    const raw = process.env.LUMA_MAX_PAGES_PER_SLUG;
+    const parsed = raw ? parseInt(raw, 10) : NaN;
+
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 5;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
 
   async parse(): Promise<ParsedHackathon[]> {
     const allHackathons: ParsedHackathon[] = [];
 
     for (const slug of this.slugs) {
       try {
-        const events = await this.fetchEventsForSlug(slug);
+        const { events, pagesFetched } = await this.fetchEventsForSlug(slug);
         const hackathons = this.filterHackathons(events);
 
         console.log(
-          `Luma [${slug}]: fetched ${events.length} events, ` +
-            `matched ${hackathons.length} hackathons`,
+          `Luma [${slug}]: fetched ${pagesFetched} page(s), ` +
+            `${events.length} raw events, matched ${hackathons.length} hackathons`,
         );
 
         allHackathons.push(...hackathons);
@@ -69,12 +86,18 @@ export class LumaParser extends BaseParser {
     return this.deduplicateHackathons(allHackathons);
   }
 
-  private async fetchEventsForSlug(slug: string): Promise<LumaEventEntry[]> {
+  private async fetchEventsForSlug(
+    slug: string,
+  ): Promise<{ events: LumaEventEntry[]; pagesFetched: number }> {
     const allEvents: LumaEventEntry[] = [];
     let cursor: string | null = null;
     let page = 0;
 
     while (page < this.maxPagesPerSlug) {
+      if (page > 0) {
+        await this.sleep(this.pageDelayMs);
+      }
+
       const params = new URLSearchParams({
         slug,
         south: this.bounds.south.toString(),
@@ -127,7 +150,7 @@ export class LumaParser extends BaseParser {
       cursor = data.next_cursor;
     }
 
-    return allEvents;
+    return { events: allEvents, pagesFetched: page };
   }
 
   /**
