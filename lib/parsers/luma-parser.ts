@@ -180,10 +180,28 @@ export class LumaParser extends BaseParser {
     events: LumaEventEntry[],
     stats: { excludedPastFutureWindow: number },
   ): ParsedHackathon[] {
-    return events
+    const hackathons = events
       .filter((entry) => this.isHackathon(entry.event))
       .map((entry) => this.mapEventToHackathon(entry, stats))
       .filter((hackathon): hackathon is ParsedHackathon => hackathon !== null);
+
+    // Observability for issue #5 / #31: this doesn't drop anything (a
+    // hackathon with a city but no resolved country still gets a shot at
+    // geocoding in LocationEnhancementService), but it makes visible how
+    // often Luma's own metadata leaves the country undetermined, which is
+    // the gap this issue targets.
+    const undeterminedWithCity = hackathons.filter(
+      (h) => h.city && !h.country_code,
+    ).length;
+
+    if (undeterminedWithCity > 0) {
+      console.log(
+        `Luma: ${undeterminedWithCity} hackathon(s) have a city but no country_code yet ` +
+          `(pending geocoding in LocationEnhancementService).`,
+      );
+    }
+
+    return hackathons;
   }
 
   private isHackathon(event: LumaEvent): boolean {
@@ -351,18 +369,45 @@ export class LumaParser extends BaseParser {
         }
       }
 
-      // Se il paese è determinato ma non europeo, scarta.
+      // Se il paese è determinato ma non europeo, scarta. Nota: dato che
+      // normalizeCountry() restituisce solo codici europei conosciuti (o
+      // undefined), questo ramo copre solo il caso di un country_code già
+      // normalizzato che risultasse comunque non valido; è tenuto come
+      // difesa in profondità.
       if (
         country_code &&
         !europeanCountries.isValidEuropeanCountry(country_code)
       ) {
+        console.log(
+          `Dropping Luma event "${event.name}": explicit country_code ${country_code} is not European.`,
+        );
         return null;
+      }
+
+      // Se il country_code arriva direttamente dai dati strutturati della
+      // fonte (country_code, region o la parte finale di city_state), è
+      // "high confidence". Se non è ancora determinato ma abbiamo una
+      // città, proviamo un'inferenza euristica gratuita da nomi di città
+      // noti (con supporto multilingua/diacritici, vedi
+      // lib/european-countries.ts) prima di lasciare il completamento al
+      // geocoding a pagamento in LocationEnhancementService (issue #5).
+      let location_confidence: ParsedHackathon["location_confidence"] =
+        country_code ? "high" : undefined;
+
+      if (!country_code && city) {
+        const inferredCountry = europeanCountries.inferCountryFromCity(city);
+
+        if (inferredCountry) {
+          country_code = inferredCountry;
+          location_confidence = "low";
+        }
       }
 
       return {
         name: event.name.replace(/\|/g, "-"),
         city,
         country_code,
+        location_confidence,
         date_start: dates.start,
         date_end: dates.end,
         topics: this.extractTopics(event.name, event.description),

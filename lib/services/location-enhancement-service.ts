@@ -27,6 +27,14 @@ export class LocationEnhancementService {
     // Limit concurrent geocoding requests to avoid API rate limits
     const limit = pLimit(3);
 
+    // Counters for observability (issue #5 / feeds issue #31): every event
+    // dropped for a non-European country, or kept with an undetermined
+    // country, is logged and counted here instead of silently
+    // disappearing from (or being dropped by) the pipeline.
+    let droppedNonEuropean = 0;
+    let undeterminedCountryCount = 0;
+    let geocodingUnavailableCount = 0;
+
     // Process hackathons in parallel with concurrency limit
     const enhancedResults = await Promise.all(
       hackathons.map((hackathon) =>
@@ -34,71 +42,112 @@ export class LocationEnhancementService {
           // Applica geocoding solo se:
           // 1. L'hackathon non esiste già nel database (URL non presente)
           // 2. Ha una città ma non un country code
-          const shouldGeocode =
+          const shouldGeocode = Boolean(
             !existingUrls.has(hackathon.url) &&
-            hackathon.city &&
-            !hackathon.country_code;
+              hackathon.city &&
+              !hackathon.country_code,
+          );
 
-          if (shouldGeocode) {
-            try {
-              const geocodedCountry =
-                await GeocodingService.getCountryCodeFromCity(hackathon.city!);
+          if (!shouldGeocode) {
+            // Non serve geocoding, include l'hackathon così com'è
+            return hackathon;
+          }
 
-              if (geocodedCountry && geocodedCountry !== "NON_EU") {
-                // Verifica che sia europeo (dovrebbe già essere filtrato dal service, ma double check)
-                if (europeanCountries.isValidEuropeanCountry(geocodedCountry)) {
-                  const enhancedHackathon = {
-                    ...hackathon,
-                    country_code: geocodedCountry,
-                  };
-                  console.log(
-                    `Enhanced location: ${hackathon.city} -> ${geocodedCountry}`,
-                  );
-                  return enhancedHackathon;
-                } else {
-                  // Se il geocoding rivela che non è europeo, skippiamo l'hackathon
-                  console.log(
-                    `Skipping non-European hackathon: ${hackathon.city} -> ${geocodedCountry}`,
-                  );
-                  return null;
-                }
-              } else if (geocodedCountry === "NON_EU") {
-                // Risultato cached che indica non-europeo
+          const city = hackathon.city!;
+
+          // Cheap, free-of-cost pass first: a known-city lookup (with
+          // multilingual/diacritic normalization, see
+          // lib/european-countries.ts) resolves common cases like
+          // "Zurich"/"Zürich"/"Zurigo" -> CH without ever hitting the
+          // paid geocoding API. This is the "apply geocoding more
+          // systematically, but not more expensively" part of issue #5.
+          const inferredCountry = europeanCountries.inferCountryFromCity(city);
+
+          if (inferredCountry) {
+            console.log(
+              `Enhanced location from known-city map: ${city} -> ${inferredCountry}`,
+            );
+            return {
+              ...hackathon,
+              country_code: inferredCountry,
+              location_confidence: "low" as const,
+            };
+          }
+
+          try {
+            const outcome = await GeocodingService.getCountryCodeFromCity(
+              city,
+            );
+
+            switch (outcome.status) {
+              case "found": {
                 console.log(
-                  `Skipping cached non-European hackathon: ${hackathon.city}`,
+                  `Enhanced location via geocoding: ${city} -> ${outcome.countryCode}`,
                 );
+                return {
+                  ...hackathon,
+                  country_code: outcome.countryCode,
+                  location_confidence: "low" as const,
+                };
+              }
+
+              case "non_european": {
+                console.log(
+                  `Dropping hackathon "${hackathon.name}": city "${city}" geocoded to non-European country ${outcome.countryCode}.`,
+                );
+                droppedNonEuropean++;
                 return null;
-              } else {
-                // Se non riusciamo a geocodificare, includiamo comunque l'hackathon
+              }
+
+              case "not_found": {
+                // Geocoding was queried successfully but returned no
+                // usable country. This is NOT the same as "confirmed
+                // non-European" - we must not delete a legitimate event
+                // just because the geocoder didn't recognize an obscure
+                // or ambiguous European city. Keep it, unresolved.
                 console.log(
-                  `Could not geocode ${hackathon.city}, including anyway`,
+                  `Country could not be determined for city "${city}" (hackathon "${hackathon.name}"), keeping with undetermined country.`,
                 );
+                undeterminedCountryCount++;
                 return hackathon;
               }
-            } catch (error) {
-              console.error(
-                `Error enhancing location for ${hackathon.city}:`,
-                error,
-              );
-              // Include hackathon anyway in case of errors
-              return hackathon;
+
+              case "unavailable":
+              default: {
+                // Geocoding could not even be attempted (no API key,
+                // network error, malformed response). This is NOT the
+                // same as "country not determined" - we must not drop
+                // the event just because our own infrastructure/quota
+                // failed. Keep it, unresolved, for a future run.
+                console.log(
+                  `Geocoding unavailable for "${city}" (hackathon "${hackathon.name}"), keeping with undetermined country.`,
+                );
+                geocodingUnavailableCount++;
+                return hackathon;
+              }
             }
-          } else {
-            // Non serve geocoding, include l'hackathon così com'è
+          } catch (error) {
+            console.error(`Error enhancing location for ${city}:`, error);
+            // Include hackathon anyway in case of unexpected errors -
+            // never drop an event because our own code threw.
             return hackathon;
           }
         }),
       ),
     );
 
-    // Filter out null results (non-European hackathons)
+    // Filter out null results (dropped hackathons)
     const validHackathons = enhancedResults.filter(
       (h) => h !== null,
     ) as ParsedHackathon[];
 
     console.log(
-      `Location enhancement completed: ${validHackathons.length}/${hackathons.length} hackathons kept`,
+      `Location enhancement completed: ${validHackathons.length}/${hackathons.length} hackathons kept ` +
+        `(dropped ${droppedNonEuropean} non-European; ${undeterminedCountryCount} kept with undetermined country ` +
+        `because geocoding found no usable result; ${geocodingUnavailableCount} kept unresolved because ` +
+        `geocoding was unavailable)`,
     );
+
     return validHackathons;
   }
 
