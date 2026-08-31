@@ -207,54 +207,146 @@ export async function POST(request: Request) {
     );
 
     // ---------------------------------------------------------
-    // 2. Insert new hackathons
+    // 2. Insert new hackathons, update existing ones
+    //
+    // A hackathon already stored (matched by normalized URL, see
+    // lib/dedup/url-normalizer.ts and issue #22) is no longer only ever
+    // skipped — if the source's own data for it changed (date, location,
+    // topics, notes, name), the stored row is updated in place instead of
+    // silently going stale forever (issue #23).
     // ---------------------------------------------------------
     const newHackathons: Hackathon[] = [];
+    const updatedHackathons: Hackathon[] = [];
+    // Subset of `updatedHackathons` whose date or location changed - the
+    // only kind of update the maintainer decided is notification-worthy
+    // (a title/description/topics edit is not, to avoid notification
+    // spam). Not yet wired into the Discord/Telegram/Twitter bots, which
+    // only know how to announce a brand-new hackathon; that copy/formatting
+    // decision is left for a follow-up rather than reusing the "New
+    // Hackathon!" message for an update.
+    const notableUpdates: Hackathon[] = [];
     let insertionError: string | null = null;
 
     try {
       if (enhancedHackathons.length === 0) {
         console.log("No hackathons available for insertion");
       } else {
-        // Fetch every existing URL (not filtered by an exact IN() match
+        // Fetch every existing row (not filtered by an exact IN() match
         // against the freshly-parsed URLs) and compare on normalized URLs
         // (see lib/dedup/url-normalizer.ts). An exact-match IN() filter
         // would miss a hackathon already stored under a differently
         // formatted URL (www./bare domain, lu.ma/luma.com, tracking
         // params, trailing slash) entirely, since the DB row would never
-        // even be fetched (issue #22).
-        const { data: existingHackathons, error: existingCheckError } =
-          await supabaseAdmin.from("hackathons").select("url");
+        // even be fetched (issue #22). Select every field this pipeline
+        // can update so each incoming hackathon can be diffed against
+        // what's already stored.
+        const { data: existingRows, error: existingCheckError } =
+          await supabaseAdmin
+            .from("hackathons")
+            .select(
+              "id, url, name, city, country_code, date_start, date_end, topics, notes",
+            );
 
         if (existingCheckError) {
           throw existingCheckError;
         }
 
-        const existingUrls = new Set(
-          (
-            existingHackathons?.map(
-              (hackathon: { url: string }) => hackathon.url,
-            ) || []
-          ).map(normalizeUrl),
+        type ExistingRow = {
+          id: string;
+          url: string;
+          name: string;
+          city: string | null;
+          country_code: string | null;
+          date_start: string;
+          date_end: string | null;
+          topics: string[] | null;
+          notes: string | null;
+        };
+
+        const existingByNormalizedUrl = new Map<string, ExistingRow>(
+          ((existingRows as ExistingRow[]) || []).map((row) => [
+            normalizeUrl(row.url),
+            row,
+          ]),
         );
 
-        console.log(`Found ${existingUrls.size} existing hackathons`);
+        console.log(
+          `Found ${existingByNormalizedUrl.size} existing hackathons`,
+        );
 
-        const hackathonsToInsert = enhancedHackathons
-          .filter((hackathon) => !existingUrls.has(normalizeUrl(hackathon.url)))
-          .map((hackathon) => ({
+        const hackathonsToInsert: Array<Record<string, unknown>> = [];
+        const hackathonsToUpdate: Array<{
+          id: string;
+          notable: boolean;
+          fields: Record<string, unknown>;
+        }> = [];
+
+        // Normalizes either a `Date` (from a freshly-parsed hackathon) or a
+        // stored Postgres timestamptz string (e.g. "2026-09-02T00:00:00+00:00")
+        // to the same "YYYY-MM-DD" shape, so comparing an incoming value
+        // against what's already in the database doesn't flag every row as
+        // changed just because of a string-format mismatch.
+        const toDateOnly = (date?: Date | string | null) =>
+          date ? new Date(date).toISOString().split("T")[0] : null;
+        const sortedTopics = (topics?: string[] | null) =>
+          JSON.stringify([...(topics || [])].sort());
+
+        for (const hackathon of enhancedHackathons) {
+          const existing = existingByNormalizedUrl.get(
+            normalizeUrl(hackathon.url),
+          );
+
+          const incoming = {
             name: hackathon.name,
             city: hackathon.city || null,
             country_code: hackathon.country_code || null,
-            date_start: hackathon.date_start.toISOString().split("T")[0],
-            date_end: hackathon.date_end?.toISOString().split("T")[0] || null,
+            date_start: toDateOnly(hackathon.date_start),
+            date_end: toDateOnly(hackathon.date_end),
             topics: hackathon.topics || null,
             notes: hackathon.notes || null,
-            url: hackathon.url,
-            source: hackathon.source,
-            notified: testMode,
-            is_new: true,
-          }));
+          };
+
+          if (!existing) {
+            hackathonsToInsert.push({
+              ...incoming,
+              url: hackathon.url,
+              source: hackathon.source,
+              notified: testMode,
+              is_new: true,
+            });
+            continue;
+          }
+
+          const dateChanged =
+            incoming.date_start !== toDateOnly(existing.date_start) ||
+            incoming.date_end !== toDateOnly(existing.date_end);
+          const locationChanged =
+            incoming.city !== existing.city ||
+            incoming.country_code !== existing.country_code;
+          const nameChanged = incoming.name !== existing.name;
+          const notesChanged = incoming.notes !== existing.notes;
+          const topicsChanged =
+            sortedTopics(incoming.topics) !== sortedTopics(existing.topics);
+
+          if (
+            !dateChanged &&
+            !locationChanged &&
+            !nameChanged &&
+            !notesChanged &&
+            !topicsChanged
+          ) {
+            continue;
+          }
+
+          hackathonsToUpdate.push({
+            id: existing.id,
+            // Only a date or location change is notification-worthy (per
+            // issue #23's own recommendation) - a title/notes/topics edit
+            // updates the stored record silently.
+            notable: dateChanged || locationChanged,
+            fields: { ...incoming, updated_at: new Date().toISOString() },
+          });
+        }
 
         if (hackathonsToInsert.length > 0) {
           console.log(
@@ -280,6 +372,41 @@ export async function POST(request: Request) {
           }
         } else {
           console.log("No new hackathons to insert");
+        }
+
+        if (hackathonsToUpdate.length > 0) {
+          console.log(
+            `Updating ${hackathonsToUpdate.length} existing hackathons whose source data changed...`,
+          );
+
+          for (const { id, notable, fields } of hackathonsToUpdate) {
+            const { data: updated, error } = await supabaseAdmin
+              .from("hackathons")
+              // @ts-expect-error - Supabase generated types may not include update shape
+              .update(fields)
+              .eq("id", id)
+              .select();
+
+            if (error) {
+              console.error(`Error updating hackathon ${id}:`, error);
+              continue;
+            }
+
+            if (updated?.[0]) {
+              updatedHackathons.push(updated[0]);
+
+              if (notable) {
+                notableUpdates.push(updated[0]);
+              }
+            }
+          }
+
+          console.log(
+            `Successfully updated ${updatedHackathons.length} hackathons ` +
+              `(${notableUpdates.length} with a date/location change)`,
+          );
+        } else {
+          console.log("No existing hackathons need updating");
         }
       }
     } catch (error) {
@@ -319,13 +446,16 @@ export async function POST(request: Request) {
     // that the dataset changed.
     //
     // For now:
-    // - inserted hackathons => data changed
+    // - inserted OR updated hackathons => data changed (issue #23 made
+    //   in-place updates possible, so a changed date/location on an
+    //   existing record is a real data change too, not just an insert)
     // - reset errors do not count as data changes
     //
     // Status transitions will be handled separately once the
     // RPC exposes the number of affected rows.
     // ---------------------------------------------------------
-    const dataChanged = newHackathons.length > 0;
+    const dataChanged =
+      newHackathons.length > 0 || updatedHackathons.length > 0;
 
     // ---------------------------------------------------------
     // 5. Notifications
@@ -486,6 +616,8 @@ export async function POST(request: Request) {
 
         parsed: parsedHackathons.length,
         inserted: newHackathons.length,
+        updated: updatedHackathons.length,
+        notableUpdates: notableUpdates.length,
 
         dataChanged,
 
