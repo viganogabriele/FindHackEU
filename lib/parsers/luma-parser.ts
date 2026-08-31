@@ -1,5 +1,6 @@
 import { BaseParser, ParsedHackathon } from "@/lib/parsers/base-parser";
 import { europeanCountries } from "@/lib/european-countries";
+import { classifyHackathon } from "@/lib/classification/hackathon-classifier";
 
 interface LumaGeoInfo {
   city?: string;
@@ -131,20 +132,11 @@ export class LumaParser extends BaseParser {
   }
 
   /**
-   * Deterministic hackathon classifier.
-   *
-   * Strong signals:
-   * - hackathon
-   * - hack day / hackday
-   * - hack-a-thon
-   * - make-a-thon / makeathon
-   * - buildathon
-   * - codefest
-   *
-   * Medium signals are accepted only when accompanied by
-   * an explicit technical/developer context.
-   *
-   * Obvious post-event / celebration entries are rejected.
+   * Hackathon classification is delegated to the shared, multilingual,
+   * score-based classifier in `lib/classification/hackathon-classifier.ts`
+   * (see issue #7). Every decision — accepted, rejected, or borderline —
+   * is logged with its score and reason so classification quality can be
+   * audited and tuned later against real data (issue #38).
    */
   private filterHackathons(events: LumaEventEntry[]): ParsedHackathon[] {
     return events
@@ -154,100 +146,25 @@ export class LumaParser extends BaseParser {
   }
 
   private isHackathon(event: LumaEvent): boolean {
-    const title = this.normalizeSearchText(event?.name || "");
-    const description = this.normalizeSearchText(event?.description || "");
+    const title = event?.name || "";
 
-    if (!title) {
+    if (!this.normalizeSearchText(title)) {
       return false;
     }
 
-    // ---------------------------------------------------------
-    // 1. Strong exclusions
-    // ---------------------------------------------------------
-    //
-    // Events whose title refers to an already-concluded
-    // hackathon or a social event around it.
-    //
-    const exclusionPatterns = [
-      /\bwinners?\s+(celebration|party|ceremony)\b/,
-      /\bhackathon\s+(winners?|results?|awards?)\b/,
-      /\bafterparty\b/,
-      /\bafter\s*party\b/,
-      /\bcelebration\s+(party|event)\b/,
-    ];
+    const result = classifyHackathon(title, event?.description || "");
 
-    if (exclusionPatterns.some((pattern) => pattern.test(title))) {
-      return false;
+    if (result.decision === "borderline") {
+      console.warn(
+        `Luma classifier BORDERLINE (score ${result.score}) for "${title}": ${result.reason}`,
+      );
+    } else {
+      console.log(
+        `Luma classifier ${result.decision.toUpperCase()} (score ${result.score}) for "${title}": ${result.reason}`,
+      );
     }
 
-    // ---------------------------------------------------------
-    // 2. Strong hackathon signals
-    // ---------------------------------------------------------
-    //
-    // These are sufficient on their own.
-    //
-    const strongHackathonPatterns = [
-      /\bhackathons?\b/,
-      /\bhack[\s-]*days?\b/,
-      /\bmake[\s-]*a[\s-]*thon\b/,
-      /\bbuild[\s-]*a[\s-]*thon\b/,
-      /\bbuildathons?\b/,
-      /\bcodefests?\b/,
-    ];
-
-    if (strongHackathonPatterns.some((pattern) => pattern.test(title))) {
-      return true;
-    }
-
-    // ---------------------------------------------------------
-    // 3. Medium-strength signals
-    // ---------------------------------------------------------
-    //
-    // We deliberately do NOT accept "coding" alone.
-    // It has to appear together with a competition/challenge
-    // concept.
-    //
-    const competitionPatterns = [
-      /\bchallenge\b/,
-      /\bcompetition\b/,
-      /\bcontest\b/,
-    ];
-
-    const technicalPatterns = [
-      /\bai\b/,
-      /\bartificial intelligence\b/,
-      /\bmachine learning\b/,
-      /\bml\b/,
-      /\bdeveloper\b/,
-      /\bdevelopers\b/,
-      /\bprogramming\b/,
-      /\bcoding\b/,
-      /\bsoftware\b/,
-      /\bweb3\b/,
-      /\bblockchain\b/,
-      /\bcrypto\b/,
-      /\bsolana\b/,
-      /\bethereum\b/,
-      /\bopen source\b/,
-      /\bbuild\b/,
-      /\bbuilder\b/,
-      /\bbuilders\b/,
-      /\bprototype\b/,
-    ];
-
-    const hasCompetitionSignal = competitionPatterns.some((pattern) =>
-      pattern.test(title),
-    );
-
-    const hasTechnicalSignal = technicalPatterns.some(
-      (pattern) => pattern.test(title) || pattern.test(description),
-    );
-
-    if (hasCompetitionSignal && hasTechnicalSignal) {
-      return true;
-    }
-
-    return false;
+    return result.isHackathon;
   }
 
   private normalizeSearchText(value: string): string {
