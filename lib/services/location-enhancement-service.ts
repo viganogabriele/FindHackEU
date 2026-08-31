@@ -2,6 +2,7 @@ import { GeocodingService } from "./geocoding-service";
 import { europeanCountries } from "@/lib/european-countries";
 import type { ParsedHackathon } from "@/lib/parsers/base-parser";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchAllRows } from "@/lib/services/fetch-all-rows";
 import pLimit from "p-limit";
 
 /**
@@ -156,16 +157,15 @@ export class LocationEnhancementService {
     supabaseClient: SupabaseClient,
   ): Promise<Set<string>> {
     try {
-      const { data: existing, error } = await supabaseClient
-        .from("hackathons")
-        .select("url");
+      // Paginated (see lib/services/fetch-all-rows.ts) - a plain
+      // .select("url") silently truncates once the table exceeds
+      // PostgREST's max_rows, which would make already-known hackathons
+      // invisible here and trigger redundant/wasted geocoding calls.
+      const existing = await fetchAllRows<{ url: string }>((from, to) =>
+        supabaseClient.from("hackathons").select("url").range(from, to),
+      );
 
-      if (error) {
-        console.error("Error fetching existing URLs:", error);
-        return new Set();
-      }
-
-      return new Set(existing?.map((h: { url: string }) => h.url) || []);
+      return new Set(existing.map((h) => h.url));
     } catch (error) {
       console.error("Error fetching existing URLs:", error);
       return new Set();

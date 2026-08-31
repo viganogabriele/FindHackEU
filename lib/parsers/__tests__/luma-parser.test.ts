@@ -363,4 +363,27 @@ describe("LumaParser", () => {
 
     expect(results).toHaveLength(0);
   });
+
+  // Regression test for a real bug found in code review: normalizeCountry()
+  // only ever returns a European code or undefined, so an explicit,
+  // well-formed non-European country code (e.g. "US") from the source's
+  // own structured data was being treated as "country undetermined"
+  // instead of being recognized and dropped. See
+  // europeanCountries.classifyCountryCode().
+  it("drops an event whose source geography is an explicit non-European country", async () => {
+    mockFetchPerSlug({
+      tech: [
+        {
+          name: "San Francisco AI Hackathon",
+          start_at: FUTURE,
+          url: "sf-hackathon",
+          geo_address_info: { city: "San Francisco", country_code: "US" },
+        },
+      ],
+    });
+
+    const results = (await new LumaParser().parse()).hackathons;
+
+    expect(results).toHaveLength(0);
+  });
 });

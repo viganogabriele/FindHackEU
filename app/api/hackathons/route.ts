@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { fetchAllRows } from "@/lib/services/fetch-all-rows";
 
 // Rate limiting storage (in production, use Redis or similar)
 const rateLimitMap = new Map<
@@ -8,11 +9,21 @@ const rateLimitMap = new Map<
 >();
 
 function getRateLimitKey(request: Request): string {
+  // `x-forwarded-for` can be a comma-separated chain built by every proxy
+  // the request passed through, with the CLIENT'S OWN claimed value first
+  // and each trusted proxy appending its hop after. Taking the first entry
+  // (found in code review) let any client bypass rate limiting entirely by
+  // just sending a different fake IP as this header on every request.
+  // Taking the LAST entry instead reflects the hop closest to our own
+  // server - the one, if any, actually added by a trusted reverse proxy
+  // (e.g. Vercel's edge network) rather than client-supplied input. This
+  // still assumes a trusted proxy sits in front of the app; it cannot make
+  // the header trustworthy on a deployment with no such proxy at all.
   const forwarded = request.headers.get("x-forwarded-for");
   const ip = forwarded
-    ? forwarded.split(",")[0]
-    : request.headers.get("x-real-ip") || "unknown";
-  return ip;
+    ? forwarded.split(",").pop()?.trim()
+    : request.headers.get("x-real-ip");
+  return ip || "unknown";
 }
 
 function checkRateLimit(ip: string): { allowed: boolean; resetTime?: number } {
@@ -78,17 +89,20 @@ export async function GET(request: Request) {
   const status = searchParams.get("status") || "upcoming";
 
   try {
-    const query = supabase
-      .from("hackathons")
-      .select(
-        "id, name, city, country_code, date_start, date_end, topics, notes, url, status, is_new, source",
-      )
-      .eq("status", status)
-      .order("date_start", { ascending: status === "upcoming" });
-
-    const { data, error } = await query;
-
-    if (error) throw error;
+    // Paginated (see lib/services/fetch-all-rows.ts): a plain, unpaginated
+    // select silently truncates once the table exceeds PostgREST's
+    // max_rows, which would make this endpoint quietly drop hackathons
+    // from its response with no error (found in code review).
+    const data = await fetchAllRows((from, to) =>
+      supabase
+        .from("hackathons")
+        .select(
+          "id, name, city, country_code, date_start, date_end, topics, notes, url, status, is_new, source",
+        )
+        .eq("status", status)
+        .order("date_start", { ascending: status === "upcoming" })
+        .range(from, to),
+    );
 
     return NextResponse.json(
       {

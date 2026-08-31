@@ -85,7 +85,8 @@ export class LumaParser extends BaseParser {
 
     for (const slug of this.slugs) {
       try {
-        const { events, pagesFetched } = await this.fetchEventsForSlug(slug);
+        const { events, pagesFetched, truncated } =
+          await this.fetchEventsForSlug(slug);
         const stats = { excludedPastFutureWindow: 0 };
         const hackathons = this.filterHackathons(events, stats);
 
@@ -95,6 +96,14 @@ export class LumaParser extends BaseParser {
             `excluded ${stats.excludedPastFutureWindow} beyond the ` +
             `${MAX_FUTURE_DAYS}-day future window`,
         );
+
+        if (truncated) {
+          console.warn(
+            `Luma [${slug}]: stopped at the ${this.maxPagesPerSlug}-page limit ` +
+              `while Luma still reported more results (has_more: true) - ` +
+              `some events for this category were not fetched this run.`,
+          );
+        }
 
         allHackathons.push(...hackathons);
       } catch (error) {
@@ -122,9 +131,17 @@ export class LumaParser extends BaseParser {
     return { hackathons, errors, status };
   }
 
-  private async fetchEventsForSlug(
-    slug: string,
-  ): Promise<{ events: LumaEventEntry[]; pagesFetched: number }> {
+  private async fetchEventsForSlug(slug: string): Promise<{
+    events: LumaEventEntry[];
+    pagesFetched: number;
+    // True when the loop stopped only because it hit `maxPagesPerSlug`
+    // while Luma still reported more pages available (`has_more: true`) -
+    // as opposed to stopping because the slug was genuinely exhausted.
+    // Previously this case was indistinguishable from "no more data"
+    // (found in code review): silently truncating without any signal that
+    // real events beyond the page cap were left unfetched.
+    truncated: boolean;
+  }> {
     const allEvents: LumaEventEntry[] = [];
     let cursor: string | null = null;
     let page = 0;
@@ -183,14 +200,18 @@ export class LumaParser extends BaseParser {
         `Luma [${slug}]: fetched page ${page} with ${events.length} events`,
       );
 
-      if (!data.has_more || !data.next_cursor || page >= this.maxPagesPerSlug) {
+      if (!data.has_more || !data.next_cursor) {
+        return { events: allEvents, pagesFetched: page, truncated: false };
+      }
+
+      if (page >= this.maxPagesPerSlug) {
         break;
       }
 
       cursor = data.next_cursor;
     }
 
-    return { events: allEvents, pagesFetched: page };
+    return { events: allEvents, pagesFetched: page, truncated: true };
   }
 
   /**
@@ -331,6 +352,37 @@ export class LumaParser extends BaseParser {
           `Dropping Luma event "${event.name}": explicit country_code ${country_code} is not European.`,
         );
         return null;
+      }
+
+      // country_code è undefined qui in due casi ben diversi: (a) la fonte
+      // non ha fornito alcun dato geografico, oppure (b) la fonte ha
+      // fornito un country code/regione ben formato ma esplicitamente NON
+      // europeo (es. "US", "JP"), che normalizeCountry() scarta silenzio-
+      // samente restituendo undefined. Senza questo controllo, il caso (b)
+      // finiva per essere trattato come "paese non determinato" invece che
+      // scartato, lasciando passare hackathon extra-europei con dati
+      // geografici già chiari (trovato in code review).
+      if (!country_code) {
+        const rawCandidates = [geo.country_code, geo.region];
+
+        if (geo.city_state) {
+          const parts = geo.city_state.split(",").map((part) => part.trim());
+          if (parts.length >= 2) {
+            rawCandidates.push(parts[parts.length - 1]);
+          }
+        }
+
+        const explicitlyNonEuropean = rawCandidates.some(
+          (candidate) =>
+            europeanCountries.classifyCountryCode(candidate) === "non_european",
+        );
+
+        if (explicitlyNonEuropean) {
+          console.log(
+            `Dropping Luma event "${event.name}": source geography (${rawCandidates.filter(Boolean).join(", ")}) is explicitly non-European.`,
+          );
+          return null;
+        }
       }
 
       // Se il country_code arriva direttamente dai dati strutturati della

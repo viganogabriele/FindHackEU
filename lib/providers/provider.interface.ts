@@ -1,6 +1,23 @@
 import type { ParsedHackathon } from "@/lib/parsers/base-parser";
 
 /**
+ * Explicit outcome of a single provider's run.
+ *
+ * - "ok": every unit of work (e.g. slug/category) the provider attempted
+ *   succeeded. Zero matching hackathons is still "ok" as long as nothing
+ *   errored.
+ * - "partial": at least one unit succeeded and at least one failed - real
+ *   data came back, but it's known-incomplete. Distinct from `success`
+ *   (which stays `true` for "partial", since the data is still usable)
+ *   so callers can tell a fully clean run apart from a degraded one
+ *   instead of that distinction disappearing into a single boolean
+ *   (found in code review).
+ * - "failed": every unit attempted failed (or the provider could not
+ *   attempt any work at all).
+ */
+export type ParseStatus = "ok" | "partial" | "failed";
+
+/**
  * Standard result shape every `Provider` returns from `parse()`.
  *
  * This lets the orchestrator (`app/api/update/route.ts`) treat every
@@ -9,6 +26,7 @@ import type { ParsedHackathon } from "@/lib/parsers/base-parser";
 export interface ProviderResult {
   hackathons: ParsedHackathon[];
   success: boolean;
+  status: ParseStatus;
   count: number;
   errors: string[];
 }

@@ -109,22 +109,29 @@ export class GeocodingService {
 
       if (!normalizedCountryCode) {
         // normalizeCountry() only ever returns European codes (or
-        // undefined), so an unrecognized code here means either a
-        // non-European country or a code our alias list doesn't cover.
-        // Never guess: treat as "not determined" rather than fabricating
-        // a country.
+        // undefined), so this branch alone can't tell "US"/"JP" (a real,
+        // well-formed, but non-European code) apart from actual garbage.
+        // Use classifyCountryCode() for that distinction instead of
+        // collapsing both into "not determined" (found in code review -
+        // this previously made the non_european status effectively
+        // unreachable from this path).
+        const classification =
+          europeanCountries.classifyCountryCode(countryCode);
+
+        if (classification === "non_european") {
+          console.log(
+            `City ${city} geocoded to non-European country ${countryCode}. Filtering out.`,
+          );
+          return {
+            status: "non_european",
+            countryCode: countryCode.toUpperCase(),
+          };
+        }
+
         console.warn(
           `Could not normalize country code ${countryCode} for city: ${city}`,
         );
         return { status: "not_found" };
-      }
-
-      // Verifica che sia un paese europeo
-      if (!europeanCountries.isValidEuropeanCountry(normalizedCountryCode)) {
-        console.log(
-          `City ${city} is not in Europe (${normalizedCountryCode}). Filtering out.`,
-        );
-        return { status: "non_european", countryCode: normalizedCountryCode };
       }
 
       console.log(`Geocoding success: ${city} -> ${normalizedCountryCode}`);
