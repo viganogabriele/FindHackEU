@@ -2,13 +2,12 @@ name: Auto Update Hackathons
 
 on:
   schedule:
-    # FERIALI (Lun-Ven) - 3 chiamate al giorno in UTC
-    - cron: "0 8 * * 1-5" # 10:00 CET
-    - cron: "0 13 * * 1-5" # 15:00 CET
-    - cron: "0 17 * * 1-5" # 19:00 CET
-    # WEEKEND (Sab-Dom) - 2 chiamate al giorno
-    - cron: "0 10 * * 6,0" # 12:00 CET
-    - cron: "0 16 * * 6,0" # 18:00 CET
+    # Una chiamata al giorno (invece delle precedenti 3-5/giorno): gli
+    # hackathon si annunciano con settimane di anticipo, quindi una scansione
+    # giornaliera non perde praticamente nulla in freschezza dei dati, e
+    # riduce il volume di richieste verso l'endpoint pubblico e non
+    # autenticato di Luma (issue #33 - rivalutare la frequenza).
+    - cron: "0 8 * * *" # 10:00 CET
   workflow_dispatch:
 
 jobs:
@@ -22,12 +21,24 @@ jobs:
         run: |
           echo "🚀 Triggering update endpoint..."
 
+          # APP_URL must be set as a repository variable (Settings > Secrets
+          # and variables > Actions > Variables) pointing at YOUR OWN
+          # deployment. This previously hardcoded the original upstream
+          # project's Vercel URL, which this fork has no access to (see
+          # CLAUDE.md) - forks must deploy their own instance and set this.
+          APP_URL="${{ vars.APP_URL }}"
+
+          if [ -z "$APP_URL" ]; then
+            echo "❌ APP_URL repository variable is not set - see .github/workflows/update.yml"
+            exit 1
+          fi
+
           response=$(curl -s -w "%{http_code}" -o response.json \
             --max-time 300 \
             --retry 3 \
             --retry-delay 5 \
             -X POST \
-            "https://hacktrack-eu.vercel.app/api/update" \
+            "${APP_URL%/}/api/update" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
 
