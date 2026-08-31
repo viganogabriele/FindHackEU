@@ -1,0 +1,47 @@
+{
+  "_comment": "Hand-crafted, realistically-shaped example of a Luma discovery API response (GET https://api.luma.com/discover/get-paginated-events?slug=tech&...). Built by reading the LumaEvent/LumaEventEntry/LumaApiResponse interfaces in lib/parsers/luma-parser.ts rather than copied from a live response, to avoid ever including real organizer/attendee data. All event names, URLs, and descriptions below are synthetic placeholders and do not reference any real Luma event.",
+  "entries": [
+    {
+      "event": {
+        "name": "Berlin AI Builders Hackathon",
+        "start_at": "2026-03-14T09:00:00.000Z",
+        "end_at": "2026-03-15T18:00:00.000Z",
+        "url": "berlin-ai-builders-hackathon-example",
+        "description": "A weekend hackathon for developers building with artificial intelligence and machine learning. Open to teams working on AI agents, computer vision, or NLP prototypes.",
+        "geo_address_info": {
+          "city": "Berlin",
+          "country_code": "de",
+          "city_state": "Berlin, Germany",
+          "region": "Berlin"
+        }
+      }
+    },
+    {
+      "event": {
+        "name": "Amsterdam Web3 Buildathon",
+        "start_at": "2026-04-20T08:30:00.000Z",
+        "end_at": "2026-04-21T20:00:00.000Z",
+        "url": "amsterdam-web3-buildathon-example",
+        "description": "A buildathon for blockchain and web3 developers building decentralized apps and smart contracts.",
+        "geo_address_info": {
+          "city_state": "Amsterdam, Netherlands"
+        }
+      }
+    },
+    {
+      "event": {
+        "name": "Hackathon Winners Celebration Party",
+        "start_at": "2026-03-16T19:00:00.000Z",
+        "end_at": "2026-03-16T23:00:00.000Z",
+        "url": "hackathon-winners-celebration-party-example",
+        "description": "Join us to celebrate the winners of last month's hackathon with food and drinks.",
+        "geo_address_info": {
+          "city": "Berlin",
+          "country_code": "de"
+        }
+      }
+    }
+  ],
+  "has_more": false,
+  "next_cursor": null
+}

@@ -11,6 +11,11 @@ export interface FilterState {
   dateRange: DateRange | undefined;
   status: "upcoming" | "past";
   sort: "asc" | "desc";
+  // Whether to include hackathons whose title looks non-English (see
+  // lib/detect-non-english.ts and issue #54). Defaults to true so this
+  // filter is additive - it never hides anything until a visitor
+  // explicitly opts out.
+  includeNonEnglish: boolean;
 }
 
 export interface FilterContextType {
@@ -32,6 +37,7 @@ const initialFilters: FilterState = {
   dateRange: undefined,
   status: "upcoming",
   sort: "asc",
+  includeNonEnglish: true,
 };
 
 export function FilterProvider({ children }: { children: ReactNode }) {

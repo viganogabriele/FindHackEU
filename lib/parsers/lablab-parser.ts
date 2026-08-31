@@ -1,4 +1,8 @@
-import { BaseParser, ParsedHackathon } from "@/lib/parsers/base-parser";
+import {
+  BaseParser,
+  ParsedHackathon,
+  DiscoverResult,
+} from "@/lib/parsers/base-parser";
 import { europeanCountries } from "@/lib/european-countries";
 
 interface LablabEvent {
@@ -24,10 +28,13 @@ interface LablabApiResponse {
 }
 
 export class LablabParser extends BaseParser {
+  readonly name = "lablab";
+  readonly enabled = false;
+
   private readonly baseUrl = "https://lablab.ai";
   private readonly eventsPath = "/event.json";
 
-  async parse(): Promise<ParsedHackathon[]> {
+  protected async discover(): Promise<DiscoverResult> {
     try {
       // 1. Ottieni il build ID dalla homepage
       const buildId = await this.getBuildId();
@@ -43,10 +50,18 @@ export class LablabParser extends BaseParser {
       const hackathons = this.filterAndMapHackathons(events);
 
       console.log(`Lablab parser found ${hackathons.length} hackathons`);
-      return hackathons;
+      return { hackathons, errors: [], status: "ok" };
     } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Lablab parser failed";
+
       console.error("Error in Lablab parser:", error);
-      return [];
+
+      // A thrown error here means we couldn't even complete a
+      // single fetch/parse attempt (e.g. build ID discovery or
+      // the events request itself failed) - that is a genuine
+      // provider failure, never a silent "zero results".
+      return { hackathons: [], errors: [message], status: "failed" };
     }
   }
 

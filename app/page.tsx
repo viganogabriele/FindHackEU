@@ -3,40 +3,62 @@
 import HackathonList from "@/components/hackathon-list";
 import Sidebar from "@/components/sidebar";
 import { Separator } from "@/components/ui/separator";
-import { useEffect, useState, useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { Hackathon } from "@/types/hackathon";
 import { FilterProvider } from "@/contexts/filter-context";
 import { europeanCountries } from "@/lib/european-countries";
 import { useTranslation } from "@/contexts/translation-context";
 import LanguageSelect from "@/components/language-select";
+import { AlertCircle } from "lucide-react";
 
 export default function Home() {
   const [upcoming, setUpcoming] = useState<Hackathon[]>([]);
   const [past, setPast] = useState<Hackathon[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchHackathons();
-  }, []);
-
-  const fetchHackathons = async () => {
+  const fetchHackathons = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
       const [upcomingRes, pastRes] = await Promise.all([
         fetch("/api/hackathons?status=upcoming"),
         fetch("/api/hackathons?status=past"),
       ]);
 
+      if (!upcomingRes.ok || !pastRes.ok) {
+        const failedRes = !upcomingRes.ok ? upcomingRes : pastRes;
+        let message = `Request failed with status ${failedRes.status}`;
+        try {
+          const body = await failedRes.json();
+          if (body && typeof body.error === "string") {
+            message = body.error;
+          }
+        } catch {
+          // Response body wasn't JSON (or was empty) - keep the generic message.
+        }
+        throw new Error(message);
+      }
+
       const upcomingData = await upcomingRes.json();
       const pastData = await pastRes.json();
 
       setUpcoming(upcomingData.data || []);
       setPast(pastData.data || []);
-    } catch (error) {
-      console.error("Error fetching hackathons:", error);
+    } catch (err) {
+      console.error("Error fetching hackathons:", err);
+      setError(err instanceof Error ? err.message : "Unknown error");
+      setUpcoming([]);
+      setPast([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchHackathons();
+  }, [fetchHackathons]);
 
   const { uniqueUpcomingLocations, uniquePastLocations, uniqueTopics } =
     useMemo(() => {
@@ -86,10 +108,36 @@ export default function Home() {
           {/* Translated header and subtitle */}
           <TranslatedHeader />
           <Separator className="my-6" />
-          <HackathonList upcoming={upcoming} past={past} loading={loading} />
+          {error ? (
+            <ErrorState message={error} onRetry={fetchHackathons} />
+          ) : (
+            <HackathonList upcoming={upcoming} past={past} loading={loading} />
+          )}
         </main>
       </div>
     </FilterProvider>
+  );
+}
+
+function ErrorState({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-destructive/30 bg-destructive/5 py-16 text-center">
+      <AlertCircle className="h-10 w-10 text-destructive" />
+      <div>
+        <p className="font-medium text-destructive">{t("error.loadFailed")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{message}</p>
+      </div>
+      <Button variant="outline" onClick={onRetry}>
+        {t("error.retry")}
+      </Button>
+    </div>
   );
 }
 

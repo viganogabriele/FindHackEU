@@ -81,7 +81,7 @@ export async function GET(request: Request) {
     const query = supabase
       .from("hackathons")
       .select(
-        "id, name, city, country_code, date_start, date_end, topics, notes, url, status,is_new",
+        "id, name, city, country_code, date_start, date_end, topics, notes, url, status, is_new, source",
       )
       .eq("status", status)
       .order("date_start", { ascending: status === "upcoming" });

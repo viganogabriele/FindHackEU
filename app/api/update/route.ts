@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { Octokit } from "@octokit/rest";
 import { supabaseAdmin } from "@/lib/supabase";
 import { LumaParser } from "@/lib/parsers/luma-parser";
+import { LablabParser } from "@/lib/parsers/lablab-parser";
 import { ParsedHackathon } from "@/lib/parsers/base-parser";
+import type { Provider } from "@/lib/providers/provider.interface";
+import { mergeHackathonDuplicates } from "@/lib/dedup/dedupe-hackathons";
+import { normalizeUrl } from "@/lib/dedup/url-normalizer";
 import { DiscordBot } from "@/lib/bots/discord-bot";
 import { TelegramBot } from "@/lib/bots/telegram-bot";
 import { TwitterBot } from "@/lib/bots/twitter-bot";
@@ -48,24 +52,30 @@ export async function POST(request: Request) {
     // ---------------------------------------------------------
     // Source configuration
     //
+    // Adding a new source means creating a class that implements
+    // `Provider` (see lib/providers/provider.interface.ts) and
+    // adding an instance to this array - no other change to this
+    // orchestrator should be required.
+    //
     // LabLab is intentionally disabled for now because its
     // public web surface is protected by Cloudflare and cannot
     // currently be queried reliably server-side.
     // ---------------------------------------------------------
-    const sourceResults: Record<string, SourceResult> = {
-      luma: {
-        enabled: true,
-        success: false,
+    const providers: Provider[] = [new LumaParser(), new LablabParser()];
+
+    const sourceResults: Record<string, SourceResult> = {};
+
+    for (const provider of providers) {
+      sourceResults[provider.name] = {
+        enabled: provider.enabled,
+        // A disabled source never runs, so it never "fails" - mirrors
+        // the previous hardcoded defaults (luma: success false until
+        // it runs, lablab: success true since it's a no-op).
+        success: !provider.enabled,
         parsed: 0,
         error: null,
-      },
-      lablab: {
-        enabled: false,
-        success: true,
-        parsed: 0,
-        error: null,
-      },
-    };
+      };
+    }
 
     // ---------------------------------------------------------
     // 0. Reset is_new flags
@@ -97,35 +107,42 @@ export async function POST(request: Request) {
     // ---------------------------------------------------------
     const parsedHackathons: ParsedHackathon[] = [];
 
-    // ---------------------------------------------------------
-    // Luma
-    // ---------------------------------------------------------
-    try {
-      const lumaParser = new LumaParser();
-      const lumaHackathons = await lumaParser.parse();
+    for (const provider of providers) {
+      if (!provider.enabled) {
+        console.log(
+          `${provider.name} parser disabled: source is currently unavailable server-side`,
+        );
+        continue;
+      }
 
-      sourceResults.luma.success = true;
-      sourceResults.luma.parsed = lumaHackathons.length;
+      try {
+        // Honor the provider's own explicit success/errors instead of
+        // inferring success from "did an exception propagate" - a
+        // provider that failed every unit of work it attempted (see
+        // BaseParser.parse()/DiscoverResult) must be reported as failed
+        // even though `parse()` itself resolved normally.
+        const result = await provider.parse();
 
-      parsedHackathons.push(...lumaHackathons);
+        sourceResults[provider.name].success = result.success;
+        sourceResults[provider.name].parsed = result.count;
 
-      console.log(`Parsed ${lumaHackathons.length} hackathons from Luma`);
-    } catch (error) {
-      sourceResults.luma.success = false;
-      sourceResults.luma.error =
-        error instanceof Error ? error.message : "Luma parser failed";
+        if (result.errors.length > 0) {
+          sourceResults[provider.name].error = result.errors.join("; ");
+        }
 
-      console.error("Luma parser failed:", error);
+        parsedHackathons.push(...result.hackathons);
+
+        console.log(`Parsed ${result.count} hackathons from ${provider.name}`);
+      } catch (error) {
+        sourceResults[provider.name].success = false;
+        sourceResults[provider.name].error =
+          error instanceof Error
+            ? error.message
+            : `${provider.name} parser failed`;
+
+        console.error(`${provider.name} parser failed:`, error);
+      }
     }
-
-    // ---------------------------------------------------------
-    // LabLab
-    //
-    // Intentionally disabled for now.
-    // ---------------------------------------------------------
-    console.log(
-      "Lablab parser disabled: source is currently unavailable server-side",
-    );
 
     console.log(`Total parsed ${parsedHackathons.length} hackathons`);
 
@@ -151,24 +168,14 @@ export async function POST(request: Request) {
     // ---------------------------------------------------------
     // Deduplicate
     // ---------------------------------------------------------
-    const deduplicatedHackathons = parsedHackathons.reduce(
-      (acc, hackathon) => {
-        const key = `${hackathon.name.toLowerCase().trim()}-${
-          hackathon.date_start.toISOString().split("T")[0]
-        }`;
-
-        if (!acc.seen.has(key)) {
-          acc.seen.add(key);
-          acc.hackathons.push(hackathon);
-        }
-
-        return acc;
-      },
-      {
-        seen: new Set<string>(),
-        hackathons: [] as ParsedHackathon[],
-      },
-    ).hackathons;
+    // Cross-provider dedup: normalized-URL match first, then a fuzzy
+    // title+date match (guarded against known location conflicts) as a
+    // secondary signal. Recognized duplicates keep their other source URL
+    // on the in-memory-only `alternateUrls` field for provenance — see
+    // lib/dedup/dedupe-hackathons.ts and issue #22. That field is
+    // intentionally NOT written to the database (see the insert mapping
+    // below); persisting cross-source provenance is deferred to issue #24.
+    const deduplicatedHackathons = mergeHackathonDuplicates(parsedHackathons);
 
     console.log(
       `After deduplication: ${deduplicatedHackathons.length} hackathons`,
@@ -209,30 +216,32 @@ export async function POST(request: Request) {
       if (enhancedHackathons.length === 0) {
         console.log("No hackathons available for insertion");
       } else {
-        const urlsToCheck = enhancedHackathons.map(
-          (hackathon) => hackathon.url,
-        );
-
+        // Fetch every existing URL (not filtered by an exact IN() match
+        // against the freshly-parsed URLs) and compare on normalized URLs
+        // (see lib/dedup/url-normalizer.ts). An exact-match IN() filter
+        // would miss a hackathon already stored under a differently
+        // formatted URL (www./bare domain, lu.ma/luma.com, tracking
+        // params, trailing slash) entirely, since the DB row would never
+        // even be fetched (issue #22).
         const { data: existingHackathons, error: existingCheckError } =
-          await supabaseAdmin
-            .from("hackathons")
-            .select("url")
-            .in("url", urlsToCheck);
+          await supabaseAdmin.from("hackathons").select("url");
 
         if (existingCheckError) {
           throw existingCheckError;
         }
 
         const existingUrls = new Set(
-          existingHackathons?.map(
-            (hackathon: { url: string }) => hackathon.url,
-          ) || [],
+          (
+            existingHackathons?.map(
+              (hackathon: { url: string }) => hackathon.url,
+            ) || []
+          ).map(normalizeUrl),
         );
 
         console.log(`Found ${existingUrls.size} existing hackathons`);
 
         const hackathonsToInsert = enhancedHackathons
-          .filter((hackathon) => !existingUrls.has(hackathon.url))
+          .filter((hackathon) => !existingUrls.has(normalizeUrl(hackathon.url)))
           .map((hackathon) => ({
             name: hackathon.name,
             city: hackathon.city || null,

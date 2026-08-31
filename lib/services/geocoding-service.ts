@@ -33,22 +33,39 @@ interface GeocodingResponse {
   };
 }
 
+/**
+ * Outcome of a geocoding lookup, distinguishing "we asked and got a
+ * definitive answer" from "we couldn't even ask" (issue #5). This
+ * distinction matters downstream: a missing API key or a transient error
+ * should never be treated the same as "we geocoded this and there is no
+ * European country here" - the former must not cause an event to be
+ * dropped, only the latter (and even then, only logged/counted, never
+ * silently swallowed).
+ */
+export type GeocodingOutcome =
+  | { status: "found"; countryCode: string }
+  | { status: "not_found" }
+  | { status: "non_european"; countryCode: string }
+  | { status: "unavailable" };
+
 export class GeocodingService {
   private static readonly API_URL = "https://geocoding.openapi.it/geocode";
 
   /**
    * Ottiene il country code da una città usando l'API di geocoding
    * @param city Nome della città
-   * @returns Country code ISO 2 lettere o null se non trovato/errore
+   * @returns un `GeocodingOutcome` che distingue "trovato", "non trovato",
+   * "trovato ma non europeo" e "geocoding non disponibile" (nessuna API
+   * key, errore di rete, risposta malformata)
    */
-  static async getCountryCodeFromCity(city: string): Promise<string | null> {
+  static async getCountryCodeFromCity(city: string): Promise<GeocodingOutcome> {
     try {
       const apiKey = process.env.OPENAPI_GEOCODING_KEY;
       if (!apiKey) {
         console.warn(
           "OPENAPI_GEOCODING_KEY not configured. Skipping geocoding.",
         );
-        return null;
+        return { status: "unavailable" };
       }
 
       console.log(`Geocoding API request for: ${city}`);
@@ -66,7 +83,7 @@ export class GeocodingService {
 
       if (!response.ok) {
         console.error(`Authentication failed for city: ${city}`);
-        return null;
+        return { status: "unavailable" };
       }
 
       const data: GeocodingResponse = await response.json();
@@ -74,7 +91,7 @@ export class GeocodingService {
       // Controlla la struttura della risposta
       if (!data || !data.element) {
         console.warn(`Invalid geocoding response structure for city: ${city}`);
-        return null;
+        return { status: "unavailable" };
       }
 
       const countryCode = data.element.countryCode;
@@ -83,7 +100,7 @@ export class GeocodingService {
         console.warn(
           `No country code found in geocoding response for city: ${city}`,
         );
-        return null;
+        return { status: "not_found" };
       }
 
       // Normalizza il country code usando il nostro sistema
@@ -91,10 +108,15 @@ export class GeocodingService {
         europeanCountries.normalizeCountry(countryCode);
 
       if (!normalizedCountryCode) {
+        // normalizeCountry() only ever returns European codes (or
+        // undefined), so an unrecognized code here means either a
+        // non-European country or a code our alias list doesn't cover.
+        // Never guess: treat as "not determined" rather than fabricating
+        // a country.
         console.warn(
           `Could not normalize country code ${countryCode} for city: ${city}`,
         );
-        return countryCode;
+        return { status: "not_found" };
       }
 
       // Verifica che sia un paese europeo
@@ -102,15 +124,15 @@ export class GeocodingService {
         console.log(
           `City ${city} is not in Europe (${normalizedCountryCode}). Filtering out.`,
         );
-        return null;
+        return { status: "non_european", countryCode: normalizedCountryCode };
       }
 
       console.log(`Geocoding success: ${city} -> ${normalizedCountryCode}`);
 
-      return normalizedCountryCode;
+      return { status: "found", countryCode: normalizedCountryCode };
     } catch (error) {
       console.error(`Error geocoding city ${city}:`, error);
-      return null;
+      return { status: "unavailable" };
     }
   }
 }

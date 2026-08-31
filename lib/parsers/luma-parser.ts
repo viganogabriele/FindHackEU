@@ -1,5 +1,17 @@
-import { BaseParser, ParsedHackathon } from "@/lib/parsers/base-parser";
+import {
+  BaseParser,
+  ParsedHackathon,
+  DiscoverResult,
+  ParseStatus,
+} from "@/lib/parsers/base-parser";
 import { europeanCountries } from "@/lib/european-countries";
+import {
+  MAX_FUTURE_DAYS,
+  getMaxFutureCutoff,
+} from "@/lib/config/discovery-config";
+import { classifyHackathon } from "@/lib/classification/hackathon-classifier";
+import { mergeHackathonDuplicates } from "@/lib/dedup/dedupe-hackathons";
+import { fetchWithRetry } from "@/lib/http/fetch-with-retry";
 
 interface LumaGeoInfo {
   city?: string;
@@ -28,6 +40,9 @@ interface LumaApiResponse {
 }
 
 export class LumaParser extends BaseParser {
+  readonly name = "luma";
+  readonly enabled = true;
+
   private readonly slugs = ["tech", "ai", "crypto"];
 
   // Bounding box originale: invariata.
@@ -42,39 +57,83 @@ export class LumaParser extends BaseParser {
     "https://api.luma.com/discover/get-paginated-events";
 
   // Luma accetta 50 eventi per richiesta.
-  // Limitiamo intenzionalmente a una sola pagina per slug
-  // per evitare ulteriori verifiche/anti-abuse.
   private readonly paginationLimit = 50;
-  private readonly maxPagesPerSlug = 1;
 
-  async parse(): Promise<ParsedHackathon[]> {
+  // Configurabile via env var per bilanciare copertura e rischio
+  // di anti-abuse checks lato Luma; default a più di una pagina
+  // per superare gli hackathon oltre la posizione 50.
+  private readonly maxPagesPerSlug = LumaParser.resolveMaxPagesPerSlug();
+
+  // Piccolo delay tra le richieste di pagine successive per restare
+  // ben al di sotto di eventuali rate limit impliciti di Luma.
+  private readonly pageDelayMs = 350;
+
+  private static resolveMaxPagesPerSlug(): number {
+    const raw = process.env.LUMA_MAX_PAGES_PER_SLUG;
+    const parsed = raw ? parseInt(raw, 10) : NaN;
+
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 5;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  protected async discover(): Promise<DiscoverResult> {
     const allHackathons: ParsedHackathon[] = [];
+    const errors: string[] = [];
 
     for (const slug of this.slugs) {
       try {
-        const events = await this.fetchEventsForSlug(slug);
-        const hackathons = this.filterHackathons(events);
+        const { events, pagesFetched } = await this.fetchEventsForSlug(slug);
+        const stats = { excludedPastFutureWindow: 0 };
+        const hackathons = this.filterHackathons(events, stats);
 
         console.log(
-          `Luma [${slug}]: fetched ${events.length} events, ` +
-            `matched ${hackathons.length} hackathons`,
+          `Luma [${slug}]: fetched ${pagesFetched} page(s), ` +
+            `${events.length} raw events, matched ${hackathons.length} hackathons, ` +
+            `excluded ${stats.excludedPastFutureWindow} beyond the ` +
+            `${MAX_FUTURE_DAYS}-day future window`,
         );
 
         allHackathons.push(...hackathons);
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+
         console.error(`Error parsing slug ${slug}:`, error);
+        errors.push(`[${slug}] ${message}`);
       }
     }
 
-    return this.deduplicateHackathons(allHackathons);
+    const hackathons = this.deduplicateHackathons(allHackathons);
+
+    let status: ParseStatus;
+
+    if (errors.length === 0) {
+      status = "ok";
+    } else if (errors.length >= this.slugs.length) {
+      // Every slug we attempted failed: this is a real provider
+      // failure, not "zero matching events this run".
+      status = "failed";
+    } else {
+      status = "partial";
+    }
+
+    return { hackathons, errors, status };
   }
 
-  private async fetchEventsForSlug(slug: string): Promise<LumaEventEntry[]> {
+  private async fetchEventsForSlug(
+    slug: string,
+  ): Promise<{ events: LumaEventEntry[]; pagesFetched: number }> {
     const allEvents: LumaEventEntry[] = [];
     let cursor: string | null = null;
     let page = 0;
 
     while (page < this.maxPagesPerSlug) {
+      if (page > 0) {
+        await this.sleep(this.pageDelayMs);
+      }
+
       const params = new URLSearchParams({
         slug,
         south: this.bounds.south.toString(),
@@ -92,7 +151,11 @@ export class LumaParser extends BaseParser {
 
       page++;
 
-      const response = await fetch(url, {
+      // 10s timeout / 2 retries: Luma's discover endpoint is unauthenticated
+      // and occasionally slow or flaky; these defaults keep a single bad
+      // request from blocking the whole pipeline run (see issue #30) while
+      // still giving transient failures a couple of chances to recover.
+      const response = await fetchWithRetry(url, {
         headers: {
           Accept: "*/*",
           "User-Agent": "Mozilla/5.0",
@@ -127,127 +190,64 @@ export class LumaParser extends BaseParser {
       cursor = data.next_cursor;
     }
 
-    return allEvents;
+    return { events: allEvents, pagesFetched: page };
   }
 
   /**
-   * Deterministic hackathon classifier.
-   *
-   * Strong signals:
-   * - hackathon
-   * - hack day / hackday
-   * - hack-a-thon
-   * - make-a-thon / makeathon
-   * - buildathon
-   * - codefest
-   *
-   * Medium signals are accepted only when accompanied by
-   * an explicit technical/developer context.
-   *
-   * Obvious post-event / celebration entries are rejected.
+   * Hackathon classification is delegated to the shared, multilingual,
+   * score-based classifier in `lib/classification/hackathon-classifier.ts`
+   * (see issue #7). Every decision — accepted, rejected, or borderline —
+   * is logged with its score and reason so classification quality can be
+   * audited and tuned later against real data (issue #38).
    */
-  private filterHackathons(events: LumaEventEntry[]): ParsedHackathon[] {
-    return events
+  private filterHackathons(
+    events: LumaEventEntry[],
+    stats: { excludedPastFutureWindow: number },
+  ): ParsedHackathon[] {
+    const hackathons = events
       .filter((entry) => this.isHackathon(entry.event))
-      .map((entry) => this.mapEventToHackathon(entry))
+      .map((entry) => this.mapEventToHackathon(entry, stats))
       .filter((hackathon): hackathon is ParsedHackathon => hackathon !== null);
+
+    // Observability for issue #5 / #31: this doesn't drop anything (a
+    // hackathon with a city but no resolved country still gets a shot at
+    // geocoding in LocationEnhancementService), but it makes visible how
+    // often Luma's own metadata leaves the country undetermined, which is
+    // the gap this issue targets.
+    const undeterminedWithCity = hackathons.filter(
+      (h) => h.city && !h.country_code,
+    ).length;
+
+    if (undeterminedWithCity > 0) {
+      console.log(
+        `Luma: ${undeterminedWithCity} hackathon(s) have a city but no country_code yet ` +
+          `(pending geocoding in LocationEnhancementService).`,
+      );
+    }
+
+    return hackathons;
   }
 
   private isHackathon(event: LumaEvent): boolean {
-    const title = this.normalizeSearchText(event?.name || "");
-    const description = this.normalizeSearchText(event?.description || "");
+    const title = event?.name || "";
 
-    if (!title) {
+    if (!this.normalizeSearchText(title)) {
       return false;
     }
 
-    // ---------------------------------------------------------
-    // 1. Strong exclusions
-    // ---------------------------------------------------------
-    //
-    // Events whose title refers to an already-concluded
-    // hackathon or a social event around it.
-    //
-    const exclusionPatterns = [
-      /\bwinners?\s+(celebration|party|ceremony)\b/,
-      /\bhackathon\s+(winners?|results?|awards?)\b/,
-      /\bafterparty\b/,
-      /\bafter\s*party\b/,
-      /\bcelebration\s+(party|event)\b/,
-    ];
+    const result = classifyHackathon(title, event?.description || "");
 
-    if (exclusionPatterns.some((pattern) => pattern.test(title))) {
-      return false;
+    if (result.decision === "borderline") {
+      console.warn(
+        `Luma classifier BORDERLINE (score ${result.score}) for "${title}": ${result.reason}`,
+      );
+    } else {
+      console.log(
+        `Luma classifier ${result.decision.toUpperCase()} (score ${result.score}) for "${title}": ${result.reason}`,
+      );
     }
 
-    // ---------------------------------------------------------
-    // 2. Strong hackathon signals
-    // ---------------------------------------------------------
-    //
-    // These are sufficient on their own.
-    //
-    const strongHackathonPatterns = [
-      /\bhackathons?\b/,
-      /\bhack[\s-]*days?\b/,
-      /\bmake[\s-]*a[\s-]*thon\b/,
-      /\bbuild[\s-]*a[\s-]*thon\b/,
-      /\bbuildathons?\b/,
-      /\bcodefests?\b/,
-    ];
-
-    if (strongHackathonPatterns.some((pattern) => pattern.test(title))) {
-      return true;
-    }
-
-    // ---------------------------------------------------------
-    // 3. Medium-strength signals
-    // ---------------------------------------------------------
-    //
-    // We deliberately do NOT accept "coding" alone.
-    // It has to appear together with a competition/challenge
-    // concept.
-    //
-    const competitionPatterns = [
-      /\bchallenge\b/,
-      /\bcompetition\b/,
-      /\bcontest\b/,
-    ];
-
-    const technicalPatterns = [
-      /\bai\b/,
-      /\bartificial intelligence\b/,
-      /\bmachine learning\b/,
-      /\bml\b/,
-      /\bdeveloper\b/,
-      /\bdevelopers\b/,
-      /\bprogramming\b/,
-      /\bcoding\b/,
-      /\bsoftware\b/,
-      /\bweb3\b/,
-      /\bblockchain\b/,
-      /\bcrypto\b/,
-      /\bsolana\b/,
-      /\bethereum\b/,
-      /\bopen source\b/,
-      /\bbuild\b/,
-      /\bbuilder\b/,
-      /\bbuilders\b/,
-      /\bprototype\b/,
-    ];
-
-    const hasCompetitionSignal = competitionPatterns.some((pattern) =>
-      pattern.test(title),
-    );
-
-    const hasTechnicalSignal = technicalPatterns.some(
-      (pattern) => pattern.test(title) || pattern.test(description),
-    );
-
-    if (hasCompetitionSignal && hasTechnicalSignal) {
-      return true;
-    }
-
-    return false;
+    return result.isHackathon;
   }
 
   private normalizeSearchText(value: string): string {
@@ -261,7 +261,10 @@ export class LumaParser extends BaseParser {
       .trim();
   }
 
-  private mapEventToHackathon(entry: LumaEventEntry): ParsedHackathon | null {
+  private mapEventToHackathon(
+    entry: LumaEventEntry,
+    stats: { excludedPastFutureWindow: number },
+  ): ParsedHackathon | null {
     try {
       const event = entry.event;
 
@@ -276,6 +279,15 @@ export class LumaParser extends BaseParser {
       const now = new Date();
 
       if (dates.start < now) {
+        return null;
+      }
+
+      // Scarta eventi oltre la finestra di ricerca futura configurata
+      // (vedi lib/config/discovery-config.ts). Senza questo limite,
+      // l'orizzonte di ricerca dipende solo dall'ordinamento interno di
+      // Luma, che non è né configurabile né documentato.
+      if (dates.start > getMaxFutureCutoff(now)) {
+        stats.excludedPastFutureWindow++;
         return null;
       }
 
@@ -306,18 +318,45 @@ export class LumaParser extends BaseParser {
         }
       }
 
-      // Se il paese è determinato ma non europeo, scarta.
+      // Se il paese è determinato ma non europeo, scarta. Nota: dato che
+      // normalizeCountry() restituisce solo codici europei conosciuti (o
+      // undefined), questo ramo copre solo il caso di un country_code già
+      // normalizzato che risultasse comunque non valido; è tenuto come
+      // difesa in profondità.
       if (
         country_code &&
         !europeanCountries.isValidEuropeanCountry(country_code)
       ) {
+        console.log(
+          `Dropping Luma event "${event.name}": explicit country_code ${country_code} is not European.`,
+        );
         return null;
+      }
+
+      // Se il country_code arriva direttamente dai dati strutturati della
+      // fonte (country_code, region o la parte finale di city_state), è
+      // "high confidence". Se non è ancora determinato ma abbiamo una
+      // città, proviamo un'inferenza euristica gratuita da nomi di città
+      // noti (con supporto multilingua/diacritici, vedi
+      // lib/european-countries.ts) prima di lasciare il completamento al
+      // geocoding a pagamento in LocationEnhancementService (issue #5).
+      let location_confidence: ParsedHackathon["location_confidence"] =
+        country_code ? "high" : undefined;
+
+      if (!country_code && city) {
+        const inferredCountry = europeanCountries.inferCountryFromCity(city);
+
+        if (inferredCountry) {
+          country_code = inferredCountry;
+          location_confidence = "low";
+        }
       }
 
       return {
         name: event.name.replace(/\|/g, "-"),
         city,
         country_code,
+        location_confidence,
         date_start: dates.start,
         date_end: dates.end,
         topics: this.extractTopics(event.name, event.description),
@@ -330,20 +369,17 @@ export class LumaParser extends BaseParser {
     }
   }
 
+  /**
+   * Collapses duplicate events returned across Luma's multiple slug queries
+   * (e.g. the same hackathon tagged both "tech" and "ai"). Previously an
+   * exact `name + full ISO timestamp` key (case-sensitive) — replaced with
+   * the shared normalized-URL + fuzzy-title-aware matcher (see issue #22)
+   * so minor formatting differences (URL tracking params, casing) don't
+   * produce duplicate entries within this single source either.
+   */
   private deduplicateHackathons(
     hackathons: ParsedHackathon[],
   ): ParsedHackathon[] {
-    const seen = new Set<string>();
-
-    return hackathons.filter((hackathon) => {
-      const key = `${hackathon.name}-${hackathon.date_start.toISOString()}`;
-
-      if (seen.has(key)) {
-        return false;
-      }
-
-      seen.add(key);
-      return true;
-    });
+    return mergeHackathonDuplicates(hackathons);
   }
 }
