@@ -284,6 +284,12 @@ describe("LumaParser", () => {
   // is no longer indistinguishable from "zero real results" - it's now
   // reported as an empty hackathon list PLUS an explicit `status: "failed"`
   // and per-slug error messages, instead of silently resolving to `[]`.
+  // Every fetch call now goes through fetchWithRetry (issue #30), which
+  // retries a failing attempt with real setTimeout-based backoff before
+  // giving up. Under the fake clock these tests use, that backoff never
+  // elapses on its own, so we start the parse, advance the fake clock past
+  // every retry/backoff window for all 3 slugs, then await the result -
+  // same pattern as the pagination test above.
   it("reports status 'failed' (not a thrown error, not a silent empty success) when every request rejects", async () => {
     vi.stubGlobal(
       "fetch",
@@ -292,7 +298,9 @@ describe("LumaParser", () => {
       }),
     );
 
-    const result = await new LumaParser().parse();
+    const pendingParse = new LumaParser().parse();
+    await vi.advanceTimersByTimeAsync(30_000);
+    const result = await pendingParse;
 
     expect(result.hackathons).toEqual([]);
     expect(result.success).toBe(false);
@@ -313,7 +321,9 @@ describe("LumaParser", () => {
       ),
     );
 
-    const result = await new LumaParser().parse();
+    const pendingParse = new LumaParser().parse();
+    await vi.advanceTimersByTimeAsync(30_000);
+    const result = await pendingParse;
 
     expect(result.hackathons).toEqual([]);
     expect(result.success).toBe(false);
