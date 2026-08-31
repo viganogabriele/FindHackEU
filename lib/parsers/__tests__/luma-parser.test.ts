@@ -100,11 +100,14 @@ describe("LumaParser", () => {
       ],
     });
 
-    const results = await new LumaParser().parse();
+    const result = await new LumaParser().parse();
 
-    expect(results).toHaveLength(1);
-    expect(results[0].city).toBe("Zurich");
-    expect(results[0].country_code).toBe("CH");
+    expect(result.success).toBe(true);
+    expect(result.count).toBe(1);
+    expect(result.errors).toEqual([]);
+    expect(result.hackathons).toHaveLength(1);
+    expect(result.hackathons[0].city).toBe("Zurich");
+    expect(result.hackathons[0].country_code).toBe("CH");
   });
 
   // Case 2: a genuinely non-English-titled hackathon.
@@ -122,7 +125,7 @@ describe("LumaParser", () => {
       ],
     });
 
-    const results = await new LumaParser().parse();
+    const result = await new LumaParser().parse();
 
     // isHackathon()'s strongHackathonPatterns/competitionPatterns/
     // technicalPatterns in luma-parser.ts are English-only regexes. A real
@@ -131,13 +134,21 @@ describe("LumaParser", () => {
     // This pins today's behavior; issue #7 (multilingual classifier) is
     // tracked to fix it, at which point this assertion should flip and the
     // test should be updated rather than left pinning a fixed bug forever.
-    expect(results).toHaveLength(0);
+    expect(result.hackathons).toHaveLength(0);
   });
 
   // Case 3: pagination.
   it("[documents known gap -> issue #3] never requests a second Luma page even when the API reports one exists", async () => {
     const fetchMock = mockFetchPerSlug(
-      { tech: [{ name: "Page One Hackathon", start_at: FUTURE, url: "page-one-hackathon" }] },
+      {
+        tech: [
+          {
+            name: "Page One Hackathon",
+            start_at: FUTURE,
+            url: "page-one-hackathon",
+          },
+        ],
+      },
       { has_more: true, next_cursor: "cursor-page-2" },
     );
 
@@ -168,11 +179,13 @@ describe("LumaParser", () => {
       ],
     });
 
-    const results = await new LumaParser().parse();
+    const result = await new LumaParser().parse();
 
-    expect(results).toHaveLength(1);
-    expect(results[0].date_start.toISOString()).toBe(FUTURE);
-    expect(results[0].date_end?.toISOString()).toBe("2025-07-02T18:00:00.000Z");
+    expect(result.hackathons).toHaveLength(1);
+    expect(result.hackathons[0].date_start.toISOString()).toBe(FUTURE);
+    expect(result.hackathons[0].date_end?.toISOString()).toBe(
+      "2025-07-02T18:00:00.000Z",
+    );
   });
 
   // Case 5: known city, no country in the payload.
@@ -188,16 +201,16 @@ describe("LumaParser", () => {
       ],
     });
 
-    const results = await new LumaParser().parse();
+    const result = await new LumaParser().parse();
 
-    expect(results).toHaveLength(1);
-    expect(results[0].city).toBe("Berlin");
+    expect(result.hackathons).toHaveLength(1);
+    expect(result.hackathons[0].city).toBe("Berlin");
     // lib/european-countries.ts exposes `inferCountryFromCity`, and
     // lib/parsers/lablab-parser.ts already calls it to fill in exactly this
     // gap, but luma-parser.ts's mapEventToHackathon() never does — so for
     // the currently-active Luma source, a known city ("Berlin" -> DE) with
     // no country/region/city_state in the payload is left unresolved.
-    expect(results[0].country_code).toBeUndefined();
+    expect(result.hackathons[0].country_code).toBeUndefined();
   });
 
   // Case 7 (Luma-level half): duplicate events collapse to one.
@@ -210,20 +223,26 @@ describe("LumaParser", () => {
 
     mockFetchPerSlug({ tech: [event], ai: [event] });
 
-    const results = await new LumaParser().parse();
+    const result = await new LumaParser().parse();
 
-    expect(results).toHaveLength(1);
+    expect(result.hackathons).toHaveLength(1);
   });
 
   // Case 8: past events are filtered out.
   it("filters out an event whose start date is already in the past", async () => {
     mockFetchPerSlug({
-      tech: [{ name: "Already Started Hackathon", start_at: PAST, url: "already-started" }],
+      tech: [
+        {
+          name: "Already Started Hackathon",
+          start_at: PAST,
+          url: "already-started",
+        },
+      ],
     });
 
-    const results = await new LumaParser().parse();
+    const result = await new LumaParser().parse();
 
-    expect(results).toHaveLength(0);
+    expect(result.hackathons).toHaveLength(0);
   });
 
   // Case 9: unreachable page / network errors must not crash the parser.
@@ -235,7 +254,12 @@ describe("LumaParser", () => {
       }),
     );
 
-    await expect(new LumaParser().parse()).resolves.toEqual([]);
+    const result = await new LumaParser().parse();
+
+    expect(result.success).toBe(true);
+    expect(result.count).toBe(0);
+    expect(result.errors).toEqual([]);
+    expect(result.hackathons).toEqual([]);
   });
 
   it("returns an empty list instead of throwing when Luma responds with a non-OK HTTP status", async () => {
@@ -252,7 +276,12 @@ describe("LumaParser", () => {
       ),
     );
 
-    await expect(new LumaParser().parse()).resolves.toEqual([]);
+    const result = await new LumaParser().parse();
+
+    expect(result.success).toBe(true);
+    expect(result.count).toBe(0);
+    expect(result.errors).toEqual([]);
+    expect(result.hackathons).toEqual([]);
   });
 
   // Case 10: false positives (post-event announcements) are rejected.
@@ -267,8 +296,8 @@ describe("LumaParser", () => {
       ],
     });
 
-    const results = await new LumaParser().parse();
+    const result = await new LumaParser().parse();
 
-    expect(results).toHaveLength(0);
+    expect(result.hackathons).toHaveLength(0);
   });
 });

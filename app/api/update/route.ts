@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { Octokit } from "@octokit/rest";
 import { supabaseAdmin } from "@/lib/supabase";
 import { LumaParser } from "@/lib/parsers/luma-parser";
+import { LablabParser } from "@/lib/parsers/lablab-parser";
 import { ParsedHackathon } from "@/lib/parsers/base-parser";
+import type { Provider } from "@/lib/providers/provider.interface";
 import { DiscordBot } from "@/lib/bots/discord-bot";
 import { TelegramBot } from "@/lib/bots/telegram-bot";
 import { TwitterBot } from "@/lib/bots/twitter-bot";
@@ -48,24 +50,30 @@ export async function POST(request: Request) {
     // ---------------------------------------------------------
     // Source configuration
     //
+    // Adding a new source means creating a class that implements
+    // `Provider` (see lib/providers/provider.interface.ts) and
+    // adding an instance to this array - no other change to this
+    // orchestrator should be required.
+    //
     // LabLab is intentionally disabled for now because its
     // public web surface is protected by Cloudflare and cannot
     // currently be queried reliably server-side.
     // ---------------------------------------------------------
-    const sourceResults: Record<string, SourceResult> = {
-      luma: {
-        enabled: true,
-        success: false,
+    const providers: Provider[] = [new LumaParser(), new LablabParser()];
+
+    const sourceResults: Record<string, SourceResult> = {};
+
+    for (const provider of providers) {
+      sourceResults[provider.name] = {
+        enabled: provider.enabled,
+        // A disabled source never runs, so it never "fails" - mirrors
+        // the previous hardcoded defaults (luma: success false until
+        // it runs, lablab: success true since it's a no-op).
+        success: !provider.enabled,
         parsed: 0,
         error: null,
-      },
-      lablab: {
-        enabled: false,
-        success: true,
-        parsed: 0,
-        error: null,
-      },
-    };
+      };
+    }
 
     // ---------------------------------------------------------
     // 0. Reset is_new flags
@@ -97,35 +105,37 @@ export async function POST(request: Request) {
     // ---------------------------------------------------------
     const parsedHackathons: ParsedHackathon[] = [];
 
-    // ---------------------------------------------------------
-    // Luma
-    // ---------------------------------------------------------
-    try {
-      const lumaParser = new LumaParser();
-      const lumaHackathons = await lumaParser.parse();
+    for (const provider of providers) {
+      if (!provider.enabled) {
+        console.log(
+          `${provider.name} parser disabled: source is currently unavailable server-side`,
+        );
+        continue;
+      }
 
-      sourceResults.luma.success = true;
-      sourceResults.luma.parsed = lumaHackathons.length;
+      try {
+        const result = await provider.parse();
 
-      parsedHackathons.push(...lumaHackathons);
+        sourceResults[provider.name].success = result.success;
+        sourceResults[provider.name].parsed = result.count;
 
-      console.log(`Parsed ${lumaHackathons.length} hackathons from Luma`);
-    } catch (error) {
-      sourceResults.luma.success = false;
-      sourceResults.luma.error =
-        error instanceof Error ? error.message : "Luma parser failed";
+        if (result.errors.length > 0) {
+          sourceResults[provider.name].error = result.errors.join("; ");
+        }
 
-      console.error("Luma parser failed:", error);
+        parsedHackathons.push(...result.hackathons);
+
+        console.log(`Parsed ${result.count} hackathons from ${provider.name}`);
+      } catch (error) {
+        sourceResults[provider.name].success = false;
+        sourceResults[provider.name].error =
+          error instanceof Error
+            ? error.message
+            : `${provider.name} parser failed`;
+
+        console.error(`${provider.name} parser failed:`, error);
+      }
     }
-
-    // ---------------------------------------------------------
-    // LabLab
-    //
-    // Intentionally disabled for now.
-    // ---------------------------------------------------------
-    console.log(
-      "Lablab parser disabled: source is currently unavailable server-side",
-    );
 
     console.log(`Total parsed ${parsedHackathons.length} hackathons`);
 

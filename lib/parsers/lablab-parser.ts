@@ -24,10 +24,13 @@ interface LablabApiResponse {
 }
 
 export class LablabParser extends BaseParser {
+  readonly name = "lablab";
+  readonly enabled = false;
+
   private readonly baseUrl = "https://lablab.ai";
   private readonly eventsPath = "/event.json";
 
-  async parse(): Promise<ParsedHackathon[]> {
+  protected async discover(): Promise<ParsedHackathon[]> {
     try {
       // 1. Ottieni il build ID dalla homepage
       const buildId = await this.getBuildId();

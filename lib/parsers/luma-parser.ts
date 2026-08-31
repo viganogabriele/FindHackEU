@@ -28,6 +28,9 @@ interface LumaApiResponse {
 }
 
 export class LumaParser extends BaseParser {
+  readonly name = "luma";
+  readonly enabled = true;
+
   private readonly slugs = ["tech", "ai", "crypto"];
 
   // Bounding box originale: invariata.
@@ -47,7 +50,7 @@ export class LumaParser extends BaseParser {
   private readonly paginationLimit = 50;
   private readonly maxPagesPerSlug = 1;
 
-  async parse(): Promise<ParsedHackathon[]> {
+  protected async discover(): Promise<ParsedHackathon[]> {
     const allHackathons: ParsedHackathon[] = [];
 
     for (const slug of this.slugs) {

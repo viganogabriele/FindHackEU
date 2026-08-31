@@ -1,5 +1,9 @@
 import { defaultTopicExtractor } from "@/lib/topic-extractor";
 import type { HackathonTopic } from "@/lib/constants/topics";
+import type {
+  Provider,
+  ProviderResult,
+} from "@/lib/providers/provider.interface";
 
 export interface ParsedHackathon {
   name: string;
@@ -13,8 +17,48 @@ export interface ParsedHackathon {
   source: string;
 }
 
-export abstract class BaseParser {
-  abstract parse(): Promise<ParsedHackathon[]>;
+/**
+ * Shared base for every `Provider` implementation.
+ *
+ * Subclasses implement `discover()` with their source-specific
+ * fetch/normalize logic (as `parse()` used to do before the
+ * `Provider` interface existed) and declare `name`/`enabled`.
+ * `BaseParser` wraps `discover()`'s result (or thrown error) into
+ * the standard `ProviderResult` shape so every source is uniform
+ * from the orchestrator's point of view.
+ */
+export abstract class BaseParser implements Provider {
+  abstract readonly name: string;
+  abstract readonly enabled: boolean;
+
+  /**
+   * Source-specific fetch/normalize logic. This is exactly what
+   * `parse()` used to be before this class implemented `Provider` -
+   * subclasses keep their existing internal error handling as-is.
+   */
+  protected abstract discover(): Promise<ParsedHackathon[]>;
+
+  async parse(): Promise<ProviderResult> {
+    try {
+      const hackathons = await this.discover();
+
+      return {
+        hackathons,
+        success: true,
+        count: hackathons.length,
+        errors: [],
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      return {
+        hackathons: [],
+        success: false,
+        count: 0,
+        errors: [message],
+      };
+    }
+  }
 
   protected formatDate(
     start_date_str: string,
