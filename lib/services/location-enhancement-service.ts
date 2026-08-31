@@ -44,8 +44,8 @@ export class LocationEnhancementService {
           // 2. Ha una città ma non un country code
           const shouldGeocode = Boolean(
             !existingUrls.has(hackathon.url) &&
-              hackathon.city &&
-              !hackathon.country_code,
+            hackathon.city &&
+            !hackathon.country_code,
           );
 
           if (!shouldGeocode) {
@@ -75,9 +75,7 @@ export class LocationEnhancementService {
           }
 
           try {
-            const outcome = await GeocodingService.getCountryCodeFromCity(
-              city,
-            );
+            const outcome = await GeocodingService.getCountryCodeFromCity(city);
 
             switch (outcome.status) {
               case "found": {

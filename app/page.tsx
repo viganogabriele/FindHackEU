@@ -131,9 +131,7 @@ function ErrorState({
     <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-destructive/30 bg-destructive/5 py-16 text-center">
       <AlertCircle className="h-10 w-10 text-destructive" />
       <div>
-        <p className="font-medium text-destructive">
-          {t("error.loadFailed")}
-        </p>
+        <p className="font-medium text-destructive">{t("error.loadFailed")}</p>
         <p className="mt-1 text-sm text-muted-foreground">{message}</p>
       </div>
       <Button variant="outline" onClick={onRetry}>

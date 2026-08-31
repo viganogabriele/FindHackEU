@@ -58,9 +58,7 @@ export class GeocodingService {
    * "trovato ma non europeo" e "geocoding non disponibile" (nessuna API
    * key, errore di rete, risposta malformata)
    */
-  static async getCountryCodeFromCity(
-    city: string,
-  ): Promise<GeocodingOutcome> {
+  static async getCountryCodeFromCity(city: string): Promise<GeocodingOutcome> {
     try {
       const apiKey = process.env.OPENAPI_GEOCODING_KEY;
       if (!apiKey) {

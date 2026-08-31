@@ -165,7 +165,13 @@ describe("LumaParser", () => {
           status: 200,
           json: async () =>
             buildLumaResponse(
-              [{ name: "Winter Robotics Hackathon", start_at: FUTURE, url: "winter-robotics-hackathon" }],
+              [
+                {
+                  name: "Winter Robotics Hackathon",
+                  start_at: FUTURE,
+                  url: "winter-robotics-hackathon",
+                },
+              ],
               { has_more: true, next_cursor: "cursor-page-2" },
             ),
           text: async () => "",
@@ -177,7 +183,11 @@ describe("LumaParser", () => {
         status: 200,
         json: async () =>
           buildLumaResponse([
-            { name: "Autumn Sailing Buildathon", start_at: FUTURE, url: "autumn-sailing-buildathon" },
+            {
+              name: "Autumn Sailing Buildathon",
+              start_at: FUTURE,
+              url: "autumn-sailing-buildathon",
+            },
           ]),
         text: async () => "",
       } as Response;
@@ -192,7 +202,8 @@ describe("LumaParser", () => {
     const results = (await pendingParse).hackathons;
 
     const techCalls = fetchMock.mock.calls.filter(
-      ([input]) => new URL(input.toString()).searchParams.get("slug") === "tech",
+      ([input]) =>
+        new URL(input.toString()).searchParams.get("slug") === "tech",
     );
     expect(techCalls).toHaveLength(2);
     expect(
@@ -270,7 +281,13 @@ describe("LumaParser", () => {
   // Case 8: past events are filtered out.
   it("filters out an event whose start date is already in the past", async () => {
     mockFetchPerSlug({
-      tech: [{ name: "Already Started Hackathon", start_at: PAST, url: "already-started" }],
+      tech: [
+        {
+          name: "Already Started Hackathon",
+          start_at: PAST,
+          url: "already-started",
+        },
+      ],
     });
 
     const results = (await new LumaParser().parse()).hackathons;
