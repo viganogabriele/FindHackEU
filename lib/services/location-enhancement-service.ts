@@ -28,10 +28,11 @@ export class LocationEnhancementService {
     const limit = pLimit(3);
 
     // Counters for observability (issue #5 / feeds issue #31): every event
-    // dropped for an undetermined or non-European country is logged and
-    // counted here, instead of silently disappearing from the pipeline.
+    // dropped for a non-European country, or kept with an undetermined
+    // country, is logged and counted here instead of silently
+    // disappearing from (or being dropped by) the pipeline.
     let droppedNonEuropean = 0;
-    let droppedUndeterminedCountry = 0;
+    let undeterminedCountryCount = 0;
     let geocodingUnavailableCount = 0;
 
     // Process hackathons in parallel with concurrency limit
@@ -99,11 +100,16 @@ export class LocationEnhancementService {
               }
 
               case "not_found": {
+                // Geocoding was queried successfully but returned no
+                // usable country. This is NOT the same as "confirmed
+                // non-European" - we must not delete a legitimate event
+                // just because the geocoder didn't recognize an obscure
+                // or ambiguous European city. Keep it, unresolved.
                 console.log(
-                  `Dropping hackathon "${hackathon.name}": country could not be determined for city "${city}" (geocoding queried, no usable result).`,
+                  `Country could not be determined for city "${city}" (hackathon "${hackathon.name}"), keeping with undetermined country.`,
                 );
-                droppedUndeterminedCountry++;
-                return null;
+                undeterminedCountryCount++;
+                return hackathon;
               }
 
               case "unavailable":
@@ -137,8 +143,9 @@ export class LocationEnhancementService {
 
     console.log(
       `Location enhancement completed: ${validHackathons.length}/${hackathons.length} hackathons kept ` +
-        `(dropped ${droppedNonEuropean} non-European, ${droppedUndeterminedCountry} with undetermined country; ` +
-        `${geocodingUnavailableCount} kept unresolved because geocoding was unavailable)`,
+        `(dropped ${droppedNonEuropean} non-European; ${undeterminedCountryCount} kept with undetermined country ` +
+        `because geocoding found no usable result; ${geocodingUnavailableCount} kept unresolved because ` +
+        `geocoding was unavailable)`,
     );
 
     return validHackathons;
