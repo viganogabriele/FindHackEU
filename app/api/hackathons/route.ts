@@ -100,7 +100,11 @@ export async function GET(request: Request) {
           "id, name, city, country_code, date_start, date_end, topics, notes, url, status, is_new, source",
         )
         .eq("status", status)
+        // `id` as a secondary, always-unique tie-breaker so rows sharing
+        // a `date_start` can't land inconsistently across a page boundary
+        // (found in code review).
         .order("date_start", { ascending: status === "upcoming" })
+        .order("id", { ascending: true })
         .range(from, to),
     );
 

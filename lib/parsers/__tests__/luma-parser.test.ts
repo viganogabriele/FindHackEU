@@ -386,4 +386,88 @@ describe("LumaParser", () => {
 
     expect(results).toHaveLength(0);
   });
+
+  // Regression test for a real bug found in a second round of code review:
+  // the non-European check only ran `if (!country_code)`, AFTER the
+  // region/city_state fallbacks - so an explicit non-European
+  // geo.country_code ("US") could be silently overwritten by an unrelated
+  // European-sounding `region` string before the check ever saw it.
+  it("drops an event with explicit country_code US even when region says a European country", async () => {
+    mockFetchPerSlug({
+      tech: [
+        {
+          name: "US Hackathon With Confusing Region",
+          start_at: FUTURE,
+          url: "us-confusing-region",
+          geo_address_info: {
+            city: "Paris",
+            country_code: "US",
+            region: "France",
+          },
+        },
+      ],
+    });
+
+    const results = (await new LumaParser().parse()).hackathons;
+
+    expect(results).toHaveLength(0);
+  });
+
+  // Regression test for a second bug found in the same review round:
+  // classifyCountryCode() was applied to `region`/city_state free text too,
+  // not just the explicit geo.country_code field - so a 2-letter
+  // administrative abbreviation coincidentally shaped like a country code
+  // (e.g. "NY") could cause a false "non-European" drop of a genuinely
+  // European event.
+  it("does not drop a European event just because `region` looks like a 2-letter code", async () => {
+    mockFetchPerSlug({
+      tech: [
+        {
+          name: "Zurich Builders Hackathon",
+          start_at: FUTURE,
+          url: "zurich-ny-region-text",
+          geo_address_info: { city: "Zurich", region: "NY" },
+        },
+      ],
+    });
+
+    const results = (await new LumaParser().parse()).hackathons;
+
+    expect(results).toHaveLength(1);
+    expect(results[0].country_code).toBe("CH");
+  });
+
+  // Regression test requested explicitly in code review: pagination
+  // truncating at the page cap while Luma still reports more results
+  // (has_more: true) used to leave `status` as "ok" - indistinguishable
+  // from a fully complete run. It must degrade to "partial" (never
+  // "failed", since real data was still fetched) instead.
+  it("degrades status to 'partial' when pagination truncates with more data available", async () => {
+    const originalEnv = process.env.LUMA_MAX_PAGES_PER_SLUG;
+    process.env.LUMA_MAX_PAGES_PER_SLUG = "1";
+
+    try {
+      mockFetchPerSlug(
+        {
+          tech: [
+            {
+              name: "Some Hackathon",
+              start_at: FUTURE,
+              url: "truncation-test",
+            },
+          ],
+        },
+        { has_more: true, next_cursor: "next-page-cursor" },
+      );
+
+      const result = await new LumaParser().parse();
+
+      expect(result.status).not.toBe("ok");
+      expect(result.status).toBe("partial");
+      expect(result.success).toBe(true);
+      expect(result.hackathons).toHaveLength(1);
+    } finally {
+      process.env.LUMA_MAX_PAGES_PER_SLUG = originalEnv;
+    }
+  });
 });

@@ -82,6 +82,14 @@ export class LumaParser extends BaseParser {
   protected async discover(): Promise<DiscoverResult> {
     const allHackathons: ParsedHackathon[] = [];
     const errors: string[] = [];
+    // Tracked separately from `errors.length` for the status decision
+    // below: a slug that truncated still fetched *some* real data (just
+    // known-incomplete), which is a "partial" run, never a "failed" one -
+    // unlike a slug whose fetch actually threw. Counting truncations
+    // toward the same failure tally as hard errors would wrongly report
+    // "failed" if every slug happened to truncate but none actually
+    // errored (found in code review).
+    let hardFailures = 0;
 
     for (const slug of this.slugs) {
       try {
@@ -98,11 +106,22 @@ export class LumaParser extends BaseParser {
         );
 
         if (truncated) {
-          console.warn(
-            `Luma [${slug}]: stopped at the ${this.maxPagesPerSlug}-page limit ` +
-              `while Luma still reported more results (has_more: true) - ` +
-              `some events for this category were not fetched this run.`,
-          );
+          const truncationMessage =
+            `stopped at the ${this.maxPagesPerSlug}-page limit while Luma ` +
+            `still reported more results (has_more: true) - some events ` +
+            `for this category were not fetched this run`;
+
+          console.warn(`Luma [${slug}]: ${truncationMessage}.`);
+
+          // Previously only logged, so a truncated-but-otherwise-fine run
+          // still reported status "ok" - indistinguishable from a fully
+          // complete one (found in code review, verified with a live
+          // probe: has_more: true + a 1-page cap returned {status: "ok",
+          // success: true}). Recording it as an error (but NOT a hard
+          // failure - see `hardFailures` above) is what shifts `status`
+          // to "partial" below, and surfaces it in sourceResults[...].error
+          // in the API response.
+          errors.push(`[${slug}] ${truncationMessage}`);
         }
 
         allHackathons.push(...hackathons);
@@ -111,6 +130,7 @@ export class LumaParser extends BaseParser {
 
         console.error(`Error parsing slug ${slug}:`, error);
         errors.push(`[${slug}] ${message}`);
+        hardFailures++;
       }
     }
 
@@ -120,9 +140,10 @@ export class LumaParser extends BaseParser {
 
     if (errors.length === 0) {
       status = "ok";
-    } else if (errors.length >= this.slugs.length) {
-      // Every slug we attempted failed: this is a real provider
-      // failure, not "zero matching events this run".
+    } else if (hardFailures >= this.slugs.length) {
+      // Every slug we attempted actually failed to fetch (as opposed to
+      // merely truncating): this is a real provider failure, not
+      // "zero/incomplete matching events this run".
       status = "failed";
     } else {
       status = "partial";
@@ -314,6 +335,35 @@ export class LumaParser extends BaseParser {
 
       let city = europeanCountries.normalizeCity(geo.city);
 
+      // Check the EXPLICIT geo.country_code field, and only that field,
+      // before any fallback runs. Two bugs found in code review, both
+      // fixed by this ordering/scoping:
+      //
+      // 1. This used to only run `if (!country_code)` AFTER the
+      //    region/city_state fallbacks below - so an explicit non-European
+      //    country_code (e.g. "US") could be silently overwritten by an
+      //    unrelated European-sounding `region` string (e.g. "France")
+      //    before this check ever saw the original signal. Checking
+      //    geo.country_code first, unconditionally, means a real
+      //    contradiction in the source's own data can never be hidden by
+      //    a later fallback.
+      // 2. This used to also run classifyCountryCode() against `region`
+      //    and the last city_state segment - both free text, not
+      //    guaranteed to be country codes at all. A US state abbreviation
+      //    like "NY" would classify as "non_european" under the same
+      //    2-letter heuristic, causing a false drop. classifyCountryCode()
+      //    is now applied only to geo.country_code, the one field Luma's
+      //    API contract actually documents as a country code.
+      if (
+        europeanCountries.classifyCountryCode(geo.country_code) ===
+        "non_european"
+      ) {
+        console.log(
+          `Dropping Luma event "${event.name}": explicit country_code ${geo.country_code} is not European.`,
+        );
+        return null;
+      }
+
       let country_code = europeanCountries.normalizeCountry(geo.country_code);
 
       // Fallback per dati incompleti.
@@ -352,37 +402,6 @@ export class LumaParser extends BaseParser {
           `Dropping Luma event "${event.name}": explicit country_code ${country_code} is not European.`,
         );
         return null;
-      }
-
-      // country_code è undefined qui in due casi ben diversi: (a) la fonte
-      // non ha fornito alcun dato geografico, oppure (b) la fonte ha
-      // fornito un country code/regione ben formato ma esplicitamente NON
-      // europeo (es. "US", "JP"), che normalizeCountry() scarta silenzio-
-      // samente restituendo undefined. Senza questo controllo, il caso (b)
-      // finiva per essere trattato come "paese non determinato" invece che
-      // scartato, lasciando passare hackathon extra-europei con dati
-      // geografici già chiari (trovato in code review).
-      if (!country_code) {
-        const rawCandidates = [geo.country_code, geo.region];
-
-        if (geo.city_state) {
-          const parts = geo.city_state.split(",").map((part) => part.trim());
-          if (parts.length >= 2) {
-            rawCandidates.push(parts[parts.length - 1]);
-          }
-        }
-
-        const explicitlyNonEuropean = rawCandidates.some(
-          (candidate) =>
-            europeanCountries.classifyCountryCode(candidate) === "non_european",
-        );
-
-        if (explicitlyNonEuropean) {
-          console.log(
-            `Dropping Luma event "${event.name}": source geography (${rawCandidates.filter(Boolean).join(", ")}) is explicitly non-European.`,
-          );
-          return null;
-        }
       }
 
       // Se il country_code arriva direttamente dai dati strutturati della

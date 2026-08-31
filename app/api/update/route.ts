@@ -292,6 +292,11 @@ export async function POST(request: Request) {
             .select(
               "id, url, name, city, country_code, date_start, date_end, topics, notes",
             )
+            // Stable order (see lib/services/fetch-all-rows.ts) so a
+            // concurrent insert during pagination can't shift row
+            // positions between pages and cause a row to be skipped or
+            // read twice (found in code review).
+            .order("id", { ascending: true })
             .range(from, to),
         );
 
