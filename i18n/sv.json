@@ -17,6 +17,7 @@
   "topics.searchPlaceholder": "Sök ämne",
   "topics.noneFound": "Inget ämne hittades.",
   "dates": "Datum",
+  "filters.includeNonEnglish": "Inkludera icke-engelska hackathons",
   "dates.select": "Välj datum",
   "sorting": "Sortering",
   "sort.byDate": "Sortera efter datum",

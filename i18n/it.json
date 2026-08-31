@@ -17,6 +17,7 @@
   "topics.searchPlaceholder": "Cerca argomento",
   "topics.noneFound": "Nessun argomento trovato.",
   "dates": "Date",
+  "filters.includeNonEnglish": "Includi hackathon non in inglese",
   "dates.select": "Seleziona date",
   "sorting": "Ordinamento",
   "sort.byDate": "Ordina per data",

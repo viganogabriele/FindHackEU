@@ -17,6 +17,7 @@
   "topics.searchPlaceholder": "Thema suchen",
   "topics.noneFound": "Kein Thema gefunden.",
   "dates": "Daten",
+  "filters.includeNonEnglish": "Nicht-englische Hackathons einschließen",
   "dates.select": "Daten auswählen",
   "sorting": "Sortierung",
   "sort.byDate": "Nach Datum sortieren",

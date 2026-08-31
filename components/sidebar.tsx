@@ -267,7 +267,8 @@ function SidebarContent({
     filters.locations.length > 0 ||
     filters.topics.length > 0 ||
     filters.dateRange?.from ||
-    filters.dateRange?.to;
+    filters.dateRange?.to ||
+    !filters.includeNonEnglish;
 
   return (
     <>
@@ -492,6 +493,22 @@ function SidebarContent({
               />
             </PopoverContent>
           </Popover>
+        </div>
+
+        {/* Language */}
+        <div className="flex items-center justify-between">
+          <Label htmlFor="include-non-english" className="cursor-pointer">
+            {t("filters.includeNonEnglish")}
+          </Label>
+          <input
+            id="include-non-english"
+            type="checkbox"
+            className="h-4 w-4 cursor-pointer rounded border-input accent-primary"
+            checked={filters.includeNonEnglish}
+            onChange={(e) =>
+              updateFilter("includeNonEnglish", e.target.checked)
+            }
+          />
         </div>
       </div>
 
