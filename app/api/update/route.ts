@@ -3,6 +3,8 @@ import { Octokit } from "@octokit/rest";
 import { supabaseAdmin } from "@/lib/supabase";
 import { LumaParser } from "@/lib/parsers/luma-parser";
 import { ParsedHackathon } from "@/lib/parsers/base-parser";
+import { mergeHackathonDuplicates } from "@/lib/dedup/dedupe-hackathons";
+import { normalizeUrl } from "@/lib/dedup/url-normalizer";
 import { DiscordBot } from "@/lib/bots/discord-bot";
 import { TelegramBot } from "@/lib/bots/telegram-bot";
 import { TwitterBot } from "@/lib/bots/twitter-bot";
@@ -151,24 +153,14 @@ export async function POST(request: Request) {
     // ---------------------------------------------------------
     // Deduplicate
     // ---------------------------------------------------------
-    const deduplicatedHackathons = parsedHackathons.reduce(
-      (acc, hackathon) => {
-        const key = `${hackathon.name.toLowerCase().trim()}-${
-          hackathon.date_start.toISOString().split("T")[0]
-        }`;
-
-        if (!acc.seen.has(key)) {
-          acc.seen.add(key);
-          acc.hackathons.push(hackathon);
-        }
-
-        return acc;
-      },
-      {
-        seen: new Set<string>(),
-        hackathons: [] as ParsedHackathon[],
-      },
-    ).hackathons;
+    // Cross-provider dedup: normalized-URL match first, then a fuzzy
+    // title+date match (guarded against known location conflicts) as a
+    // secondary signal. Recognized duplicates keep their other source URL
+    // on the in-memory-only `alternateUrls` field for provenance — see
+    // lib/dedup/dedupe-hackathons.ts and issue #22. That field is
+    // intentionally NOT written to the database (see the insert mapping
+    // below); persisting cross-source provenance is deferred to issue #24.
+    const deduplicatedHackathons = mergeHackathonDuplicates(parsedHackathons);
 
     console.log(
       `After deduplication: ${deduplicatedHackathons.length} hackathons`,
@@ -209,30 +201,32 @@ export async function POST(request: Request) {
       if (enhancedHackathons.length === 0) {
         console.log("No hackathons available for insertion");
       } else {
-        const urlsToCheck = enhancedHackathons.map(
-          (hackathon) => hackathon.url,
-        );
-
+        // Fetch every existing URL (not filtered by an exact IN() match
+        // against the freshly-parsed URLs) and compare on normalized URLs
+        // (see lib/dedup/url-normalizer.ts). An exact-match IN() filter
+        // would miss a hackathon already stored under a differently
+        // formatted URL (www./bare domain, lu.ma/luma.com, tracking
+        // params, trailing slash) entirely, since the DB row would never
+        // even be fetched (issue #22).
         const { data: existingHackathons, error: existingCheckError } =
-          await supabaseAdmin
-            .from("hackathons")
-            .select("url")
-            .in("url", urlsToCheck);
+          await supabaseAdmin.from("hackathons").select("url");
 
         if (existingCheckError) {
           throw existingCheckError;
         }
 
         const existingUrls = new Set(
-          existingHackathons?.map(
-            (hackathon: { url: string }) => hackathon.url,
-          ) || [],
+          (
+            existingHackathons?.map(
+              (hackathon: { url: string }) => hackathon.url,
+            ) || []
+          ).map(normalizeUrl),
         );
 
         console.log(`Found ${existingUrls.size} existing hackathons`);
 
         const hackathonsToInsert = enhancedHackathons
-          .filter((hackathon) => !existingUrls.has(hackathon.url))
+          .filter((hackathon) => !existingUrls.has(normalizeUrl(hackathon.url)))
           .map((hackathon) => ({
             name: hackathon.name,
             city: hackathon.city || null,

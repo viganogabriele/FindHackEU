@@ -1,5 +1,6 @@
 import { BaseParser, ParsedHackathon } from "@/lib/parsers/base-parser";
 import { europeanCountries } from "@/lib/european-countries";
+import { mergeHackathonDuplicates } from "@/lib/dedup/dedupe-hackathons";
 
 interface LumaGeoInfo {
   city?: string;
@@ -330,20 +331,17 @@ export class LumaParser extends BaseParser {
     }
   }
 
+  /**
+   * Collapses duplicate events returned across Luma's multiple slug queries
+   * (e.g. the same hackathon tagged both "tech" and "ai"). Previously an
+   * exact `name + full ISO timestamp` key (case-sensitive) — replaced with
+   * the shared normalized-URL + fuzzy-title-aware matcher (see issue #22)
+   * so minor formatting differences (URL tracking params, casing) don't
+   * produce duplicate entries within this single source either.
+   */
   private deduplicateHackathons(
     hackathons: ParsedHackathon[],
   ): ParsedHackathon[] {
-    const seen = new Set<string>();
-
-    return hackathons.filter((hackathon) => {
-      const key = `${hackathon.name}-${hackathon.date_start.toISOString()}`;
-
-      if (seen.has(key)) {
-        return false;
-      }
-
-      seen.add(key);
-      return true;
-    });
+    return mergeHackathonDuplicates(hackathons);
   }
 }
