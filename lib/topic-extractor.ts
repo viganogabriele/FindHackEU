@@ -222,7 +222,7 @@ export const TOPIC_CONFIGS: TopicConfig[] = [
 
 export class TopicExtractor {
   private readonly configs: TopicConfig[];
-  private readonly compiledPatterns: Array<{
+  private compiledPatterns: Array<{
     name: HackathonTopic;
     priority: number;
     pattern: RegExp;
@@ -232,16 +232,31 @@ export class TopicExtractor {
   constructor(configs: TopicConfig[] = TOPIC_CONFIGS, maxTopics: number = 5) {
     this.configs = configs.sort((a, b) => b.priority - a.priority);
     this.maxTopics = maxTopics;
+    this.compiledPatterns = this.compilePatterns();
+  }
 
-    // Compile regex patterns for each config
-    this.compiledPatterns = this.configs.map((config) => ({
-      name: config.name,
-      priority: config.priority,
-      pattern: new RegExp(
-        `\\b(${config.keywords.join("|").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})\\b`,
-        "gi",
-      ),
-    }));
+  /**
+   * Compile regex patterns for each config. Each keyword must be escaped
+   * individually BEFORE joining with the `|` alternation operator — escaping
+   * the joined string would also escape the `|` separators themselves,
+   * turning the pattern into a single literal string instead of an
+   * alternation of keywords.
+   */
+  private compilePatterns(): Array<{
+    name: HackathonTopic;
+    priority: number;
+    pattern: RegExp;
+  }> {
+    return this.configs.map((config) => {
+      const escapedKeywords = config.keywords.map((keyword) =>
+        keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+      );
+      return {
+        name: config.name,
+        priority: config.priority,
+        pattern: new RegExp(`\\b(${escapedKeywords.join("|")})\\b`, "gi"),
+      };
+    });
   }
 
   /**
@@ -326,6 +341,8 @@ export class TopicExtractor {
     }
     // Re-sort by priority
     this.configs.sort((a, b) => b.priority - a.priority);
+    // Rebuild compiled patterns so newly added/updated topics are matched
+    this.compiledPatterns = this.compilePatterns();
   }
 }
 
