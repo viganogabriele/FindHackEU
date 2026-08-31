@@ -165,6 +165,14 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({
 
       relativeTime: (value: string | Date) => {
         const date = value instanceof Date ? value : new Date(value);
+        // A relative-time formatter inherently needs the current instant -
+        // there is no pure way to answer "how long ago was X" without
+        // reading the clock. Accepted, deliberate exception to
+        // react-hooks/purity rather than an oversight; a fully "pure"
+        // version would require threading an explicit `now` through every
+        // caller (e.g. a ticking context), which is a larger redesign than
+        // this lint-cleanup pass warrants.
+        // eslint-disable-next-line react-hooks/purity
         const now = Date.now();
         const diffMs = date.getTime() - now;
         const seconds = Math.round(diffMs / 1000);

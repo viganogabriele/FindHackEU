@@ -3,7 +3,10 @@ import type { HackathonTopic } from "@/lib/constants/topics";
 import type {
   Provider,
   ProviderResult,
+  ParseStatus,
 } from "@/lib/providers/provider.interface";
+
+export type { ParseStatus } from "@/lib/providers/provider.interface";
 
 export interface ParsedHackathon {
   name: string;
@@ -35,22 +38,6 @@ export interface ParsedHackathon {
    */
   alternateUrls?: string[];
 }
-
-/**
- * Explicit outcome of a single provider's `discover()` run.
- *
- * - "ok": every unit of work (e.g. slug/category) the provider
- *   attempted succeeded. Zero matching hackathons is still "ok"
- *   as long as nothing errored.
- * - "partial": at least one unit succeeded and at least one failed.
- * - "failed": every unit attempted failed (or the provider could
- *   not attempt any work at all, e.g. it couldn't authenticate).
- *
- * This lets callers distinguish "genuinely zero results this run"
- * from "the provider is broken" instead of inferring success from
- * whether an exception happened to propagate out of `parse()`.
- */
-export type ParseStatus = "ok" | "partial" | "failed";
 
 /**
  * Result of a provider's own `discover()` implementation: its raw
@@ -91,6 +78,7 @@ export abstract class BaseParser implements Provider {
       return {
         hackathons,
         success: status !== "failed",
+        status,
         count: hackathons.length,
         errors,
       };
@@ -100,6 +88,7 @@ export abstract class BaseParser implements Provider {
       return {
         hackathons: [],
         success: false,
+        status: "failed",
         count: 0,
         errors: [message],
       };
@@ -114,10 +103,28 @@ export abstract class BaseParser implements Provider {
       if (start_date_str === "N/A") throw new Error("Invalid start date");
 
       const start = new Date(start_date_str.replace("Z", "+00:00"));
+
+      // `new Date("garbage")` does NOT throw - it silently produces an
+      // "Invalid Date" whose comparisons/`.toISOString()` calls fail (or
+      // worse, silently misbehave: any comparison against it is always
+      // `false`) much later, far from this actually-bad input. Catch it
+      // here instead, so the existing per-event try/catch upstream (e.g.
+      // LumaParser.mapEventToHackathon) drops just this one malformed
+      // event instead of an Invalid Date reaching route.ts's batch insert
+      // and throwing there, which would fail the ENTIRE batch, not just
+      // the one bad row (found in code review).
+      if (Number.isNaN(start.getTime())) {
+        throw new Error(`Invalid start date: ${start_date_str}`);
+      }
+
       const end =
         end_date_str && end_date_str !== "N/A"
           ? new Date(end_date_str.replace("Z", "+00:00"))
           : undefined;
+
+      if (end && Number.isNaN(end.getTime())) {
+        throw new Error(`Invalid end date: ${end_date_str}`);
+      }
 
       return { start, end };
     } catch (error) {

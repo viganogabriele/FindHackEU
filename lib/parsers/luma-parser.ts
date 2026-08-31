@@ -82,10 +82,19 @@ export class LumaParser extends BaseParser {
   protected async discover(): Promise<DiscoverResult> {
     const allHackathons: ParsedHackathon[] = [];
     const errors: string[] = [];
+    // Tracked separately from `errors.length` for the status decision
+    // below: a slug that truncated still fetched *some* real data (just
+    // known-incomplete), which is a "partial" run, never a "failed" one -
+    // unlike a slug whose fetch actually threw. Counting truncations
+    // toward the same failure tally as hard errors would wrongly report
+    // "failed" if every slug happened to truncate but none actually
+    // errored (found in code review).
+    let hardFailures = 0;
 
     for (const slug of this.slugs) {
       try {
-        const { events, pagesFetched } = await this.fetchEventsForSlug(slug);
+        const { events, pagesFetched, truncated } =
+          await this.fetchEventsForSlug(slug);
         const stats = { excludedPastFutureWindow: 0 };
         const hackathons = this.filterHackathons(events, stats);
 
@@ -96,12 +105,32 @@ export class LumaParser extends BaseParser {
             `${MAX_FUTURE_DAYS}-day future window`,
         );
 
+        if (truncated) {
+          const truncationMessage =
+            `stopped at the ${this.maxPagesPerSlug}-page limit while Luma ` +
+            `still reported more results (has_more: true) - some events ` +
+            `for this category were not fetched this run`;
+
+          console.warn(`Luma [${slug}]: ${truncationMessage}.`);
+
+          // Previously only logged, so a truncated-but-otherwise-fine run
+          // still reported status "ok" - indistinguishable from a fully
+          // complete one (found in code review, verified with a live
+          // probe: has_more: true + a 1-page cap returned {status: "ok",
+          // success: true}). Recording it as an error (but NOT a hard
+          // failure - see `hardFailures` above) is what shifts `status`
+          // to "partial" below, and surfaces it in sourceResults[...].error
+          // in the API response.
+          errors.push(`[${slug}] ${truncationMessage}`);
+        }
+
         allHackathons.push(...hackathons);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
 
         console.error(`Error parsing slug ${slug}:`, error);
         errors.push(`[${slug}] ${message}`);
+        hardFailures++;
       }
     }
 
@@ -111,9 +140,10 @@ export class LumaParser extends BaseParser {
 
     if (errors.length === 0) {
       status = "ok";
-    } else if (errors.length >= this.slugs.length) {
-      // Every slug we attempted failed: this is a real provider
-      // failure, not "zero matching events this run".
+    } else if (hardFailures >= this.slugs.length) {
+      // Every slug we attempted actually failed to fetch (as opposed to
+      // merely truncating): this is a real provider failure, not
+      // "zero/incomplete matching events this run".
       status = "failed";
     } else {
       status = "partial";
@@ -122,9 +152,17 @@ export class LumaParser extends BaseParser {
     return { hackathons, errors, status };
   }
 
-  private async fetchEventsForSlug(
-    slug: string,
-  ): Promise<{ events: LumaEventEntry[]; pagesFetched: number }> {
+  private async fetchEventsForSlug(slug: string): Promise<{
+    events: LumaEventEntry[];
+    pagesFetched: number;
+    // True when the loop stopped only because it hit `maxPagesPerSlug`
+    // while Luma still reported more pages available (`has_more: true`) -
+    // as opposed to stopping because the slug was genuinely exhausted.
+    // Previously this case was indistinguishable from "no more data"
+    // (found in code review): silently truncating without any signal that
+    // real events beyond the page cap were left unfetched.
+    truncated: boolean;
+  }> {
     const allEvents: LumaEventEntry[] = [];
     let cursor: string | null = null;
     let page = 0;
@@ -183,14 +221,18 @@ export class LumaParser extends BaseParser {
         `Luma [${slug}]: fetched page ${page} with ${events.length} events`,
       );
 
-      if (!data.has_more || !data.next_cursor || page >= this.maxPagesPerSlug) {
+      if (!data.has_more || !data.next_cursor) {
+        return { events: allEvents, pagesFetched: page, truncated: false };
+      }
+
+      if (page >= this.maxPagesPerSlug) {
         break;
       }
 
       cursor = data.next_cursor;
     }
 
-    return { events: allEvents, pagesFetched: page };
+    return { events: allEvents, pagesFetched: page, truncated: true };
   }
 
   /**
@@ -292,6 +334,35 @@ export class LumaParser extends BaseParser {
       }
 
       let city = europeanCountries.normalizeCity(geo.city);
+
+      // Check the EXPLICIT geo.country_code field, and only that field,
+      // before any fallback runs. Two bugs found in code review, both
+      // fixed by this ordering/scoping:
+      //
+      // 1. This used to only run `if (!country_code)` AFTER the
+      //    region/city_state fallbacks below - so an explicit non-European
+      //    country_code (e.g. "US") could be silently overwritten by an
+      //    unrelated European-sounding `region` string (e.g. "France")
+      //    before this check ever saw the original signal. Checking
+      //    geo.country_code first, unconditionally, means a real
+      //    contradiction in the source's own data can never be hidden by
+      //    a later fallback.
+      // 2. This used to also run classifyCountryCode() against `region`
+      //    and the last city_state segment - both free text, not
+      //    guaranteed to be country codes at all. A US state abbreviation
+      //    like "NY" would classify as "non_european" under the same
+      //    2-letter heuristic, causing a false drop. classifyCountryCode()
+      //    is now applied only to geo.country_code, the one field Luma's
+      //    API contract actually documents as a country code.
+      if (
+        europeanCountries.classifyCountryCode(geo.country_code) ===
+        "non_european"
+      ) {
+        console.log(
+          `Dropping Luma event "${event.name}": explicit country_code ${geo.country_code} is not European.`,
+        );
+        return null;
+      }
 
       let country_code = europeanCountries.normalizeCountry(geo.country_code);
 

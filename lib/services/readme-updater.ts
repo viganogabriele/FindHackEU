@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase";
 import { Hackathon } from "@/types/hackathon";
 import { MarkdownFormatter } from "@/lib/markdown-formatter";
 import { europeanCountries } from "@/lib/european-countries";
+import { fetchAllRows } from "@/lib/services/fetch-all-rows";
 import fs from "fs";
 import path from "path";
 
@@ -111,23 +112,44 @@ ${pastTableContent}
   }
 
   private async fetchData() {
-    // Ottieni hackathons upcoming
-    const { data: upcoming } = await supabase
-      .from("hackathons")
-      .select("*")
-      .eq("status", "upcoming")
-      .order("date_start", { ascending: true });
+    // Ottieni hackathons upcoming. Paginated (see
+    // lib/services/fetch-all-rows.ts) - a plain, unbounded select silently
+    // truncates past PostgREST's max_rows, which would regenerate and
+    // commit a README missing real upcoming hackathons with no error at
+    // all (found in code review).
+    const upcoming = await fetchAllRows<Hackathon>((from, to) =>
+      supabase
+        .from("hackathons")
+        .select("*")
+        .eq("status", "upcoming")
+        // `id` as a secondary, always-unique tie-breaker: `date_start`
+        // alone isn't unique, so rows sharing a date could otherwise land
+        // on either side of a page boundary inconsistently across
+        // requests if a concurrent insert changes the result set mid-scan
+        // (found in code review).
+        .order("date_start", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
 
-    // Ottieni hackathons passati
-    const { data: past } = await supabase
+    // Ottieni hackathons passati (già limitato a 50, non serve paginare).
+    // Discarding the Supabase `error` here (as this used to) means a real
+    // query failure looks identical to "genuinely zero past hackathons" -
+    // the README would silently regenerate as empty and get committed
+    // over a previously-correct one (found in code review).
+    const { data: past, error: pastError } = await supabase
       .from("hackathons")
       .select("*")
       .eq("status", "past")
       .order("date_start", { ascending: false })
       .limit(50);
 
+    if (pastError) {
+      throw pastError;
+    }
+
     return {
-      upcoming: upcoming || [],
+      upcoming,
       past: past || [],
     };
   }

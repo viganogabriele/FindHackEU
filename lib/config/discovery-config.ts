@@ -19,10 +19,33 @@
  * different horizon is warranted. Configurable via the `MAX_FUTURE_DAYS`
  * environment variable for local experimentation without a code change.
  */
-export const MAX_FUTURE_DAYS = Number.parseInt(
-  process.env.MAX_FUTURE_DAYS ?? "180",
-  10,
-);
+const DEFAULT_MAX_FUTURE_DAYS = 180;
+
+function resolveMaxFutureDays(): number {
+  const raw = process.env.MAX_FUTURE_DAYS;
+
+  if (!raw) {
+    return DEFAULT_MAX_FUTURE_DAYS;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+
+  // An invalid value (e.g. a typo like "abc") must not silently produce
+  // an Invalid Date cutoff downstream - every comparison against an
+  // Invalid Date is always `false`, which would make the future-window
+  // filter a silent no-op instead of erroring loudly (found in code
+  // review). Fall back to the documented default and say so.
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    console.warn(
+      `Invalid MAX_FUTURE_DAYS env var "${raw}" - falling back to default (${DEFAULT_MAX_FUTURE_DAYS}).`,
+    );
+    return DEFAULT_MAX_FUTURE_DAYS;
+  }
+
+  return parsed;
+}
+
+export const MAX_FUTURE_DAYS = resolveMaxFutureDays();
 
 /**
  * Computes the UTC cutoff `Date` beyond which an event's start date should

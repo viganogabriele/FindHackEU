@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -25,10 +25,16 @@ export function ThemeSwitcher() {
   const [open, setOpen] = useState(false);
   const { styles, currentMode, setThemeById, toggleMode } = useThemeStore();
 
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
+  // Hydration-safe "have we mounted on the client" check, without the
+  // extra render + setState-in-effect that `useState`/`useEffect` would
+  // need for this (flagged by react-hooks/set-state-in-effect - a
+  // client/server-snapshot useSyncExternalStore is the standard way to
+  // express "true only after hydration" instead).
+  const hydrated = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   const currentTheme = AVAILABLE_THEMES.find(
     (theme) => JSON.stringify(theme.styles) === JSON.stringify(styles),

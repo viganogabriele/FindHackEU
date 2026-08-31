@@ -5,8 +5,12 @@ import { LumaParser } from "@/lib/parsers/luma-parser";
 import { LablabParser } from "@/lib/parsers/lablab-parser";
 import { ParsedHackathon } from "@/lib/parsers/base-parser";
 import type { Provider } from "@/lib/providers/provider.interface";
-import { mergeHackathonDuplicates } from "@/lib/dedup/dedupe-hackathons";
+import {
+  mergeHackathonDuplicates,
+  areSameHackathon,
+} from "@/lib/dedup/dedupe-hackathons";
 import { normalizeUrl } from "@/lib/dedup/url-normalizer";
+import { fetchAllRows } from "@/lib/services/fetch-all-rows";
 import { DiscordBot } from "@/lib/bots/discord-bot";
 import { TelegramBot } from "@/lib/bots/telegram-bot";
 import { TwitterBot } from "@/lib/bots/twitter-bot";
@@ -14,10 +18,16 @@ import { ReadmeUpdater } from "@/lib/services/readme-updater";
 import { LocationEnhancementService } from "@/lib/services/location-enhancement-service";
 import { MemoryOptimizer } from "@/lib/utils/memory-optimizer";
 import { Hackathon } from "@/types/hackathon";
+import type { ParseStatus } from "@/lib/providers/provider.interface";
 
 interface SourceResult {
   enabled: boolean;
   success: boolean;
+  // Explicit per-provider outcome ("ok" | "partial" | "failed"), alongside
+  // `success` above - "partial" still has `success: true` (the data it did
+  // get is usable) but should be visible as a degraded run rather than
+  // indistinguishable from a fully clean one (found in code review).
+  status?: ParseStatus;
   parsed: number;
   error: string | null;
 }
@@ -32,6 +42,18 @@ export async function POST(request: Request) {
     // ---------------------------------------------------------
     // Authentication
     // ---------------------------------------------------------
+    // Fail closed if CRON_SECRET itself isn't configured, instead of
+    // comparing against "Bearer undefined" - a deployer who forgets to set
+    // this secret would otherwise accept that literal string as valid
+    // authorization (found in code review).
+    if (!process.env.CRON_SECRET) {
+      console.error("CRON_SECRET is not configured - rejecting all requests.");
+      return NextResponse.json(
+        { error: "Server misconfiguration" },
+        { status: 500 },
+      );
+    }
+
     const authHeader = request.headers.get("authorization");
 
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -124,6 +146,7 @@ export async function POST(request: Request) {
         const result = await provider.parse();
 
         sourceResults[provider.name].success = result.success;
+        sourceResults[provider.name].status = result.status;
         sourceResults[provider.name].parsed = result.count;
 
         if (result.errors.length > 0) {
@@ -132,9 +155,12 @@ export async function POST(request: Request) {
 
         parsedHackathons.push(...result.hackathons);
 
-        console.log(`Parsed ${result.count} hackathons from ${provider.name}`);
+        console.log(
+          `Parsed ${result.count} hackathons from ${provider.name} (status: ${result.status})`,
+        );
       } catch (error) {
         sourceResults[provider.name].success = false;
+        sourceResults[provider.name].status = "failed";
         sourceResults[provider.name].error =
           error instanceof Error
             ? error.message
@@ -225,6 +251,11 @@ export async function POST(request: Request) {
     // decision is left for a follow-up rather than reusing the "New
     // Hackathon!" message for an update.
     const notableUpdates: Hackathon[] = [];
+    // Per-row .update() failures used to be only logged and swallowed, so
+    // the run could report success even though some existing records
+    // failed to sync (found in code review). Tracked here and surfaced in
+    // the response/`degraded` flag instead.
+    const updateErrors: string[] = [];
     let insertionError: string | null = null;
 
     try {
@@ -239,18 +270,10 @@ export async function POST(request: Request) {
         // params, trailing slash) entirely, since the DB row would never
         // even be fetched (issue #22). Select every field this pipeline
         // can update so each incoming hackathon can be diffed against
-        // what's already stored.
-        const { data: existingRows, error: existingCheckError } =
-          await supabaseAdmin
-            .from("hackathons")
-            .select(
-              "id, url, name, city, country_code, date_start, date_end, topics, notes",
-            );
-
-        if (existingCheckError) {
-          throw existingCheckError;
-        }
-
+        // what's already stored. Paginated (see
+        // lib/services/fetch-all-rows.ts) so a table past PostgREST's
+        // max_rows doesn't silently drop known rows here - which would
+        // both cause duplicate inserts and skip real updates.
         type ExistingRow = {
           id: string;
           url: string;
@@ -263,12 +286,68 @@ export async function POST(request: Request) {
           notes: string | null;
         };
 
-        const existingByNormalizedUrl = new Map<string, ExistingRow>(
-          ((existingRows as ExistingRow[]) || []).map((row) => [
-            normalizeUrl(row.url),
-            row,
-          ]),
+        const existingRowList = await fetchAllRows<ExistingRow>((from, to) =>
+          supabaseAdmin
+            .from("hackathons")
+            .select(
+              "id, url, name, city, country_code, date_start, date_end, topics, notes",
+            )
+            // Stable order (see lib/services/fetch-all-rows.ts) so a
+            // concurrent insert during pagination can't shift row
+            // positions between pages and cause a row to be skipped or
+            // read twice (found in code review).
+            .order("id", { ascending: true })
+            .range(from, to),
         );
+
+        const existingByNormalizedUrl = new Map<string, ExistingRow>(
+          existingRowList.map((row) => [normalizeUrl(row.url), row]),
+        );
+
+        // Fallback index for the fuzzy-match pass below: an incoming
+        // hackathon whose URL doesn't match any existing row is still
+        // checked against every existing row from the same calendar day
+        // (see areSameHackathon) before being treated as brand new -
+        // otherwise the same event re-listed under a different URL (a
+        // provider re-issuing links, or a second provider entirely) would
+        // be inserted as a duplicate. The shared fuzzy matcher from issue
+        // #22 previously only ran within a single run's own results, never
+        // against what's already stored (found in code review).
+        const existingRowsByDay = new Map<string, ExistingRow[]>();
+
+        for (const row of existingRowList) {
+          const day = row.date_start.split("T")[0];
+          const bucket = existingRowsByDay.get(day);
+
+          if (bucket) {
+            bucket.push(row);
+          } else {
+            existingRowsByDay.set(day, [row]);
+          }
+        }
+
+        function existingRowAsHackathon(row: ExistingRow): ParsedHackathon {
+          return {
+            name: row.name,
+            city: row.city ?? undefined,
+            country_code: row.country_code ?? undefined,
+            date_start: new Date(row.date_start),
+            date_end: row.date_end ? new Date(row.date_end) : undefined,
+            url: row.url,
+            source: "existing",
+          };
+        }
+
+        function findFuzzyMatch(
+          hackathon: ParsedHackathon,
+        ): ExistingRow | undefined {
+          const day = hackathon.date_start.toISOString().split("T")[0];
+          const candidates = existingRowsByDay.get(day);
+
+          return candidates?.find((row) =>
+            areSameHackathon(existingRowAsHackathon(row), hackathon),
+          );
+        }
 
         console.log(
           `Found ${existingByNormalizedUrl.size} existing hackathons`,
@@ -292,9 +371,9 @@ export async function POST(request: Request) {
           JSON.stringify([...(topics || [])].sort());
 
         for (const hackathon of enhancedHackathons) {
-          const existing = existingByNormalizedUrl.get(
-            normalizeUrl(hackathon.url),
-          );
+          const existing =
+            existingByNormalizedUrl.get(normalizeUrl(hackathon.url)) ??
+            findFuzzyMatch(hackathon);
 
           const incoming = {
             name: hackathon.name,
@@ -389,6 +468,7 @@ export async function POST(request: Request) {
 
             if (error) {
               console.error(`Error updating hackathon ${id}:`, error);
+              updateErrors.push(`${id}: ${error.message}`);
               continue;
             }
 
@@ -402,8 +482,8 @@ export async function POST(request: Request) {
           }
 
           console.log(
-            `Successfully updated ${updatedHackathons.length} hackathons ` +
-              `(${notableUpdates.length} with a date/location change)`,
+            `Successfully updated ${updatedHackathons.length}/${hackathonsToUpdate.length} hackathons ` +
+              `(${notableUpdates.length} with a date/location change, ${updateErrors.length} failed)`,
           );
         } else {
           console.log("No existing hackathons need updating");
@@ -515,7 +595,7 @@ export async function POST(request: Request) {
 
           console.error("Error updating notification status:", error);
 
-          notificationErrors.push("Supabase");
+          notificationErrors.push(`Supabase: ${message}`);
         }
       }
     } else if (newHackathons.length > 0 && insertionError) {
@@ -600,24 +680,37 @@ export async function POST(request: Request) {
       !!statusUpdateError ||
       !!readmeError ||
       notificationErrors.length > 0 ||
-      sourceErrors.length > 0;
+      sourceErrors.length > 0 ||
+      updateErrors.length > 0;
 
     // If every enabled source failed, this is definitely a
     // failed update even if the database operations themselves
     // happened to succeed.
     const success = !hasErrors && !allEnabledSourcesFailed;
 
+    // A source that partially failed (some slugs/categories ok, some not)
+    // still has `success: true` - the data it did return is real and worth
+    // keeping - but the run is not fully clean either. Surface that as an
+    // explicit `degraded` flag instead of letting it disappear into the
+    // same boolean as a fully successful run (found in code review).
+    const degraded =
+      Object.values(sourceResults).some(
+        (result) => result.enabled && result.status === "partial",
+      ) || updateErrors.length > 0;
+
     MemoryOptimizer.logMemoryUsage("Final memory usage");
 
     return NextResponse.json(
       {
         success,
+        degraded,
         testMode,
 
         parsed: parsedHackathons.length,
         inserted: newHackathons.length,
         updated: updatedHackathons.length,
         notableUpdates: notableUpdates.length,
+        updateErrors: updateErrors.length > 0 ? updateErrors : undefined,
 
         dataChanged,
 

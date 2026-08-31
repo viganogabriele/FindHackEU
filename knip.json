@@ -5,17 +5,24 @@
     "lib/**/*.ts",
     "types/**/*.ts",
     "contexts/**/*.tsx",
-    "components/**/*.tsx"
+    "components/**/*.tsx",
+    "scripts/**/*.{js,ts}"
   ],
-  "project": ["**/*.{js,ts,tsx}", "!node_modules/**", "!.next/**"],
+  "project": [
+    "**/*.{js,ts,tsx}",
+    "!node_modules/**",
+    "!.next/**",
+    "!.claude/**",
+    "!redesign/**"
+  ],
   "ignore": ["next-sitemap.config.js"],
   "ignoreDependencies": [
-    "eslint",
     "@eslint/eslintrc",
     "eslint-config-next",
     "tailwindcss",
     "prettier-plugin-tailwindcss",
-    "tw-animate-css"
+    "tw-animate-css",
+    "supabase"
   ],
   "ignoreBinaries": ["npm-check-updates"],
   "next": true,

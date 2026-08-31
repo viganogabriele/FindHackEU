@@ -28,6 +28,7 @@ loadEnvConfig(process.cwd());
 async function main() {
   const { supabaseAdmin } = await import("../lib/supabase");
   const { defaultTopicExtractor } = await import("../lib/topic-extractor");
+  const { fetchAllRows } = await import("../lib/services/fetch-all-rows");
 
   const shouldWrite = process.argv.includes("--write");
 
@@ -37,17 +38,6 @@ async function main() {
       : "Running in DRY-RUN mode (default) - pass --write to persist changes.",
   );
 
-  const { data: rows, error } = await supabaseAdmin
-    .from("hackathons")
-    .select("id, name, notes, topics")
-    .or("topics.is.null,topics.eq.{}");
-
-  if (error) {
-    console.error("Failed to fetch hackathons:", error);
-    process.exitCode = 1;
-    return;
-  }
-
   interface CandidateRow {
     id: string;
     name: string;
@@ -55,7 +45,21 @@ async function main() {
     topics: string[] | null;
   }
 
-  const candidates = (rows ?? []) as CandidateRow[];
+  // Paginated (see lib/services/fetch-all-rows.ts) - on a table with more
+  // than PostgREST's max_rows worth of empty-topic rows, a plain select
+  // would silently only backfill the first page and report success
+  // (found in code review).
+  const candidates = await fetchAllRows<CandidateRow>((from, to) =>
+    supabaseAdmin
+      .from("hackathons")
+      .select("id, name, notes, topics")
+      .or("topics.is.null,topics.eq.{}")
+      // Stable order so a concurrent insert/update during this scan can't
+      // shift row positions between pages (found in code review).
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
+
   console.log(`Found ${candidates.length} hackathon(s) with empty topics.`);
 
   let wouldUpdateCount = 0;
@@ -103,4 +107,7 @@ async function main() {
   );
 }
 
-main();
+main().catch((error) => {
+  console.error("Backfill failed:", error);
+  process.exitCode = 1;
+});

@@ -1,0 +1,7 @@
+-- Local development seed data.
+--
+-- Intentionally empty: this project's data comes from the real discovery
+-- pipeline (POST /api/update against the live Luma API, see CLAUDE.md),
+-- not from fixture rows. This file exists only so `supabase/config.toml`'s
+-- `db.seed.sql_paths = ["./seed.sql"]` resolves to a real file instead of
+-- warning on every `supabase db reset`/`start` (found in code review).

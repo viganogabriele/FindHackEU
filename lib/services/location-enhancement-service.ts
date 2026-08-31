@@ -2,6 +2,8 @@ import { GeocodingService } from "./geocoding-service";
 import { europeanCountries } from "@/lib/european-countries";
 import type { ParsedHackathon } from "@/lib/parsers/base-parser";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchAllRows } from "@/lib/services/fetch-all-rows";
+import { normalizeUrl } from "@/lib/dedup/url-normalizer";
 import pLimit from "p-limit";
 
 /**
@@ -40,10 +42,14 @@ export class LocationEnhancementService {
       hackathons.map((hackathon) =>
         limit(async () => {
           // Applica geocoding solo se:
-          // 1. L'hackathon non esiste già nel database (URL non presente)
+          // 1. L'hackathon non esiste già nel database (URL non presente,
+          //    confrontato in forma normalizzata - vedi
+          //    lib/dedup/url-normalizer.ts - così un alias come lu.ma vs
+          //    luma.com non sembra "nuovo" solo per una differenza
+          //    cosmetica nell'URL, trovato in code review)
           // 2. Ha una città ma non un country code
           const shouldGeocode = Boolean(
-            !existingUrls.has(hackathon.url) &&
+            !existingUrls.has(normalizeUrl(hackathon.url)) &&
             hackathon.city &&
             !hackathon.country_code,
           );
@@ -156,16 +162,28 @@ export class LocationEnhancementService {
     supabaseClient: SupabaseClient,
   ): Promise<Set<string>> {
     try {
-      const { data: existing, error } = await supabaseClient
-        .from("hackathons")
-        .select("url");
+      // Paginated (see lib/services/fetch-all-rows.ts) - a plain
+      // .select("url") silently truncates once the table exceeds
+      // PostgREST's max_rows, which would make already-known hackathons
+      // invisible here and trigger redundant/wasted geocoding calls.
+      // Ordered by `id` so concurrent inserts during pagination can't
+      // shift row positions between pages and cause a row to be skipped
+      // or read twice (found in code review).
+      const existing = await fetchAllRows<{ url: string }>((from, to) =>
+        supabaseClient
+          .from("hackathons")
+          .select("url")
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
 
-      if (error) {
-        console.error("Error fetching existing URLs:", error);
-        return new Set();
-      }
-
-      return new Set(existing?.map((h: { url: string }) => h.url) || []);
+      // Normalized (see lib/dedup/url-normalizer.ts), not raw - callers
+      // compare against a freshly-parsed hackathon's URL, which may be a
+      // cosmetically different but equivalent alias (lu.ma vs luma.com,
+      // tracking params, trailing slash) of what's already stored. Without
+      // this, an already-known event under an aliased URL would still
+      // trigger a redundant/wasted geocoding call (found in code review).
+      return new Set(existing.map((h) => normalizeUrl(h.url)));
     } catch (error) {
       console.error("Error fetching existing URLs:", error);
       return new Set();

@@ -707,6 +707,46 @@ export class EuropeanCountriesUtil {
   }
 
   /**
+   * Classifies a country code/name input into one of three buckets,
+   * distinguishing "genuinely unrecognized text" from "a real,
+   * well-formed country code that just isn't European" - a distinction
+   * `normalizeCountry()` alone cannot make, since it only ever returns a
+   * European code or `undefined` either way. Without this, a US/JP/etc.
+   * event with an explicit, valid country code from the source data was
+   * silently treated as "country undetermined" instead of being
+   * recognized and dropped as non-European (found via code review).
+   *
+   * - "european": matches a known European code/alias.
+   * - "non_european": looks like a real ISO 3166-1 alpha-2 code (exactly
+   *   two letters) that just isn't in our European list - e.g. "US", "JP".
+   * - "unrecognized": free text that isn't a 2-letter code and doesn't
+   *   match any known alias (e.g. a garbled city_state fragment) - too
+   *   ambiguous to call non-European, so callers should treat this the
+   *   same as "undetermined" rather than dropping the event.
+   */
+  classifyCountryCode(
+    input: string | undefined | null,
+  ): "european" | "non_european" | "unrecognized" {
+    if (!input || typeof input !== "string") {
+      return "unrecognized";
+    }
+
+    const normalized = EuropeanCountriesUtil.foldDiacritics(
+      input.trim().toLowerCase(),
+    );
+
+    if (this.countryMap.has(normalized)) {
+      return "european";
+    }
+
+    if (/^[a-z]{2}$/.test(normalized)) {
+      return "non_european";
+    }
+
+    return "unrecognized";
+  }
+
+  /**
    * Normalize a city name - capitalize first letter of each word
    * Preserves Unicode characters (accents, umlauts, etc.)
    */
