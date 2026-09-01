@@ -50,9 +50,15 @@ export async function submitManualCandidate(
   }
 
   try {
-    new URL(url);
+    const parsedUrl = new URL(url);
+    if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+      return {
+        outcome: "invalid",
+        message: "A valid HTTP(S) URL is required.",
+      };
+    }
   } catch {
-    return { outcome: "invalid", message: "A valid URL is required." };
+    return { outcome: "invalid", message: "A valid HTTP(S) URL is required." };
   }
 
   let country_code: string | null = null;

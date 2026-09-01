@@ -42,19 +42,24 @@ const STATUSES: StatusFilter[] = ["pending", "approved", "rejected"];
 export default async function CandidatesAdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; error?: string }>;
 }) {
   if (process.env.NODE_ENV === "production") {
     notFound();
   }
 
   const authStatus = await getAdminAuthStatus();
+  const params = await searchParams;
 
   if (!authStatus.authorized) {
-    return <SignInGate email={authStatus.email} />;
+    return (
+      <SignInGate
+        email={authStatus.email}
+        authError={params.error === "oauth_callback_failed"}
+      />
+    );
   }
 
-  const params = await searchParams;
   const status: StatusFilter = STATUSES.includes(params.status as StatusFilter)
     ? (params.status as StatusFilter)
     : "pending";
@@ -145,7 +150,13 @@ export default async function CandidatesAdminPage({
  * a convenience gate, not the real security boundary - see
  * app/admin/candidates/actions.ts's `assertAuthorized()`.
  */
-function SignInGate({ email }: { email: string | null }) {
+function SignInGate({
+  email,
+  authError = false,
+}: {
+  email: string | null;
+  authError?: boolean;
+}) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-sm">
@@ -154,6 +165,11 @@ function SignInGate({ email }: { email: string | null }) {
           <p className="text-sm text-muted-foreground">
             The candidate review queue is restricted to the project maintainer.
           </p>
+          {authError && (
+            <p role="alert" className="text-sm text-destructive">
+              Google sign-in could not be completed. Please try again.
+            </p>
+          )}
           {email && (
             <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
               Signed in as <span className="font-medium">{email}</span>, but

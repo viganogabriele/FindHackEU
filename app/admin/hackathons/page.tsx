@@ -35,19 +35,24 @@ const STATUSES: StatusFilter[] = ["upcoming", "past", "estimated"];
 export default async function HackathonsAdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; error?: string }>;
 }) {
   if (process.env.NODE_ENV === "production") {
     notFound();
   }
 
   const authStatus = await getAdminAuthStatus();
+  const params = await searchParams;
 
   if (!authStatus.authorized) {
-    return <SignInGate email={authStatus.email} />;
+    return (
+      <SignInGate
+        email={authStatus.email}
+        authError={params.error === "oauth_callback_failed"}
+      />
+    );
   }
 
-  const params = await searchParams;
   const status: StatusFilter = STATUSES.includes(params.status as StatusFilter)
     ? (params.status as StatusFilter)
     : "upcoming";
@@ -149,7 +154,13 @@ export default async function HackathonsAdminPage({
   );
 }
 
-function SignInGate({ email }: { email: string | null }) {
+function SignInGate({
+  email,
+  authError = false,
+}: {
+  email: string | null;
+  authError?: boolean;
+}) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-sm">
@@ -159,6 +170,11 @@ function SignInGate({ email }: { email: string | null }) {
             Managing published hackathons is restricted to the project
             maintainer.
           </p>
+          {authError && (
+            <p role="alert" className="text-sm text-destructive">
+              Google sign-in could not be completed. Please try again.
+            </p>
+          )}
           {email && (
             <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
               Signed in as <span className="font-medium">{email}</span>, but
@@ -166,7 +182,7 @@ function SignInGate({ email }: { email: string | null }) {
             </p>
           )}
           <Separator />
-          <GoogleSignInButton />
+          <GoogleSignInButton next="/admin/hackathons" />
           <Button asChild variant="link" size="sm">
             <Link href="/">
               <ArrowLeft className="mr-2 h-4 w-4" />

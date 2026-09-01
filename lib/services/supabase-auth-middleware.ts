@@ -1,12 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { applySupabaseSessionHeaders } from "./supabase-session-headers";
 
 /**
  * Refreshes the Supabase Auth session cookies for a request, following the
  * `@supabase/ssr` documented middleware pattern. Called from `proxy.ts`
- * (this repo's Next 16 middleware) only for paths under /admin/candidates
- * and /auth/callback (issue #67) - the rest of the site stays fully public
- * and untouched by Supabase Auth.
+ * (this repo's Next 16 proxy) only for the two admin paths and
+ * /auth/callback (issue #67) - the rest of the site stays fully public and
+ * untouched by Supabase Auth.
  */
 export async function updateSupabaseSession(
   request: NextRequest,
@@ -21,7 +22,7 @@ export async function updateSupabaseSession(
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet, headers) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
@@ -29,6 +30,7 @@ export async function updateSupabaseSession(
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options),
           );
+          applySupabaseSessionHeaders(supabaseResponse.headers, headers);
         },
       },
     },

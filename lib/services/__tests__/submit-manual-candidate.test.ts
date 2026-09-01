@@ -41,6 +41,18 @@ describe("submitManualCandidate", () => {
     expect(result.outcome).toBe("invalid");
   });
 
+  it("rejects non-http(s) URLs before storing a candidate", async () => {
+    const result = await submitManualCandidate({
+      url: "javascript:alert(1)",
+      name: "Some Hackathon",
+    });
+
+    expect(result).toEqual({
+      outcome: "invalid",
+      message: "A valid HTTP(S) URL is required.",
+    });
+  });
+
   it("rejects a non-European country name", async () => {
     const result = await submitManualCandidate({
       url: "https://example.org/event",

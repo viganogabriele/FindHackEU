@@ -7,27 +7,35 @@ import { updateSupabaseSession } from "@/lib/services/supabase-auth-middleware";
  * login and must stay untouched by Supabase Auth's cookie handling.
  */
 function needsSupabaseSession(pathname: string): boolean {
-  return (
-    pathname.startsWith("/admin/candidates") ||
-    pathname.startsWith("/auth/callback")
+  return ["/admin/candidates", "/admin/hackathons", "/auth/callback"].some(
+    (protectedPath) =>
+      pathname === protectedPath || pathname.startsWith(`${protectedPath}/`),
   );
 }
 
 export async function proxy(request: NextRequest) {
-  const response = needsSupabaseSession(request.nextUrl.pathname)
+  const usesSupabaseSession = needsSupabaseSession(request.nextUrl.pathname);
+  const response = usesSupabaseSession
     ? await updateSupabaseSession(request)
     : NextResponse.next();
 
-  const vary = response.headers.get("Vary");
-  if (vary) {
-    if (!vary.includes("Cookie"))
-      response.headers.set("Vary", `${vary}, Cookie`);
-  } else {
-    response.headers.set("Vary", "Cookie");
+  if (usesSupabaseSession) {
+    const vary = response.headers.get("Vary");
+    const varyValues = vary?.split(",").map((value) => value.trim()) ?? [];
+    if (!varyValues.some((value) => value.toLowerCase() === "cookie")) {
+      response.headers.set(
+        "Vary",
+        [...varyValues, "Cookie"].filter(Boolean).join(", "),
+      );
+    }
   }
   return response;
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/admin/candidates/:path*",
+    "/admin/hackathons/:path*",
+    "/auth/callback",
+  ],
 };

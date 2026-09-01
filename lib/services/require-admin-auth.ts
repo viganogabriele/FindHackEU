@@ -7,7 +7,7 @@ export interface AdminAuthStatus {
 }
 
 /**
- * Server-side admin auth check for /admin/candidates (issue #67). Single-
+ * Server-side admin auth check for the admin pages (issue #67). Single-
  * maintainer allowlist: only the exact email in `ADMIN_ALLOWED_EMAIL` (set
  * server-side only, never exposed to the client) is authorized, regardless
  * of whether other Google accounts could sign in. If the env var is unset,
@@ -31,7 +31,7 @@ export async function getAdminAuthStatus(): Promise<AdminAuthStatus> {
 /**
  * Throws unless the caller has a valid Supabase Auth session whose email
  * matches `ADMIN_ALLOWED_EMAIL`. Call this at the top of every
- * /admin/candidates server action (mirroring the existing `assertDevOnly()`
+ * admin server action (mirroring the existing `assertDevOnly()`
  * pattern in app/admin/candidates/actions.ts) - the sign-in gate on the page
  * itself only hides UI, it is not real security on its own since a server
  * action is its own callable endpoint once the client has the page loaded.

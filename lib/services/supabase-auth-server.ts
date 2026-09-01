@@ -4,7 +4,7 @@ import type { Database } from "@/types/database";
 
 /**
  * Cookie-aware Supabase client for use in Server Components and Server
- * Actions (issue #67 - Google sign-in for /admin/candidates). Distinct from
+ * Actions (issue #67 - Google sign-in for the admin pages). Distinct from
  * `lib/supabase.ts`'s `supabase`/`supabaseAdmin` exports, which are plain
  * anon/service-role clients with no session/cookie awareness and are used
  * for data reads/writes, not auth. This one uses the anon key plus the
@@ -14,8 +14,8 @@ import type { Database } from "@/types/database";
  * Writing cookies from a Server Component (rather than a Server Action or
  * Route Handler) throws in Next.js - the `try/catch` below is the documented
  * `@supabase/ssr` pattern for that, and is safe because `proxy.ts`
- * (this repo's Next 16 middleware, scoped to /admin/candidates and
- * /auth/callback) refreshes the session cookies on every matching request.
+ * (this repo's Next 16 proxy, scoped to the admin paths and /auth/callback)
+ * refreshes the session cookies on every matching request.
  */
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
@@ -28,7 +28,10 @@ export async function createSupabaseServerClient() {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet, headers) {
+          // Server Components have no response object; matching proxy
+          // requests apply these headers where the refreshed cookies are sent.
+          void headers;
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options),
