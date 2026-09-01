@@ -81,6 +81,7 @@ export async function submitManualCandidate(
         search_provider: "manual",
         extraction_method: "text-fallback",
         raw_snippet: name,
+        source: "manual",
       },
     ],
     { onConflict: "url,query", ignoreDuplicates: true },

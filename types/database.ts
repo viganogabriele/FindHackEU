@@ -94,6 +94,11 @@ export interface Database {
           // the winning JSON-LD extraction tier - see issue #15 and
           // lib/search/extract-event-evidence.ts's has_conflict comment.
           has_conflict: boolean;
+          // Distinct from `search_provider` (issue #13's own acceptance
+          // criteria expect a literal "web-search" value here) -
+          // "web-search" for a discovered candidate, "manual" for a
+          // hand-submitted URL (see submit-manual-candidate.ts).
+          source: string;
         };
         Insert: {
           id?: string;
@@ -114,6 +119,7 @@ export interface Database {
           promoted_hackathon_id?: string | null;
           created_at?: string;
           has_conflict?: boolean;
+          source?: string;
         };
         Update: {
           id?: string;
@@ -134,6 +140,7 @@ export interface Database {
           promoted_hackathon_id?: string | null;
           created_at?: string;
           has_conflict?: boolean;
+          source?: string;
         };
       };
       update_runs: {

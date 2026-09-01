@@ -236,6 +236,7 @@ export async function discoverWebCandidates(
         extraction_method: evidence.extraction_method,
         raw_snippet: evidence.raw_snippet,
         has_conflict: evidence.has_conflict,
+        source: "web-search",
       });
       stats.candidatesFound++;
     }
