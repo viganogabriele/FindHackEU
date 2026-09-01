@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   discoverWebCandidates,
   generateQueries,
+  isAutoPublishEligible,
 } from "@/lib/discovery/web-search-candidates";
 import { createInMemoryQueryBudget } from "@/lib/discovery/query-budget";
 import type { SearchProvider } from "@/lib/search/search-provider";
@@ -559,5 +560,35 @@ describe("discoverWebCandidates", () => {
     expect(stats.queriesRun).toBe(1);
     expect(stats.queriesSkippedForBudget).toBe(1);
     expect(provider.search).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("isAutoPublishEligible", () => {
+  const trustedCandidate = {
+    name: "Berlin Hack 2026",
+    url: "https://berlinhack.example",
+    query: "hackathon Germany 2026",
+    search_provider: "stub",
+    extraction_method: "jsonld-event" as const,
+    country_code: "DE",
+    date_start: "2026-11-01T00:00:00.000Z",
+    has_conflict: false,
+    source: "web-search",
+  };
+
+  it("accepts complete, non-conflicting JSON-LD web-search evidence", () => {
+    expect(isAutoPublishEligible(trustedCandidate)).toBe(true);
+  });
+
+  it.each([
+    ["Open Graph evidence", { extraction_method: "og-meta" as const }],
+    ["conflicting evidence", { has_conflict: true }],
+    ["missing country", { country_code: null }],
+    ["missing date", { date_start: null }],
+    ["manual source", { source: "manual" }],
+  ])("keeps %s in review", (_reason, override) => {
+    expect(isAutoPublishEligible({ ...trustedCandidate, ...override })).toBe(
+      false,
+    );
   });
 });

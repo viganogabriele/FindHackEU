@@ -34,6 +34,10 @@ async function main() {
     await import("../lib/search/search-provider");
   const { discoverWebCandidates } =
     await import("../lib/discovery/web-search-candidates");
+  const { isAutoPublishEligible } =
+    await import("../lib/discovery/web-search-candidates");
+  const { promoteCandidate } =
+    await import("../lib/services/promote-candidate");
   const { FileBudgetTracker } = await import("../lib/discovery/query-budget");
 
   const maxQueries = parseIntArg("max-queries", 10);
@@ -144,10 +148,13 @@ async function main() {
     return;
   }
 
-  const { error } = await supabaseAdmin
+  const { data: insertedData, error } = await supabaseAdmin
     .from("hackathon_candidates")
     // @ts-expect-error - Supabase generated types may not include insert shape
-    .upsert(candidates, { onConflict: "url,query", ignoreDuplicates: true });
+    .upsert(candidates, { onConflict: "url,query", ignoreDuplicates: true })
+    .select(
+      "id, source, extraction_method, has_conflict, country_code, date_start",
+    );
 
   if (error) {
     console.error("Failed to insert candidates:", error);
@@ -157,8 +164,41 @@ async function main() {
 
   console.log(
     `Inserted up to ${candidates.length} new candidate(s) (duplicates on ` +
-      `url+query silently skipped) for review at /admin/candidates.`,
+      `url+query silently skipped).`,
   );
+
+  const insertedCandidates =
+    (insertedData as Array<{
+      id: string;
+      source: string;
+      extraction_method: "jsonld-event" | "og-meta" | "text-fallback";
+      has_conflict: boolean;
+      country_code: string | null;
+      date_start: string | null;
+    }> | null) ?? [];
+  const trustedCandidates = insertedCandidates.filter(isAutoPublishEligible);
+
+  const promotionResults = await Promise.all(
+    trustedCandidates.map((candidate) => promoteCandidate(candidate.id)),
+  );
+  const promoted = promotionResults.filter(
+    (result) => result.outcome === "promoted",
+  ).length;
+  const promotionErrors = promotionResults.filter(
+    (result) => result.outcome === "error",
+  );
+
+  console.log(
+    `Auto-published ${promoted} trusted JSON-LD candidate(s); ` +
+      `${insertedCandidates.length - trustedCandidates.length} new candidate(s) ` +
+      `remain in review at /admin/candidates.`,
+  );
+  if (promotionErrors.length > 0) {
+    console.warn(
+      `Could not auto-publish ${promotionErrors.length} trusted candidate(s): ` +
+        promotionErrors.map((result) => result.message).join("; "),
+    );
+  }
 }
 
 main().catch((error) => {

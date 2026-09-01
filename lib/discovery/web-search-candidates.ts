@@ -16,6 +16,33 @@ type CandidateInsert =
   Database["public"]["Tables"]["hackathon_candidates"]["Insert"];
 
 /**
+ * Auto-publication is deliberately narrower than candidate collection:
+ * only structured, geographically verified, non-conflicting web evidence
+ * may skip human review. Everything else remains visible in the queue.
+ */
+export function isAutoPublishEligible(
+  candidate: Pick<
+    CandidateInsert,
+    | "source"
+    | "extraction_method"
+    | "has_conflict"
+    | "country_code"
+    | "date_start"
+  >,
+): boolean {
+  return (
+    candidate.source === "web-search" &&
+    candidate.extraction_method === "jsonld-event" &&
+    candidate.has_conflict !== true &&
+    typeof candidate.country_code === "string" &&
+    europeanCountries.classifyCountryCode(candidate.country_code) ===
+      "european" &&
+    typeof candidate.date_start === "string" &&
+    !Number.isNaN(Date.parse(candidate.date_start))
+  );
+}
+
+/**
  * A small, curated set of European countries to build search queries
  * around, rather than every country in lib/european-countries.ts - this
  * keeps a single discovery run's query count (and therefore its search
