@@ -13,7 +13,10 @@ import {
   editCandidate,
   type EditCandidateResult,
 } from "@/lib/services/edit-candidate";
-import { moveCandidateToPending } from "@/lib/services/candidate-moderation";
+import {
+  moveCandidateToPending,
+  type MoveCandidateToPendingResult,
+} from "@/lib/services/candidate-moderation";
 import { requireAdminAuth } from "@/lib/services/require-admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 
@@ -68,16 +71,16 @@ export async function rejectCandidateAction(
 
 export async function moveCandidateToPendingAction(
   candidateId: string,
-): Promise<void> {
+): Promise<MoveCandidateToPendingResult> {
   await assertAuthorized();
 
   const result = await moveCandidateToPending(supabaseAdmin, candidateId);
 
-  if (result.outcome === "error") {
-    throw new Error(result.message);
+  if (result.outcome === "updated") {
+    revalidatePath("/admin/candidates");
   }
 
-  revalidatePath("/admin/candidates");
+  return result;
 }
 
 /**

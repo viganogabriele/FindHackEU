@@ -23,7 +23,6 @@ import type { Database } from "@/types/database";
 import {
   approveCandidateAction,
   rejectCandidateAction,
-  moveCandidateToPendingAction,
   deleteCandidateAction,
 } from "./actions";
 import {
@@ -59,6 +58,7 @@ import { candidateToHackathonCardData } from "./candidate-card-data";
 import { AdminSearchInput } from "./admin-search-input";
 import { PendingReasonFilter } from "./pending-reason-filter";
 import { TriggerUpdateButton } from "../trigger-update-button";
+import { MoveCandidateToPendingButton } from "./move-candidate-to-pending-button";
 
 type CandidateRow = Database["public"]["Tables"]["hackathon_candidates"]["Row"];
 type HackathonRow = Database["public"]["Tables"]["hackathons"]["Row"];
@@ -725,19 +725,7 @@ function CandidateCard({
             </form>
             <EditCandidateDialog candidate={candidate} />
             {status === "rejected" && (
-              <form
-                action={moveCandidateToPendingAction.bind(null, candidate.id)}
-              >
-                <Button
-                  type="submit"
-                  variant="outline"
-                  size="icon"
-                  title="Move to pending"
-                  aria-label="Move to pending"
-                >
-                  <Clock3 aria-hidden="true" />
-                </Button>
-              </form>
+              <MoveCandidateToPendingButton candidateId={candidate.id} />
             )}
             {status !== "rejected" && (
               <form
