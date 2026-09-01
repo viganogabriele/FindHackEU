@@ -11,6 +11,15 @@ describe("preview image persistence", () => {
     );
   });
 
+  it("normalizes protocol-relative source URLs without corrupting absolute URLs", () => {
+    expect(validatePreviewImageUrl("//cdn.example.com/image.jpg")).toBe(
+      "https://cdn.example.com/image.jpg",
+    );
+    expect(validatePreviewImageUrl("https://cdn.example.com/image.jpg")).toBe(
+      "https://cdn.example.com/image.jpg",
+    );
+  });
+
   it("rejects non-http image values", () => {
     expect(validatePreviewImageUrl("javascript:alert(1)")).toBeUndefined();
   });

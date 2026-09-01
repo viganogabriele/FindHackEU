@@ -10,6 +10,7 @@ import {
   getMaxFutureCutoff,
 } from "@/lib/config/discovery-config";
 import { fetchWithRetry } from "@/lib/http/fetch-with-retry";
+import { validatePreviewImageUrl } from "@/lib/services/preview-image";
 
 interface DevpostTheme {
   name?: string;
@@ -22,7 +23,7 @@ interface DevpostHackathon {
   submission_period_dates: string;
   displayed_location?: string | { icon?: string; location?: string } | null;
   themes?: Array<string | DevpostTheme>;
-  /** Devpost's listing API exposes this as a protocol-relative CDN URL. */
+  /** Devpost's listing API exposes this as a CDN URL. */
   thumbnail_url?: string | null;
 }
 
@@ -220,9 +221,7 @@ export class DevpostParser extends BaseParser {
         ),
         url: item.url,
         source: "devpost",
-        preview_image_url: item.thumbnail_url
-          ? `https:${item.thumbnail_url}`
-          : undefined,
+        preview_image_url: validatePreviewImageUrl(item.thumbnail_url),
       };
     } catch (error) {
       console.error(`Error mapping Devpost event ${item.title}:`, error);

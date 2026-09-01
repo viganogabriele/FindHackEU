@@ -125,6 +125,31 @@ describe("DevpostParser", () => {
     );
   });
 
+  it("preserves an already absolute Devpost thumbnail URL", async () => {
+    mockFetch([
+      [
+        {
+          id: 130,
+          title: "Berlin Absolute Image Hack",
+          url: "https://absolute-image.devpost.com/",
+          submission_period_dates: "Oct 10 - Oct 12, 2026",
+          open_state: "upcoming",
+          displayed_location: "Berlin, Germany",
+          themes: [],
+          thumbnail_url: "https://cdn.example.com/thumb.jpg",
+        },
+      ],
+    ]);
+
+    const pendingParse = new DevpostParser().parse();
+    await vi.runAllTimersAsync();
+    const [hackathon] = (await pendingParse).hackathons;
+
+    expect(hackathon.preview_image_url).toBe(
+      "https://cdn.example.com/thumb.jpg",
+    );
+  });
+
   it("keeps online worldwide listings without inventing a country", async () => {
     mockFetch([
       [
