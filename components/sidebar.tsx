@@ -230,11 +230,13 @@ function DevTriggerUpdateButton() {
       >
         <RefreshCw
           className={cn(
-            "mr-2 h-4 w-4",
+            "mr-2 h-4 w-4 shrink-0",
             state.status === "loading" && "animate-spin",
           )}
         />
-        {state.status === "loading" ? "Aggiornamento..." : "Aggiorna ora (dev)"}
+        <span className="min-w-0 truncate">
+          {state.status === "loading" ? "Aggiornamento..." : "Aggiorna (dev)"}
+        </span>
       </Button>
       {state.status === "done" && (
         <p className="text-xs text-muted-foreground">
@@ -614,8 +616,10 @@ function SidebarContent({
         <>
           <Separator />
           <DevTriggerUpdateButton />
-          <Button asChild variant="outline" className="w-full">
-            <a href="/admin/candidates">Review web candidates (dev)</a>
+          <Button asChild variant="outline" size="sm" className="w-full">
+            <a href="/admin/candidates" className="truncate">
+              Web candidates (dev)
+            </a>
           </Button>
         </>
       )}
