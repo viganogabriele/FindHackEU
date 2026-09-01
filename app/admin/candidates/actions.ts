@@ -9,6 +9,10 @@ import {
   submitManualCandidate,
   type SubmitManualCandidateResult,
 } from "@/lib/services/submit-manual-candidate";
+import {
+  editCandidate,
+  type EditCandidateResult,
+} from "@/lib/services/edit-candidate";
 import { requireAdminAuth } from "@/lib/services/require-admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 
@@ -85,6 +89,37 @@ export async function deleteCandidateAction(
   }
 
   revalidatePath("/admin/candidates");
+}
+
+/**
+ * Issue #94 - saves an in-place edit to a still-pending (or rejected)
+ * candidate row (name/date/city/country/topics), backed by
+ * `lib/services/edit-candidate.ts`'s plain `UPDATE`. Distinct from
+ * `approveCandidateAction`/`promoteCandidate()`: this never touches
+ * `hackathons`, it just corrects the source row an eventual Approve will
+ * copy from.
+ */
+export async function editCandidateFormAction(
+  candidateId: string,
+  _prevState: EditCandidateResult | null,
+  formData: FormData,
+): Promise<EditCandidateResult> {
+  await assertAuthorized();
+
+  const result = await editCandidate({
+    candidateId,
+    name: String(formData.get("name") ?? ""),
+    city: String(formData.get("city") ?? ""),
+    countryCode: String(formData.get("countryCode") ?? ""),
+    dateStart: String(formData.get("dateStart") ?? ""),
+    topics: formData.getAll("topics").map(String),
+  });
+
+  if (result.outcome === "updated") {
+    revalidatePath("/admin/candidates");
+  }
+
+  return result;
 }
 
 export async function submitManualCandidateFormAction(

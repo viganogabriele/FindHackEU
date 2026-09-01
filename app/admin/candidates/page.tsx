@@ -18,6 +18,7 @@ import {
 } from "./actions";
 import { deleteHackathonAction } from "../hackathons/actions";
 import { ManualSubmitForm } from "./manual-submit-form";
+import { EditCandidateDialog } from "./edit-candidate-dialog";
 import { GoogleSignInButton } from "./google-sign-in-button";
 import { SignOutButton } from "./sign-out-button";
 import { getAdminAuthStatus } from "@/lib/services/require-admin-auth";
@@ -378,11 +379,12 @@ function SignInGate({
  * folded into the hackathon card itself - that context is about the
  * candidate row, not about what the event will look like once published.
  *
- * The footer is an admin action bar (Approve, Reject-or-Delete) instead of
- * the public site's Share/Calendar buttons, passed in via `HackathonCard`'s
- * `actions` slot. An Edit button is included as a disabled placeholder -
- * wiring it up is issue #94's scope, not this one's - so adding it later is
- * just enabling this button and pointing it at a real form/dialog.
+ * The footer is an admin action bar (Approve, Reject-or-Delete, Edit)
+ * instead of the public site's Share/Calendar buttons, passed in via
+ * `HackathonCard`'s `actions` slot. Edit (issue #94) opens
+ * `EditCandidateDialog`, letting a wrong/incomplete scraped field
+ * (mis-parsed date, missing city, wrong topics) be corrected before
+ * Approve copies it into the real `hackathons` table.
  */
 function CandidateCard({
   candidate,
@@ -422,14 +424,7 @@ function CandidateCard({
                 confirmMessage={`Permanently delete "${candidate.name}"? This cannot be undone.`}
               />
             </form>
-            <Button
-              type="button"
-              variant="ghost"
-              disabled
-              title="Editing a candidate before approval is issue #94, not yet wired up"
-            >
-              Edit
-            </Button>
+            <EditCandidateDialog candidate={candidate} />
           </div>
         }
       />
