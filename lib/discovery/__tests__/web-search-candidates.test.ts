@@ -5,11 +5,11 @@ import {
 } from "@/lib/discovery/web-search-candidates";
 import type { SearchProvider } from "@/lib/search/search-provider";
 
-vi.mock("@/lib/search/extract-event-evidence", () => ({
-  extractEventEvidence: vi.fn(),
+vi.mock("@/lib/discovery/fetch-classifier", () => ({
+  classifyAndFetchPage: vi.fn(),
 }));
 
-import { extractEventEvidence } from "@/lib/search/extract-event-evidence";
+import { classifyAndFetchPage } from "@/lib/discovery/fetch-classifier";
 
 function stubProvider(
   resultsByQuery: Record<string, Array<{ title: string; url: string }>>,
@@ -27,7 +27,11 @@ describe("generateQueries", () => {
   });
 
   it("produces two template variants per country before moving to the next", () => {
-    const queries = generateQueries(4, ["Germany", "France"], new Date("2026-01-01"));
+    const queries = generateQueries(
+      4,
+      ["Germany", "France"],
+      new Date("2026-01-01"),
+    );
     expect(queries).toEqual([
       "hackathon Germany 2026",
       "student hackathon Germany 2026",
@@ -40,7 +44,7 @@ describe("generateQueries", () => {
 describe("discoverWebCandidates", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    vi.mocked(extractEventEvidence).mockReset();
+    vi.mocked(classifyAndFetchPage).mockReset();
   });
 
   it("throws when no search providers are configured", async () => {
@@ -61,13 +65,17 @@ describe("discoverWebCandidates", () => {
       ],
     });
 
-    vi.mocked(extractEventEvidence).mockResolvedValue({
-      name: "Berlin Hack 2026",
-      date_start: new Date("2026-11-01T00:00:00Z"),
-      city: "Berlin",
-      country_code: "Germany",
-      extraction_method: "jsonld-event",
-      raw_snippet: "snippet",
+    vi.mocked(classifyAndFetchPage).mockResolvedValue({
+      outcome: "ok",
+      evidence: {
+        name: "Berlin Hack 2026",
+        date_start: new Date("2026-11-01T00:00:00Z"),
+        city: "Berlin",
+        country_code: "Germany",
+        extraction_method: "jsonld-event",
+        raw_snippet: "snippet",
+        has_conflict: false,
+      },
     });
 
     const { candidates, stats } = await discoverWebCandidates({
@@ -86,8 +94,38 @@ describe("discoverWebCandidates", () => {
       url: "https://berlinhack.example",
       search_provider: "stub",
       extraction_method: "jsonld-event",
+      has_conflict: false,
     });
     expect(stats.candidatesFound).toBe(1);
+  });
+
+  it("passes through has_conflict from the extracted evidence", async () => {
+    const provider = stubProvider({
+      "hackathon Germany 2026": [
+        { title: "Conflicting Hack", url: "https://conflicthack.example" },
+      ],
+    });
+
+    vi.mocked(classifyAndFetchPage).mockResolvedValue({
+      outcome: "ok",
+      evidence: {
+        name: "Berlin Hack 2026",
+        country_code: "Germany",
+        extraction_method: "jsonld-event",
+        raw_snippet: "snippet",
+        has_conflict: true,
+      },
+    });
+
+    const { candidates } = await discoverWebCandidates({
+      providers: [provider],
+      maxQueries: 1,
+      resultsPerQuery: 1,
+      knownUrls: new Set(),
+      countries: ["Germany"],
+    });
+
+    expect(candidates[0].has_conflict).toBe(true);
   });
 
   it("skips a URL already known from a previous run or the real hackathons table", async () => {
@@ -107,7 +145,7 @@ describe("discoverWebCandidates", () => {
 
     expect(candidates).toHaveLength(0);
     expect(stats.alreadyKnownSkipped).toBe(1);
-    expect(extractEventEvidence).not.toHaveBeenCalled();
+    expect(classifyAndFetchPage).not.toHaveBeenCalled();
   });
 
   it("drops a result whose evidence names an explicit non-European country", async () => {
@@ -117,12 +155,16 @@ describe("discoverWebCandidates", () => {
       ],
     });
 
-    vi.mocked(extractEventEvidence).mockResolvedValue({
-      name: "Mumbai Hack 2026",
-      city: "Mumbai",
-      country_code: "India",
-      extraction_method: "og-meta",
-      raw_snippet: "snippet",
+    vi.mocked(classifyAndFetchPage).mockResolvedValue({
+      outcome: "ok",
+      evidence: {
+        name: "Mumbai Hack 2026",
+        city: "Mumbai",
+        country_code: "India",
+        extraction_method: "og-meta",
+        raw_snippet: "snippet",
+        has_conflict: false,
+      },
     });
 
     const { candidates, stats } = await discoverWebCandidates({
@@ -144,7 +186,10 @@ describe("discoverWebCandidates", () => {
       ],
     });
 
-    vi.mocked(extractEventEvidence).mockResolvedValue(null);
+    vi.mocked(classifyAndFetchPage).mockResolvedValue({
+      outcome: "ok",
+      evidence: null,
+    });
 
     const { candidates, stats } = await discoverWebCandidates({
       providers: [provider],
@@ -158,6 +203,102 @@ describe("discoverWebCandidates", () => {
     expect(stats.evidenceNotFound).toBe(1);
   });
 
+  it("counts a robots.txt-blocked result without fetching evidence for it", async () => {
+    const provider = stubProvider({
+      "hackathon Germany 2026": [
+        { title: "Blocked Page", url: "https://blocked.example/private" },
+      ],
+    });
+
+    vi.mocked(classifyAndFetchPage).mockResolvedValue({
+      outcome: "blocked-by-robots",
+      evidence: null,
+    });
+
+    const { candidates, stats } = await discoverWebCandidates({
+      providers: [provider],
+      maxQueries: 1,
+      resultsPerQuery: 1,
+      knownUrls: new Set(),
+      countries: ["Germany"],
+    });
+
+    expect(candidates).toHaveLength(0);
+    expect(stats.blockedByRobots).toBe(1);
+  });
+
+  it("counts an http-error outcome distinctly from a timeout", async () => {
+    const provider = stubProvider({
+      "hackathon Germany 2026": [
+        { title: "Broken Page", url: "https://broken.example" },
+      ],
+    });
+
+    vi.mocked(classifyAndFetchPage).mockResolvedValue({
+      outcome: "http-error",
+      evidence: null,
+    });
+
+    const { stats } = await discoverWebCandidates({
+      providers: [provider],
+      maxQueries: 1,
+      resultsPerQuery: 1,
+      knownUrls: new Set(),
+      countries: ["Germany"],
+    });
+
+    expect(stats.httpErrors).toBe(1);
+    expect(stats.timeouts).toBe(0);
+  });
+
+  it("counts a timeout outcome distinctly from an http-error", async () => {
+    const provider = stubProvider({
+      "hackathon Germany 2026": [
+        { title: "Slow Page", url: "https://slow.example" },
+      ],
+    });
+
+    vi.mocked(classifyAndFetchPage).mockResolvedValue({
+      outcome: "timeout",
+      evidence: null,
+    });
+
+    const { stats } = await discoverWebCandidates({
+      providers: [provider],
+      maxQueries: 1,
+      resultsPerQuery: 1,
+      knownUrls: new Set(),
+      countries: ["Germany"],
+    });
+
+    expect(stats.timeouts).toBe(1);
+    expect(stats.httpErrors).toBe(0);
+  });
+
+  it("counts a requires-js outcome without producing a candidate", async () => {
+    const provider = stubProvider({
+      "hackathon Germany 2026": [
+        { title: "SPA Page", url: "https://spa.example" },
+      ],
+    });
+
+    vi.mocked(classifyAndFetchPage).mockResolvedValue({
+      outcome: "requires-js",
+      evidence: null,
+    });
+
+    const { candidates, stats } = await discoverWebCandidates({
+      providers: [provider],
+      maxQueries: 1,
+      resultsPerQuery: 1,
+      knownUrls: new Set(),
+      countries: ["Germany"],
+    });
+
+    expect(candidates).toHaveLength(0);
+    expect(stats.requiresJs).toBe(1);
+  });
+
   it("records a query error without stopping the remaining queries", async () => {
     const provider: SearchProvider = {
       name: "stub",
@@ -169,11 +310,15 @@ describe("discoverWebCandidates", () => {
       }),
     };
 
-    vi.mocked(extractEventEvidence).mockResolvedValue({
-      name: "France Hack 2026",
-      country_code: "France",
-      extraction_method: "og-meta",
-      raw_snippet: "snippet",
+    vi.mocked(classifyAndFetchPage).mockResolvedValue({
+      outcome: "ok",
+      evidence: {
+        name: "France Hack 2026",
+        country_code: "France",
+        extraction_method: "og-meta",
+        raw_snippet: "snippet",
+        has_conflict: false,
+      },
     });
 
     const { candidates, stats } = await discoverWebCandidates({

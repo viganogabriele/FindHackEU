@@ -90,6 +90,10 @@ export interface Database {
           promoted_at: string | null;
           promoted_hackathon_id: string | null;
           created_at: string;
+          // Set when a lower-confidence tier (Open Graph) disagrees with
+          // the winning JSON-LD extraction tier - see issue #15 and
+          // lib/search/extract-event-evidence.ts's has_conflict comment.
+          has_conflict: boolean;
         };
         Insert: {
           id?: string;
@@ -109,6 +113,7 @@ export interface Database {
           promoted_at?: string | null;
           promoted_hackathon_id?: string | null;
           created_at?: string;
+          has_conflict?: boolean;
         };
         Update: {
           id?: string;
@@ -128,6 +133,7 @@ export interface Database {
           promoted_at?: string | null;
           promoted_hackathon_id?: string | null;
           created_at?: string;
+          has_conflict?: boolean;
         };
       };
       update_runs: {

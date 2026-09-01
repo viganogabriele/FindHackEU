@@ -143,6 +143,11 @@ function CandidateCard({
             >
               {candidate.extraction_method}
             </Badge>
+            {candidate.has_conflict && (
+              <Badge variant="destructive">
+                Conflicting title (issue #15) - check page before approving
+              </Badge>
+            )}
           </div>
         </div>
       </div>

@@ -3,7 +3,8 @@ import {
   SearchProvider,
   searchWithFallback,
 } from "@/lib/search/search-provider";
-import { extractEventEvidence } from "@/lib/search/extract-event-evidence";
+import { classifyAndFetchPage } from "@/lib/discovery/fetch-classifier";
+import { createRobotsCache } from "@/lib/discovery/robots-checker";
 import type { Database } from "@/types/database";
 
 type CandidateInsert =
@@ -78,6 +79,14 @@ export interface DiscoverCandidatesStats {
   nonEuropeanDropped: number;
   candidatesFound: number;
   queryErrors: string[];
+  /** Never fetched because robots.txt disallows the path for user-agent `*` (issue #16). */
+  blockedByRobots: number;
+  /** Fetched but returned a non-2xx status (or a non-timeout network error). */
+  httpErrors: number;
+  /** The fetch itself timed out (see lib/http/fetch-with-retry.ts). */
+  timeouts: number;
+  /** Fetched fine, but the body heuristically looks like a JS-only SPA with no server-rendered content. */
+  requiresJs: number;
 }
 
 /**
@@ -102,6 +111,10 @@ export async function discoverWebCandidates(
     nonEuropeanDropped: 0,
     candidatesFound: 0,
     queryErrors: [],
+    blockedByRobots: 0,
+    httpErrors: 0,
+    timeouts: 0,
+    requiresJs: 0,
   };
 
   if (providers.length === 0) {
@@ -113,6 +126,10 @@ export async function discoverWebCandidates(
   const queries = generateQueries(maxQueries, countries);
   const candidates: CandidateInsert[] = [];
   const seenInThisRun = new Set<string>();
+  // One robots.txt cache per discovery run (issue #16) - shared across
+  // every query/result in this call so the same host's robots.txt is
+  // fetched at most once per run, not once per candidate URL on it.
+  const robotsCache = createRobotsCache();
 
   for (const query of queries) {
     stats.queriesRun++;
@@ -139,12 +156,33 @@ export async function discoverWebCandidates(
       }
       seenInThisRun.add(result.url);
 
-      let evidence;
-      try {
-        evidence = await extractEventEvidence(result.url);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.warn(`Skipping candidate ${result.url}: ${message}`);
+      const { outcome, evidence } = await classifyAndFetchPage(
+        result.url,
+        robotsCache,
+      );
+
+      if (outcome === "blocked-by-robots") {
+        stats.blockedByRobots++;
+        console.warn(`Skipping candidate ${result.url}: blocked by robots.txt`);
+        continue;
+      }
+      if (outcome === "http-error") {
+        stats.httpErrors++;
+        console.warn(
+          `Skipping candidate ${result.url}: HTTP error fetching page`,
+        );
+        continue;
+      }
+      if (outcome === "timeout") {
+        stats.timeouts++;
+        console.warn(`Skipping candidate ${result.url}: fetch timed out`);
+        continue;
+      }
+      if (outcome === "requires-js") {
+        stats.requiresJs++;
+        console.warn(
+          `Skipping candidate ${result.url}: looks like a JS-rendered page with no usable server-rendered content`,
+        );
         continue;
       }
 
@@ -197,6 +235,7 @@ export async function discoverWebCandidates(
         search_provider: searchOutcome.provider,
         extraction_method: evidence.extraction_method,
         raw_snippet: evidence.raw_snippet,
+        has_conflict: evidence.has_conflict,
       });
       stats.candidatesFound++;
     }

@@ -88,6 +88,11 @@ async function main() {
       `already-known, dropped ${stats.nonEuropeanDropped} non-European, ` +
       `${stats.evidenceNotFound} had no extractable evidence.`,
   );
+  console.log(
+    `Fetch outcomes (issue #16): ${stats.blockedByRobots} blocked by robots.txt, ` +
+      `${stats.httpErrors} http-error, ${stats.timeouts} timeout, ` +
+      `${stats.requiresJs} requires-js (likely JS-rendered SPA).`,
+  );
   if (stats.queryErrors.length > 0) {
     console.warn(`Query errors:\n${stats.queryErrors.join("\n")}`);
   }

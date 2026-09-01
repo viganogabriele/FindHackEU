@@ -39,7 +39,9 @@ describe("extractEventEvidence", () => {
 
     expect(evidence?.extraction_method).toBe("jsonld-event");
     expect(evidence?.name).toBe("Berlin AI Hackathon");
-    expect(evidence?.date_start?.toISOString()).toBe("2026-11-01T09:00:00.000Z");
+    expect(evidence?.date_start?.toISOString()).toBe(
+      "2026-11-01T09:00:00.000Z",
+    );
     expect(evidence?.city).toBe("Berlin");
     expect(evidence?.country_code).toBe("Germany");
   });
@@ -112,6 +114,57 @@ describe("extractEventEvidence", () => {
 
     expect(evidence?.extraction_method).toBe("og-meta");
     expect(evidence?.name).toBe("Fallback After Bad JSON-LD");
+  });
+
+  it("sets has_conflict when the JSON-LD name and og:title share no meaningful words (issue #15)", async () => {
+    mockFetchHtml(`<html><head>
+      <script type="application/ld+json">
+        {"@type":"Event","name":"Berlin AI Hackathon","startDate":"2026-11-01T00:00:00Z"}
+      </script>
+      <meta property="og:title" content="Warsaw Robotics Meetup" />
+    </head></html>`);
+
+    const evidence = await extractEventEvidence("https://example.org/event");
+
+    expect(evidence?.extraction_method).toBe("jsonld-event");
+    expect(evidence?.name).toBe("Berlin AI Hackathon");
+    expect(evidence?.has_conflict).toBe(true);
+  });
+
+  it("does not set has_conflict when the og:title shares a meaningful word with the JSON-LD name", async () => {
+    mockFetchHtml(`<html><head>
+      <script type="application/ld+json">
+        {"@type":"Event","name":"Berlin AI Hackathon 2026","startDate":"2026-11-01T00:00:00Z"}
+      </script>
+      <meta property="og:title" content="Berlin AI Hackathon — Register now" />
+    </head></html>`);
+
+    const evidence = await extractEventEvidence("https://example.org/event");
+
+    expect(evidence?.has_conflict).toBe(false);
+  });
+
+  it("does not set has_conflict when the page has no og:title to compare against", async () => {
+    mockFetchHtml(`<html><head>
+      <script type="application/ld+json">
+        {"@type":"Event","name":"Berlin AI Hackathon","startDate":"2026-11-01T00:00:00Z"}
+      </script>
+    </head></html>`);
+
+    const evidence = await extractEventEvidence("https://example.org/event");
+
+    expect(evidence?.has_conflict).toBe(false);
+  });
+
+  it("leaves has_conflict false for og-meta and text-fallback tiers (nothing lower-confidence to compare)", async () => {
+    mockFetchHtml(`<html><head>
+      <meta property="og:title" content="Some Event" />
+    </head></html>`);
+
+    const evidence = await extractEventEvidence("https://example.org/event");
+
+    expect(evidence?.extraction_method).toBe("og-meta");
+    expect(evidence?.has_conflict).toBe(false);
   });
 
   it("throws when the page fetch itself fails", async () => {
