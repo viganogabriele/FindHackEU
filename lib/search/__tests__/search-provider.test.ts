@@ -28,7 +28,9 @@ describe("search providers", () => {
 
     const results = await new TavilySearchProvider("key").search("q", 3);
 
-    expect(results).toEqual([{ title: "T", url: "https://a.example", snippet: "C" }]);
+    expect(results).toEqual([
+      { title: "T", url: "https://a.example", snippet: "C" },
+    ]);
   });
 
   it("SerpApiSearchProvider maps organic_results.{title,link,snippet}", async () => {
@@ -38,14 +40,18 @@ describe("search providers", () => {
         ok: true,
         status: 200,
         json: async () => ({
-          organic_results: [{ title: "T", link: "https://b.example", snippet: "S" }],
+          organic_results: [
+            { title: "T", link: "https://b.example", snippet: "S" },
+          ],
         }),
       })),
     );
 
     const results = await new SerpApiSearchProvider("key").search("q", 3);
 
-    expect(results).toEqual([{ title: "T", url: "https://b.example", snippet: "S" }]);
+    expect(results).toEqual([
+      { title: "T", url: "https://b.example", snippet: "S" },
+    ]);
   });
 
   it("SerperSearchProvider maps organic.{title,link,snippet}", async () => {
@@ -62,7 +68,9 @@ describe("search providers", () => {
 
     const results = await new SerperSearchProvider("key").search("q", 3);
 
-    expect(results).toEqual([{ title: "T", url: "https://c.example", snippet: "S" }]);
+    expect(results).toEqual([
+      { title: "T", url: "https://c.example", snippet: "S" },
+    ]);
   });
 
   it("buildSearchProviderChain includes only providers with a configured key, in size order", () => {
@@ -99,8 +107,18 @@ describe("search providers", () => {
 
   it("searchWithFallback throws only when every provider fails", async () => {
     const allFailing: SearchProvider[] = [
-      { name: "a", search: vi.fn(async () => { throw new Error("e1"); }) },
-      { name: "b", search: vi.fn(async () => { throw new Error("e2"); }) },
+      {
+        name: "a",
+        search: vi.fn(async () => {
+          throw new Error("e1");
+        }),
+      },
+      {
+        name: "b",
+        search: vi.fn(async () => {
+          throw new Error("e2");
+        }),
+      },
     ];
 
     await expect(searchWithFallback(allFailing, "q", 3)).rejects.toThrow(
