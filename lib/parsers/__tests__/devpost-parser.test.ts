@@ -7,7 +7,7 @@ interface MockHackathon {
   url: string;
   submission_period_dates: string;
   open_state: "open" | "upcoming";
-  displayed_location: string | { location: string };
+  displayed_location: string | { icon?: string; location: string };
   themes: Array<string | { name: string }>;
 }
 
@@ -67,7 +67,10 @@ describe("DevpostParser", () => {
           url: "https://berlin-ai.devpost.com/",
           submission_period_dates: "Oct 10 - Oct 12, 2026",
           open_state: "upcoming",
-          displayed_location: { location: "Berlin, Germany" },
+          displayed_location: {
+            icon: "map-marker-alt",
+            location: "Berlin, Germany",
+          },
           themes: [{ name: "Machine Learning/AI" }, "Open Ended"],
         },
       ],
@@ -117,6 +120,124 @@ describe("DevpostParser", () => {
     expect(hackathon.city).toBeUndefined();
     expect(hackathon.location_type).toBe("online");
     expect(hackathon.location_confidence).toBeUndefined();
+  });
+
+  it("keeps an open listing while its submission period is still active", async () => {
+    mockFetch([
+      [
+        {
+          id: 127,
+          title: "Open Munich Hack",
+          url: "https://open-munich.devpost.com/",
+          submission_period_dates: "Aug 20 - Sep 10, 2026",
+          open_state: "open",
+          displayed_location: {
+            icon: "map-marker-alt",
+            location: "Munich, Germany",
+          },
+          themes: [],
+        },
+      ],
+    ]);
+
+    const pendingParse = new DevpostParser().parse();
+    await vi.runAllTimersAsync();
+    const result = await pendingParse;
+
+    expect(result.hackathons).toHaveLength(1);
+    expect(result.dropped?.byDateWindow).toBe(0);
+  });
+
+  it("counts completely concluded listings as date-window drops", async () => {
+    mockFetch([
+      [
+        {
+          id: 128,
+          title: "Finished Hack",
+          url: "https://finished.devpost.com/",
+          submission_period_dates: "Aug 01 - Aug 10, 2026",
+          open_state: "open",
+          displayed_location: "Online",
+          themes: [],
+        },
+      ],
+    ]);
+
+    const pendingParse = new DevpostParser().parse();
+    await vi.runAllTimersAsync();
+    const result = await pendingParse;
+
+    expect(result.hackathons).toHaveLength(0);
+    expect(result.dropped?.byDateWindow).toBe(1);
+  });
+
+  it("does not interpret a regional abbreviation as a country", async () => {
+    mockFetch([
+      [
+        {
+          id: 129,
+          title: "Munich Regional Hack",
+          url: "https://munich-regional.devpost.com/",
+          submission_period_dates: "Oct 10 - Oct 12, 2026",
+          open_state: "upcoming",
+          displayed_location: "Munich, BY",
+          themes: [],
+        },
+      ],
+    ]);
+
+    const pendingParse = new DevpostParser().parse();
+    await vi.runAllTimersAsync();
+    const [hackathon] = (await pendingParse).hackathons;
+
+    expect(hackathon.city).toBe("Munich");
+    expect(hackathon.country_code).toBeUndefined();
+    expect(hackathon.location_confidence).toBeUndefined();
+  });
+
+  it("drops a US city that shares a name with a European city, instead of admitting it as European", async () => {
+    mockFetch([
+      [
+        {
+          id: 130,
+          title: "Paris Texas Hack",
+          url: "https://paris-texas.devpost.com/",
+          submission_period_dates: "Oct 10 - Oct 12, 2026",
+          open_state: "upcoming",
+          displayed_location: "Paris, TX",
+          themes: [],
+        },
+      ],
+    ]);
+
+    const pendingParse = new DevpostParser().parse();
+    await vi.runAllTimersAsync();
+    const result = await pendingParse;
+
+    expect(result.hackathons).toHaveLength(0);
+    expect(result.dropped?.byCountry).toBe(1);
+  });
+
+  it("uses tbd when Devpost provides no recognized location signal", async () => {
+    mockFetch([
+      [
+        {
+          id: 130,
+          title: "Berlin Unknown Signal Hack",
+          url: "https://berlin-unknown.devpost.com/",
+          submission_period_dates: "Oct 10 - Oct 12, 2026",
+          open_state: "upcoming",
+          displayed_location: { location: "Berlin, Germany" },
+          themes: [],
+        },
+      ],
+    ]);
+
+    const pendingParse = new DevpostParser().parse();
+    await vi.runAllTimersAsync();
+    const [hackathon] = (await pendingParse).hackathons;
+
+    expect(hackathon.location_type).toBe("tbd");
   });
 
   it("drops explicit non-European locations and deduplicates pages by id", async () => {
