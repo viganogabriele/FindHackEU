@@ -84,8 +84,7 @@ export default async function AdminDashboardPage({
           <CardHeader>
             <CardTitle>Manual pipeline trigger</CardTitle>
             <CardDescription>
-              Runs the discovery pipeline once, always in test mode - no
-              Discord/Telegram/Twitter notifications and no README commit. Use{" "}
+              Test mode only - no notifications, no README commit. Use{" "}
               <code className="rounded bg-muted px-1 py-0.5 text-xs">
                 npm run trigger-update -- --live
               </code>{" "}
@@ -108,8 +107,7 @@ export default async function AdminDashboardPage({
                   Review candidates
                 </CardTitle>
                 <CardDescription>
-                  Web-search-discovered events awaiting review - approve,
-                  reject, or manually submit a URL.
+                  Approve, reject, or manually submit a URL.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -128,8 +126,7 @@ export default async function AdminDashboardPage({
                   Manage hackathons
                 </CardTitle>
                 <CardDescription>
-                  Already-published, public hackathons (Approved tab) - delete a
-                  wrong or unwanted one.
+                  Delete a wrong or unwanted published hackathon.
                 </CardDescription>
               </CardHeader>
               <CardContent>
