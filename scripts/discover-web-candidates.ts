@@ -34,6 +34,7 @@ async function main() {
     await import("../lib/search/search-provider");
   const { discoverWebCandidates } =
     await import("../lib/discovery/web-search-candidates");
+  const { FileBudgetTracker } = await import("../lib/discovery/query-budget");
 
   const maxQueries = parseIntArg("max-queries", 10);
   const resultsPerQuery = parseIntArg("results-per-query", 5);
@@ -75,12 +76,31 @@ async function main() {
 
   console.log(`${knownUrls.size} URL(s) already known, will be skipped.`);
 
-  const { candidates, stats } = await discoverWebCandidates({
+  // Persistent, file-backed daily query budget (issue #18) - shared across
+  // separate invocations of this script on the same UTC day, unlike the
+  // in-memory knownUrls skip-list above.
+  const budget = new FileBudgetTracker();
+  console.log(
+    `Web-search query budget (issue #18): ${budget.remaining()} quer${
+      budget.remaining() === 1 ? "y" : "ies"
+    } remaining today before this run.`,
+  );
+
+  const { candidates, stats, queries } = await discoverWebCandidates({
     providers,
     maxQueries,
     resultsPerQuery,
     knownUrls,
+    budget,
   });
+
+  console.log(
+    `Generated ${queries.length} quer${queries.length === 1 ? "y" : "ies"} ` +
+      `(issue #17 - multilingual/site-scoped variants included):`,
+  );
+  for (const query of queries) {
+    console.log(`  - ${query}`);
+  }
 
   console.log(
     `Ran ${stats.queriesRun} quer${stats.queriesRun === 1 ? "y" : "ies"}, ` +
@@ -92,6 +112,18 @@ async function main() {
     `Fetch outcomes (issue #16): ${stats.blockedByRobots} blocked by robots.txt, ` +
       `${stats.httpErrors} http-error, ${stats.timeouts} timeout, ` +
       `${stats.requiresJs} requires-js (likely JS-rendered SPA).`,
+  );
+  if (stats.queriesSkippedForBudget > 0) {
+    console.warn(
+      `Budget (issue #18): stopped early, ${stats.queriesSkippedForBudget} ` +
+        `quer${stats.queriesSkippedForBudget === 1 ? "y" : "ies"} skipped ` +
+        `for lack of remaining daily budget.`,
+    );
+  }
+  console.log(
+    `Web-search query budget (issue #18): ${budget.remaining()} quer${
+      budget.remaining() === 1 ? "y" : "ies"
+    } remaining today after this run.`,
   );
   if (stats.queryErrors.length > 0) {
     console.warn(`Query errors:\n${stats.queryErrors.join("\n")}`);

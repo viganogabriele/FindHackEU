@@ -1,10 +1,14 @@
-import { europeanCountries } from "@/lib/european-countries";
+import {
+  europeanCountries,
+  EUROPEAN_COUNTRIES,
+} from "@/lib/european-countries";
 import {
   SearchProvider,
   searchWithFallback,
 } from "@/lib/search/search-provider";
 import { classifyAndFetchPage } from "@/lib/discovery/fetch-classifier";
 import { createRobotsCache } from "@/lib/discovery/robots-checker";
+import type { QueryBudget } from "@/lib/discovery/query-budget";
 import type { Database } from "@/types/database";
 
 type CandidateInsert =
@@ -37,10 +41,97 @@ const DEFAULT_COUNTRIES = [
   "Denmark",
 ];
 
-const QUERY_TEMPLATES = [
-  (country: string, year: number) => `hackathon ${country} ${year}`,
-  (country: string, year: number) => `student hackathon ${country} ${year}`,
+interface QueryTemplateContext {
+  country: string;
+  nativeName?: string;
+  year: number;
+}
+
+/** English-language templates, tried first for every country (issue #17). */
+const ENGLISH_QUERY_TEMPLATES: Array<
+  (ctx: QueryTemplateContext) => string | undefined
+> = [
+  (ctx) => `hackathon ${ctx.country} ${ctx.year}`,
+  (ctx) => `student hackathon ${ctx.country} ${ctx.year}`,
 ];
+
+/**
+ * Native-language template - only produces a query when a native-language
+ * name could be derived for the country (see `getNativeCountryName`).
+ * Kept as a distinct, always-last template (rather than folded into
+ * `ENGLISH_QUERY_TEMPLATES`) so English queries are never pushed out of a
+ * small `maxQueries` budget by a native-language variant.
+ */
+const NATIVE_LANGUAGE_QUERY_TEMPLATE = (
+  ctx: QueryTemplateContext,
+): string | undefined =>
+  ctx.nativeName ? `hackathon ${ctx.nativeName} ${ctx.year}` : undefined;
+
+const QUERY_TEMPLATES = [
+  ...ENGLISH_QUERY_TEMPLATES,
+  NATIVE_LANGUAGE_QUERY_TEMPLATE,
+];
+
+/**
+ * A small, explicitly-curated starting list of known European
+ * university/hackathon-community domains, used to build `site:`-scoped
+ * queries (issue #17). This is illustrative, not exhaustive - a hand-picked
+ * sample of real institutions with an active tech/hackathon scene,
+ * informed by this fork's discovery research (see
+ * docs/discovery-research.md's "Allowlist domains" section) rather than a
+ * survey of every European university. Extend as more organizer domains
+ * are identified.
+ */
+const SITE_SCOPED_DOMAINS = [
+  "ethz.ch",
+  "epfl.ch",
+  "tum.de",
+  "tudelft.nl",
+  "kth.se",
+  "polimi.it",
+  "imperial.ac.uk",
+  "aalto.fi",
+];
+
+function findCountryEntry(countryName: string) {
+  const key = countryName.trim().toLowerCase();
+  return EUROPEAN_COUNTRIES.find(
+    (c) =>
+      c.name.toLowerCase() === key ||
+      c.aliases.some((alias) => alias.toLowerCase() === key),
+  );
+}
+
+function capitalizeWords(value: string): string {
+  return value.replace(/(^|\s)\p{L}/gu, (match) => match.toUpperCase());
+}
+
+/**
+ * Derives a "native-language" query variant for a country by reusing the
+ * alias data already in `lib/european-countries.ts`'s `EUROPEAN_COUNTRIES`
+ * (issue #17 - "reuse the exact data #17 wants", not a hand-maintained
+ * translation table). Picks the first alias that (a) isn't just the
+ * English country name repeated and (b) isn't a short ISO-code-shaped
+ * alias (2/3 letters, e.g. "de"/"deu") - those are codes, not words. For
+ * some countries (e.g. France, Portugal) no such alias exists in the data
+ * and no native-language variant is produced for them.
+ */
+function getNativeCountryName(countryName: string): string | undefined {
+  const entry = findCountryEntry(countryName);
+  if (!entry) {
+    return undefined;
+  }
+
+  const key = countryName.trim().toLowerCase();
+  for (const alias of entry.aliases) {
+    if (alias.toLowerCase() === key || alias.length <= 3) {
+      continue;
+    }
+    return capitalizeWords(alias);
+  }
+
+  return undefined;
+}
 
 export function generateQueries(
   maxQueries: number,
@@ -51,12 +142,23 @@ export function generateQueries(
   const queries: string[] = [];
 
   outer: for (const country of countries) {
+    const nativeName = getNativeCountryName(country);
     for (const template of QUERY_TEMPLATES) {
       if (queries.length >= maxQueries) {
         break outer;
       }
-      queries.push(template(country, year));
+      const query = template({ country, nativeName, year });
+      if (query) {
+        queries.push(query);
+      }
     }
+  }
+
+  for (const domain of SITE_SCOPED_DOMAINS) {
+    if (queries.length >= maxQueries) {
+      break;
+    }
+    queries.push(`hackathon site:${domain}`);
   }
 
   return queries;
@@ -69,6 +171,15 @@ export interface DiscoverCandidatesOptions {
   /** Normalized URLs already known (existing hackathons + candidates) - skipped without spending a fetch. */
   knownUrls: Set<string>;
   countries?: string[];
+  /**
+   * Persistent cross-run query-budget tracker (issue #18). Optional so
+   * existing/new unit tests don't need to touch the real filesystem - omit
+   * it (or pass an in-memory fake) to run unbounded. When provided,
+   * `discoverWebCandidates` checks `remaining()` before each query and
+   * stops issuing new ones once it reaches zero, recording how many were
+   * skipped rather than silently truncating.
+   */
+  budget?: QueryBudget;
 }
 
 export interface DiscoverCandidatesStats {
@@ -87,6 +198,8 @@ export interface DiscoverCandidatesStats {
   timeouts: number;
   /** Fetched fine, but the body heuristically looks like a JS-only SPA with no server-rendered content. */
   requiresJs: number;
+  /** How many generated queries were never run because the daily budget (issue #18) was exhausted mid-run. */
+  queriesSkippedForBudget: number;
 }
 
 /**
@@ -99,9 +212,19 @@ export interface DiscoverCandidatesStats {
  */
 export async function discoverWebCandidates(
   options: DiscoverCandidatesOptions,
-): Promise<{ candidates: CandidateInsert[]; stats: DiscoverCandidatesStats }> {
-  const { providers, maxQueries, resultsPerQuery, knownUrls, countries } =
-    options;
+): Promise<{
+  candidates: CandidateInsert[];
+  stats: DiscoverCandidatesStats;
+  queries: string[];
+}> {
+  const {
+    providers,
+    maxQueries,
+    resultsPerQuery,
+    knownUrls,
+    countries,
+    budget,
+  } = options;
 
   const stats: DiscoverCandidatesStats = {
     queriesRun: 0,
@@ -115,6 +238,7 @@ export async function discoverWebCandidates(
     httpErrors: 0,
     timeouts: 0,
     requiresJs: 0,
+    queriesSkippedForBudget: 0,
   };
 
   if (providers.length === 0) {
@@ -131,8 +255,22 @@ export async function discoverWebCandidates(
   // fetched at most once per run, not once per candidate URL on it.
   const robotsCache = createRobotsCache();
 
-  for (const query of queries) {
+  for (let i = 0; i < queries.length; i++) {
+    const query = queries[i];
+
+    if (budget && budget.remaining() <= 0) {
+      const skipped = queries.length - i;
+      stats.queriesSkippedForBudget = skipped;
+      console.warn(
+        `Stopping web-search discovery at query ${i} of ${queries.length}: ` +
+          `daily query budget exhausted (issue #18). ${skipped} remaining ` +
+          `quer${skipped === 1 ? "y" : "ies"} skipped for this run.`,
+      );
+      break;
+    }
+
     stats.queriesRun++;
+    budget?.recordUsed(1);
 
     let searchOutcome;
     try {
@@ -242,5 +380,5 @@ export async function discoverWebCandidates(
     }
   }
 
-  return { candidates, stats };
+  return { candidates, stats, queries };
 }

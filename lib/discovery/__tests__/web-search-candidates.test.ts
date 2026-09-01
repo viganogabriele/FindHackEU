@@ -3,6 +3,7 @@ import {
   discoverWebCandidates,
   generateQueries,
 } from "@/lib/discovery/web-search-candidates";
+import { createInMemoryQueryBudget } from "@/lib/discovery/query-budget";
 import type { SearchProvider } from "@/lib/search/search-provider";
 
 vi.mock("@/lib/discovery/fetch-classifier", () => ({
@@ -26,17 +27,66 @@ describe("generateQueries", () => {
     expect(queries).toHaveLength(3);
   });
 
-  it("produces two template variants per country before moving to the next", () => {
+  it("produces english template variants per country before moving to the next", () => {
+    // maxQueries=2 stops Germany after its two English templates, before
+    // its native-language variant ("Deutschland") would be generated -
+    // proves the per-country cap still applies to a single country.
     const queries = generateQueries(
-      4,
+      2,
       ["Germany", "France"],
       new Date("2026-01-01"),
     );
     expect(queries).toEqual([
       "hackathon Germany 2026",
       "student hackathon Germany 2026",
+    ]);
+  });
+
+  it("adds a native-language variant per country when one can be derived, then moves to the next country (issue #17)", () => {
+    const queries = generateQueries(
+      5,
+      ["Germany", "France"],
+      new Date("2026-01-01"),
+    );
+    // Germany's alias data has a genuine native word ("deutschland"), so it
+    // gets a third query; France's aliases are just "france"/"fr"/"fra" (no
+    // native word distinct from the English name and short ISO-code-shaped
+    // aliases are skipped), so it only gets the two English templates.
+    expect(queries).toEqual([
+      "hackathon Germany 2026",
+      "student hackathon Germany 2026",
+      "hackathon Deutschland 2026",
       "hackathon France 2026",
       "student hackathon France 2026",
+    ]);
+  });
+
+  it("falls back to site:-scoped domain queries once every country's templates are exhausted (issue #17)", () => {
+    const queries = generateQueries(2, []);
+    expect(queries).toEqual([
+      "hackathon site:ethz.ch",
+      "hackathon site:epfl.ch",
+    ]);
+  });
+
+  it("still respects maxQueries as a hard cap across countries and site:-scoped domains combined", () => {
+    // 2 countries with no native-language variant (France, Portugal) => 4
+    // English-template queries, then site:-scoped queries fill the rest.
+    const queries = generateQueries(
+      6,
+      ["France", "Portugal"],
+      new Date("2026-01-01"),
+    );
+    expect(queries).toHaveLength(6);
+    expect(queries.slice(0, 4)).toEqual([
+      "hackathon France 2026",
+      "student hackathon France 2026",
+      "hackathon Portugal 2026",
+      "student hackathon Portugal 2026",
+    ]);
+    expect(queries.slice(4)).toEqual([
+      "hackathon site:ethz.ch",
+      "hackathon site:epfl.ch",
     ]);
   });
 });
@@ -331,5 +381,71 @@ describe("discoverWebCandidates", () => {
 
     expect(stats.queryErrors).toHaveLength(1);
     expect(candidates.length).toBeGreaterThan(0);
+  });
+
+  it("stops issuing new queries once an injected budget reports zero remaining (issue #18)", async () => {
+    const provider = stubProvider({
+      "hackathon Germany 2026": [
+        { title: "Berlin Hack", url: "https://berlinhack.example" },
+      ],
+      "student hackathon Germany 2026": [
+        { title: "Munich Hack", url: "https://munichhack.example" },
+      ],
+    });
+
+    const budget = createInMemoryQueryBudget(0);
+
+    const { candidates, stats, queries } = await discoverWebCandidates({
+      providers: [provider],
+      maxQueries: 2,
+      resultsPerQuery: 1,
+      knownUrls: new Set(),
+      countries: ["Germany"],
+      budget,
+    });
+
+    expect(queries.length).toBeGreaterThan(0);
+    expect(stats.queriesRun).toBe(0);
+    expect(stats.queriesSkippedForBudget).toBe(queries.length);
+    expect(candidates).toHaveLength(0);
+    expect(provider.search).not.toHaveBeenCalled();
+  });
+
+  it("runs exactly as many queries as an injected budget allows, then stops (issue #18)", async () => {
+    const provider = stubProvider({
+      "hackathon Germany 2026": [
+        { title: "Berlin Hack", url: "https://berlinhack.example" },
+      ],
+      "student hackathon Germany 2026": [
+        { title: "Munich Hack", url: "https://munichhack.example" },
+      ],
+    });
+
+    vi.mocked(classifyAndFetchPage).mockResolvedValue({
+      outcome: "ok",
+      evidence: {
+        name: "Berlin Hack 2026",
+        country_code: "Germany",
+        extraction_method: "jsonld-event",
+        raw_snippet: "snippet",
+        has_conflict: false,
+      },
+    });
+
+    const budget = createInMemoryQueryBudget(1);
+
+    const { stats, queries } = await discoverWebCandidates({
+      providers: [provider],
+      maxQueries: 2,
+      resultsPerQuery: 1,
+      knownUrls: new Set(),
+      countries: ["Germany"],
+      budget,
+    });
+
+    expect(queries).toHaveLength(2);
+    expect(stats.queriesRun).toBe(1);
+    expect(stats.queriesSkippedForBudget).toBe(1);
+    expect(provider.search).toHaveBeenCalledTimes(1);
   });
 });

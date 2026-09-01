@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local operational state (issue #18) - not application data, never committed
+.discovery-budget.json
