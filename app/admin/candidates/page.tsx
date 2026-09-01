@@ -17,6 +17,7 @@ import { ManualSubmitForm } from "./manual-submit-form";
 import { GoogleSignInButton } from "./google-sign-in-button";
 import { SignOutButton } from "./sign-out-button";
 import { getAdminAuthStatus } from "@/lib/services/require-admin-auth";
+import { cleanRawSnippet } from "@/lib/format-snippet";
 
 type CandidateRow = Database["public"]["Tables"]["hackathon_candidates"]["Row"];
 
@@ -247,7 +248,7 @@ function CandidateCard({
 
           {candidate.raw_snippet && (
             <p className="mb-4 line-clamp-3 rounded-md bg-muted p-2 text-xs text-muted-foreground">
-              {candidate.raw_snippet}
+              {cleanRawSnippet(candidate.raw_snippet)}
             </p>
           )}
 
