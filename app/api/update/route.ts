@@ -36,6 +36,13 @@ interface SourceResult {
 }
 
 export async function POST(request: Request) {
+  // Id of this run's `update_runs` row (issue #32), set once auth succeeds
+  // and a row is actually created. Declared outside the try below so the
+  // outer catch (an unhandled exception anywhere in the handler) can still
+  // find it and record the run as failed rather than leaving it stuck at
+  // status 'running' forever.
+  let runId: string | null = null;
+
   try {
     // ---------------------------------------------------------
     // Initial diagnostics
@@ -73,6 +80,33 @@ export async function POST(request: Request) {
         testMode ? " (TEST MODE - no notifications/README)" : ""
       }...`,
     );
+
+    // ---------------------------------------------------------
+    // Run history (issue #32)
+    //
+    // Insert a 'running' row now that auth has actually passed - a rejected
+    // request (missing CRON_SECRET, wrong bearer token) never reaches here,
+    // so it never creates a run record. Mirrors the existing `resetError`
+    // pattern just below: a failure to write this bookkeeping row must only
+    // be logged, never thrown, since it must not mask the pipeline's real
+    // result.
+    // ---------------------------------------------------------
+    try {
+      const { data: runRow, error: runInsertError } = await supabaseAdmin
+        .from("update_runs")
+        // @ts-expect-error - Supabase generated types may not include insert shape
+        .insert({ status: "running", test_mode: testMode })
+        .select("id")
+        .single();
+
+      if (runInsertError) {
+        console.error("Error creating update_runs row:", runInsertError);
+      } else {
+        runId = (runRow as { id: string } | null)?.id ?? null;
+      }
+    } catch (error) {
+      console.error("Error creating update_runs row:", error);
+    }
 
     // ---------------------------------------------------------
     // Source configuration
@@ -746,6 +780,36 @@ export async function POST(request: Request) {
 
     MemoryOptimizer.logMemoryUsage("Final memory usage");
 
+    // ---------------------------------------------------------
+    // Run history (issue #32): record the final state of this run using
+    // exactly the fields the JSON response below also reports, so the two
+    // never drift. Same "log, don't throw" pattern as the insert above -
+    // a failure here must never replace the pipeline's real response.
+    // ---------------------------------------------------------
+    if (runId) {
+      try {
+        const { error: runUpdateError } = await supabaseAdmin
+          .from("update_runs")
+          // @ts-expect-error - Supabase generated types may not include update shape
+          .update({
+            finished_at: new Date().toISOString(),
+            status: success ? "success" : "failed",
+            sources: sourceResults,
+            parsed_count: parsedHackathons.length,
+            inserted_count: newHackathons.length,
+            updated_count: updatedHackathons.length,
+            degraded,
+          })
+          .eq("id", runId);
+
+        if (runUpdateError) {
+          console.error("Error finalizing update_runs row:", runUpdateError);
+        }
+      } catch (error) {
+        console.error("Error finalizing update_runs row:", error);
+      }
+    }
+
     return NextResponse.json(
       {
         success,
@@ -789,11 +853,38 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Update error:", error);
 
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+
+    // Run history (issue #32): an unhandled exception anywhere above still
+    // needs its run row closed out as 'failed' rather than left stuck at
+    // 'running' forever. Same "log, don't throw" pattern as elsewhere in
+    // this file - never let this write mask the real 500 response below.
+    if (runId) {
+      try {
+        const { error: runUpdateError } = await supabaseAdmin
+          .from("update_runs")
+          // @ts-expect-error - Supabase generated types may not include update shape
+          .update({
+            finished_at: new Date().toISOString(),
+            status: "failed",
+            error: errorMessage,
+          })
+          .eq("id", runId);
+
+        if (runUpdateError) {
+          console.error("Error finalizing update_runs row:", runUpdateError);
+        }
+      } catch (finalizeError) {
+        console.error("Error finalizing update_runs row:", finalizeError);
+      }
+    }
+
     return NextResponse.json(
       {
         success: false,
         error: "Internal server error",
-        details: error instanceof Error ? error.message : "Unknown error",
+        details: errorMessage,
       },
       { status: 500 },
     );

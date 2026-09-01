@@ -130,6 +130,47 @@ export interface Database {
           created_at?: string;
         };
       };
+      update_runs: {
+        Row: {
+          id: string;
+          started_at: string;
+          finished_at: string | null;
+          status: "running" | "success" | "failed";
+          test_mode: boolean;
+          sources: Record<string, unknown> | null;
+          parsed_count: number | null;
+          inserted_count: number | null;
+          updated_count: number | null;
+          degraded: boolean | null;
+          error: string | null;
+        };
+        Insert: {
+          id?: string;
+          started_at?: string;
+          finished_at?: string | null;
+          status?: "running" | "success" | "failed";
+          test_mode?: boolean;
+          sources?: Record<string, unknown> | null;
+          parsed_count?: number | null;
+          inserted_count?: number | null;
+          updated_count?: number | null;
+          degraded?: boolean | null;
+          error?: string | null;
+        };
+        Update: {
+          id?: string;
+          started_at?: string;
+          finished_at?: string | null;
+          status?: "running" | "success" | "failed";
+          test_mode?: boolean;
+          sources?: Record<string, unknown> | null;
+          parsed_count?: number | null;
+          inserted_count?: number | null;
+          updated_count?: number | null;
+          degraded?: boolean | null;
+          error?: string | null;
+        };
+      };
     };
   };
 }

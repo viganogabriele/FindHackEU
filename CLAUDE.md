@@ -95,6 +95,8 @@ This route is the heart of the system, triggered by an external cron job. It is 
 
 The route always returns 200/500 with a detailed JSON diagnostic body (per-source `status`/errors, insert/update counts, `updateErrors`, a top-level `degraded` flag, memory usage) rather than throwing — treat every stage's error field as independent, non-fatal state when reading or extending this handler. Auth is fail-closed: a missing `CRON_SECRET` env var returns 500 rather than allowing a literal `"Bearer undefined"` bypass.
 
+Every run that gets past auth is also persisted to `public.update_runs` (issue #32, migration `supabase/migrations/20260901030000_update_runs.sql`) for history/debugging: a `'running'` row is inserted right after auth succeeds (a rejected/unauthorized request never creates one), and the same row is updated in place — `finished_at`, final `status` (`'success'`/`'failed'`), `sources`, `parsed_count`/`inserted_count`/`updated_count`, `degraded`, and `error` — at whichever exit point the handler actually takes (the normal end-of-handler response or the outer catch for an unhandled exception). Writing this row is wrapped in its own try/catch that only logs on failure, mirroring the existing `resetError` pattern, so a bookkeeping failure never masks the route's real response.
+
 ### Web-search discovery and candidate review (issue #12, #13/#14/#17, added 2026-09-01)
 
 Unlike the four sources above, generic web search cannot feed `app/api/update/route.ts`'s `Provider` pipeline directly — a search result is unverified by nature (directory pages, social posts, and stale content routinely rank alongside real event pages; verified live during implementation). Instead:
