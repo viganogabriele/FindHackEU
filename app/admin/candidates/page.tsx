@@ -7,19 +7,12 @@ import {
   ArrowLeft,
   Check,
   Clock3,
-  SlidersHorizontal,
   X,
 } from "lucide-react";
 import { supabaseAdmin } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { HackathonCard as SharedHackathonCard } from "@/components/hackathon-card";
@@ -53,13 +46,15 @@ import { GoogleSignInButton } from "./google-sign-in-button";
 import { SignOutButton } from "./sign-out-button";
 import { getAdminAuthStatus } from "@/lib/services/require-admin-auth";
 import {
-  AUTO_PUBLISH_BLOCKER_TAGS,
   getAutoPublishBlockers,
   matchesAutoPublishBlockerFilter,
   parseAutoPublishBlockerCodes,
   type AutoPublishBlockerCode,
 } from "@/lib/discovery/web-search-candidates";
 import { candidateToHackathonCardData } from "./candidate-card-data";
+import { AdminSearchInput } from "./admin-search-input";
+import { PendingReasonFilter } from "./pending-reason-filter";
+import { TriggerUpdateButton } from "../trigger-update-button";
 
 type CandidateRow = Database["public"]["Tables"]["hackathon_candidates"]["Row"];
 type HackathonRow = Database["public"]["Tables"]["hackathons"]["Row"];
@@ -295,20 +290,13 @@ function AdminShell({
         </header>
 
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-          <form className="flex min-w-0 flex-1 gap-2" method="get">
-            <input type="hidden" name="status" value={status} />
-            <Input
-              type="search"
-              name="q"
-              placeholder="Search name, city, country, or query…"
-              defaultValue={query}
-              className="h-8 min-w-0 flex-1 sm:max-w-sm"
-            />
-            <Button type="submit" variant="outline" size="sm">
-              Search
-            </Button>
-          </form>
-          {showManualForm && <ManualSubmitForm />}
+          <div className="flex min-w-0 flex-1">
+            <AdminSearchInput status={status} query={query} />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <TriggerUpdateButton />
+            {showManualForm && <ManualSubmitForm />}
+          </div>
         </div>
 
         <StatusNav status={status} query={query} tabCounts={tabCounts} />
@@ -503,84 +491,6 @@ async function PendingTab({
         ))}
       </ul>
     </AdminShell>
-  );
-}
-
-function PendingReasonFilter({
-  query,
-  selectedCodes,
-}: {
-  query: string;
-  selectedCodes: AutoPublishBlockerCode[];
-}) {
-  const clearHref = `/admin/candidates?status=pending${query ? `&q=${encodeURIComponent(query)}` : ""}`;
-
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant={selectedCodes.length > 0 ? "secondary" : "outline"}
-          size="sm"
-          aria-label="Filter pending candidates by reason"
-        >
-          <SlidersHorizontal aria-hidden="true" />
-          Reasons
-          {selectedCodes.length > 0 && (
-            <Badge variant="outline" className="min-w-5 justify-center px-1">
-              {selectedCodes.length}
-            </Badge>
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        className="w-[min(20rem,calc(100vw-2rem))] p-3"
-      >
-        <form method="get" aria-label="Filter pending candidates">
-          <input type="hidden" name="status" value="pending" />
-          {query && <input type="hidden" name="q" value={query} />}
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-medium">
-              Filter by pending reason
-            </legend>
-            <div className="grid gap-1">
-              {AUTO_PUBLISH_BLOCKER_TAGS.map((tag) => (
-                <label
-                  key={tag.code}
-                  className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-accent hover:text-accent-foreground"
-                >
-                  <input
-                    type="checkbox"
-                    name="reason"
-                    value={tag.code}
-                    defaultChecked={selectedCodes.includes(tag.code)}
-                    className="h-4 w-4 rounded border-input accent-primary"
-                  />
-                  <Badge
-                    variant={
-                      selectedCodes.includes(tag.code) ? "default" : "outline"
-                    }
-                  >
-                    {tag.label}
-                  </Badge>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <div className="mt-3 flex items-center gap-2">
-            <Button type="submit" size="sm">
-              Apply
-            </Button>
-            {selectedCodes.length > 0 && (
-              <Button asChild variant="ghost" size="sm">
-                <Link href={clearHref}>Clear</Link>
-              </Button>
-            )}
-          </div>
-        </form>
-      </PopoverContent>
-    </Popover>
   );
 }
 
