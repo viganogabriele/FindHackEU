@@ -5,7 +5,6 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -167,18 +166,17 @@ export function ManualSubmitForm() {
               </Label>
               <div className="flex flex-wrap gap-1.5">
                 {HACKATHON_TOPICS.map((topic) => (
-                  <button
+                  <Button
                     key={topic}
                     type="button"
+                    variant={topics.includes(topic) ? "default" : "outline"}
+                    size="sm"
+                    aria-pressed={topics.includes(topic)}
                     onClick={() => toggleTopic(topic)}
+                    className="h-auto px-2 py-0.5 text-xs"
                   >
-                    <Badge
-                      variant={topics.includes(topic) ? "default" : "outline"}
-                      className="cursor-pointer select-none"
-                    >
-                      {topic}
-                    </Badge>
-                  </button>
+                    {topic}
+                  </Button>
                 ))}
               </div>
               {topics.map((topic) => (
