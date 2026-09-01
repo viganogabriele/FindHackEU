@@ -31,7 +31,7 @@
   "topics.searchPlaceholder": "Caută subiect",
   "topics.noneFound": "Niciun subiect găsit.",
   "dates": "Date",
-  "filters.includeNonEnglish": "Include hackathoane care nu sunt în engleză",
+  "filters.includeOtherLanguages": "Include hackathoane care nu sunt în {language}",
   "dates.select": "Selectează date",
   "sorting": "Sortare",
   "sort.byDate": "Sortează după dată",

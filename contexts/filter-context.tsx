@@ -13,10 +13,9 @@ export interface FilterState {
   dateRange: DateRange | undefined;
   status: "upcoming" | "past";
   sort: "asc" | "desc";
-  // Whether to include hackathons whose title looks non-English (see
-  // lib/detect-non-english.ts and issue #54). Defaults to true so this
-  // filter is additive - it never hides anything until a visitor
-  // explicitly opts out.
+  // Whether to include hackathons whose title looks like a language other
+  // than English or the active site locale (see lib/detect-non-english.ts).
+  // Defaults to false so the active locale and English are the default set.
   includeNonEnglish: boolean;
 }
 
@@ -40,7 +39,7 @@ const initialFilters: FilterState = {
   dateRange: undefined,
   status: "upcoming",
   sort: "asc",
-  includeNonEnglish: true,
+  includeNonEnglish: false,
 };
 
 export function retainAvailableLocations(

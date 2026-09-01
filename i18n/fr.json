@@ -31,7 +31,7 @@
   "topics.searchPlaceholder": "Rechercher un sujet",
   "topics.noneFound": "Aucun sujet trouvé.",
   "dates": "Dates",
-  "filters.includeNonEnglish": "Inclure les hackathons non anglophones",
+  "filters.includeOtherLanguages": "Inclure les hackathons qui ne sont pas en {language}",
   "dates.select": "Sélectionner des dates",
   "sorting": "Tri",
   "sort.byDate": "Trier par date",
