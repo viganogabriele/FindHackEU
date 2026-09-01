@@ -24,6 +24,10 @@ import { LocationEnhancementService } from "@/lib/services/location-enhancement-
 import { MemoryOptimizer } from "@/lib/utils/memory-optimizer";
 import { checkUpdateCooldown } from "@/lib/services/update-cooldown";
 import { getSourceUpdateFields } from "@/lib/services/hackathon-source-sync";
+import {
+  preservePreviewImageUrl,
+  validatePreviewImageUrl,
+} from "@/lib/services/preview-image";
 import { Hackathon } from "@/types/hackathon";
 import type {
   ParseStatus,
@@ -393,6 +397,7 @@ export async function POST(request: Request) {
           date_end: string | null;
           topics: string[] | null;
           notes: string | null;
+          preview_image_url: string | null;
           manually_edited_at: string | null;
         };
 
@@ -400,7 +405,7 @@ export async function POST(request: Request) {
           supabaseAdmin
             .from("hackathons")
             .select(
-              "id, url, name, city, country_code, latitude, longitude, location_type, venue, date_start, date_end, topics, notes, manually_edited_at",
+              "id, url, name, city, country_code, latitude, longitude, location_type, venue, date_start, date_end, topics, notes, preview_image_url, manually_edited_at",
             )
             // Stable order (see lib/services/fetch-all-rows.ts) so a
             // concurrent insert during pagination can't shift row
@@ -513,6 +518,8 @@ export async function POST(request: Request) {
             date_end: toFullTimestamp(hackathon.date_end),
             topics: hackathon.topics || null,
             notes: hackathon.notes || null,
+            preview_image_url:
+              validatePreviewImageUrl(hackathon.preview_image_url) ?? null,
           };
 
           if (!existing) {
@@ -534,6 +541,12 @@ export async function POST(request: Request) {
             hackathon.longitude !== undefined;
           const synchronizedIncoming = {
             ...incoming,
+            preview_image_url: preservePreviewImageUrl(
+              incoming.preview_image_url === null
+                ? undefined
+                : incoming.preview_image_url,
+              existing.preview_image_url,
+            ),
             // A transient geocoder failure must not erase a known pair. If
             // the location itself changed, however, the old pair is stale.
             latitude: hasIncomingCoordinates
@@ -581,6 +594,9 @@ export async function POST(request: Request) {
           const topicsChanged =
             sortedTopics(synchronizedIncoming.topics) !==
             sortedTopics(existing.topics);
+          const previewImageChanged =
+            synchronizedIncoming.preview_image_url !==
+            existing.preview_image_url;
 
           if (
             !dateChanged &&
@@ -590,7 +606,8 @@ export async function POST(request: Request) {
             !venueChanged &&
             !nameChanged &&
             !notesChanged &&
-            !topicsChanged
+            !topicsChanged &&
+            !previewImageChanged
           ) {
             continue;
           }

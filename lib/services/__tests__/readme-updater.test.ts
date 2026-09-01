@@ -30,6 +30,7 @@ function makeHackathon(overrides: Partial<Hackathon>): Hackathon {
     date_end: null,
     topics: [],
     notes: null,
+    preview_image_url: null,
     url: "https://example.org/hackathon",
     source: "test",
     status: "upcoming",

@@ -985,6 +985,7 @@ function hackathonToHackathonCardData(
     topics: hackathon.topics,
     notes: hackathon.notes,
     is_new: hackathon.is_new,
+    preview_image_url: hackathon.preview_image_url,
   };
 }
 

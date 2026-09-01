@@ -22,6 +22,8 @@ interface DevpostHackathon {
   submission_period_dates: string;
   displayed_location?: string | { icon?: string; location?: string } | null;
   themes?: Array<string | DevpostTheme>;
+  /** Devpost's listing API exposes this as a protocol-relative CDN URL. */
+  thumbnail_url?: string | null;
 }
 
 interface DevpostApiResponse {
@@ -218,6 +220,9 @@ export class DevpostParser extends BaseParser {
         ),
         url: item.url,
         source: "devpost",
+        preview_image_url: item.thumbnail_url
+          ? `https:${item.thumbnail_url}`
+          : undefined,
       };
     } catch (error) {
       console.error(`Error mapping Devpost event ${item.title}:`, error);

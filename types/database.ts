@@ -24,6 +24,7 @@ export interface Database {
           date_end: string | null;
           topics: HackathonTopic[] | null;
           notes: string | null;
+          preview_image_url: string | null;
           url: string;
           source: string;
           status: "upcoming" | "past" | "estimated";
@@ -67,6 +68,7 @@ export interface Database {
           date_end?: string | null;
           topics?: HackathonTopic[] | null;
           notes?: string | null;
+          preview_image_url?: string | null;
           url: string;
           source?: string;
           status?: "upcoming" | "past" | "estimated";
@@ -96,6 +98,7 @@ export interface Database {
           date_end?: string | null;
           topics?: HackathonTopic[] | null;
           notes?: string | null;
+          preview_image_url?: string | null;
           url?: string;
           source?: string;
           status?: "upcoming" | "past" | "estimated";

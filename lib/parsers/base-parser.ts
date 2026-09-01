@@ -42,6 +42,8 @@ export interface ParsedHackathon {
   date_end?: Date;
   topics?: HackathonTopic[];
   notes?: string;
+  /** Optional image URL already present in the source discovery payload. */
+  preview_image_url?: string;
   url: string;
   source: string;
   /**
