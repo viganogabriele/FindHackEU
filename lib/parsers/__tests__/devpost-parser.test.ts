@@ -177,4 +177,31 @@ describe("DevpostParser", () => {
     expect(result.hackathons).toHaveLength(0);
     expect(result.errors[0]).toContain("status 503");
   });
+
+  it("puts the start date in the previous year for a range crossing a calendar-year boundary", async () => {
+    mockFetch([
+      [
+        {
+          id: 125,
+          title: "New Year Hack",
+          url: "https://new-year-hack.devpost.com/",
+          submission_period_dates: "Dec 30 - Jan 02, 2027",
+          open_state: "upcoming",
+          displayed_location: { location: "Paris, France" },
+          themes: [],
+        },
+      ],
+    ]);
+
+    const pendingParse = new DevpostParser().parse();
+    await vi.runAllTimersAsync();
+    const result = await pendingParse;
+
+    expect(result.hackathons).toEqual([
+      expect.objectContaining({
+        date_start: new Date("2026-12-30T00:00:00.000Z"),
+        date_end: new Date("2027-01-02T23:59:59.999Z"),
+      }),
+    ]);
+  });
 });

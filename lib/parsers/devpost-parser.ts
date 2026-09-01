@@ -225,9 +225,13 @@ export class DevpostParser extends BaseParser {
     const endMonth = MONTHS[(match[3] ?? match[1]).slice(0, 3).toLowerCase()];
     const startDay = Number(match[2]);
     const endDay = Number(match[4] ?? match[2]);
-    const year = Number(match[5]);
-    const start = new Date(Date.UTC(year, startMonth, startDay));
-    const end = new Date(Date.UTC(year, endMonth, endDay, 23, 59, 59, 999));
+    const endYear = Number(match[5]);
+    // The printed year applies to the end date; a range that crosses a
+    // calendar-year boundary (e.g. "Dec 30 - Jan 02, 2027") has a start
+    // date in the *previous* year, not the printed one.
+    const startYear = startMonth > endMonth ? endYear - 1 : endYear;
+    const start = new Date(Date.UTC(startYear, startMonth, startDay));
+    const end = new Date(Date.UTC(endYear, endMonth, endDay, 23, 59, 59, 999));
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
       throw new Error(`Invalid Devpost date range: ${value}`);
     }
