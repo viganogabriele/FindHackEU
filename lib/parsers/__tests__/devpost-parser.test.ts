@@ -195,6 +195,29 @@ describe("DevpostParser", () => {
     expect(hackathon.location_confidence).toBeUndefined();
   });
 
+  it("drops a US city that shares a name with a European city, instead of admitting it as European", async () => {
+    mockFetch([
+      [
+        {
+          id: 130,
+          title: "Paris Texas Hack",
+          url: "https://paris-texas.devpost.com/",
+          submission_period_dates: "Oct 10 - Oct 12, 2026",
+          open_state: "upcoming",
+          displayed_location: "Paris, TX",
+          themes: [],
+        },
+      ],
+    ]);
+
+    const pendingParse = new DevpostParser().parse();
+    await vi.runAllTimersAsync();
+    const result = await pendingParse;
+
+    expect(result.hackathons).toHaveLength(0);
+    expect(result.dropped?.byCountry).toBe(1);
+  });
+
   it("uses tbd when Devpost provides no recognized location signal", async () => {
     mockFetch([
       [

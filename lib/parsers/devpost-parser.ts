@@ -36,6 +36,8 @@ interface DevpostDropStats {
   droppedByCountry: number;
 }
 
+const ONLINE_LOCATION_PATTERN = /\b(online|remote|worldwide|virtual)\b/i;
+
 const MONTHS: Record<string, number> = {
   jan: 0,
   feb: 1,
@@ -56,8 +58,8 @@ const MONTHS: Record<string, number> = {
 // with European ISO country codes.
 const REGIONAL_LOCATION_CODES = new Set([
   // Bayern is commonly abbreviated "BY" and collides with Belarus's ISO
-  // code. Other two-letter codes are resolved through the city consistency
-  // check below, preserving valid locations such as "Berlin, DE".
+  // code. Add further known collisions here explicitly rather than
+  // inferring them from city-name matches (see parseLocation below for why).
   "BY",
 ]);
 
@@ -258,14 +260,12 @@ export class DevpostParser extends BaseParser {
     value: DevpostHackathon["displayed_location"],
   ): ParsedHackathon["location_type"] {
     if (typeof value === "string") {
-      return /\b(online|remote|worldwide|virtual)\b/i.test(value)
-        ? "online"
-        : "tbd";
+      return ONLINE_LOCATION_PATTERN.test(value) ? "online" : "tbd";
     }
     if (value === null || value === undefined) return "tbd";
     if (value.icon === "globe") return "online";
     if (value.icon === "map-marker-alt") return "physical";
-    if (/\b(online|remote|worldwide|virtual)\b/i.test(value.location ?? "")) {
+    if (ONLINE_LOCATION_PATTERN.test(value.location ?? "")) {
       return "online";
     }
     return "tbd";
@@ -276,7 +276,7 @@ export class DevpostParser extends BaseParser {
     countryCode?: string;
     nonEuropean: boolean;
   } {
-    if (!location || /\b(online|remote|worldwide|virtual)\b/i.test(location)) {
+    if (!location || ONLINE_LOCATION_PATTERN.test(location)) {
       return { nonEuropean: false };
     }
     const parts = location
@@ -287,22 +287,17 @@ export class DevpostParser extends BaseParser {
     const city = europeanCountries.normalizeCity(
       parts.length > 1 ? parts.slice(0, -1).join(", ") : location,
     );
-    const cityCountry = city
-      ? europeanCountries.inferCountryFromCity(city)
-      : undefined;
     const isTwoLetterCode =
       countryPart !== undefined && /^[A-Za-z]{2}$/.test(countryPart);
 
-    // A regional/state suffix must not collide with an ISO country code. Also
-    // reject a two-letter country interpretation that conflicts with a known
-    // city's country; it is more likely an administrative abbreviation.
-    if (
-      (isTwoLetterCode &&
-        REGIONAL_LOCATION_CODES.has(countryPart.toUpperCase())) ||
-      (isTwoLetterCode &&
-        cityCountry !== undefined &&
-        europeanCountries.normalizeCountry(countryPart) !== cityCountry)
-    ) {
+    // A known regional/state abbreviation must not be misread as an ISO
+    // country code (e.g. "Munich, BY" for Bayern colliding with Belarus).
+    // Deliberately an explicit blocklist, not a broader city-name heuristic:
+    // a heuristic that infers a country from the city and rejects any
+    // mismatching trailing code produced false negatives for genuine
+    // non-European locations that happen to share a city name with a
+    // European one (e.g. "Paris, TX", "Manchester, NH", "Berlin, NH").
+    if (isTwoLetterCode && REGIONAL_LOCATION_CODES.has(countryPart.toUpperCase())) {
       return { city, nonEuropean: false };
     }
 
