@@ -13,6 +13,7 @@
   "locations.searchPlaceholder": "Sök plats",
   "locations.noneFound": "Ingen plats hittades.",
   "locations.allOf": "Hela {country}",
+  "locations.citiesIn": "Städer i {country}",
   "topics": "Ämnen",
   "topics.select": "Välj ämnen",
   "topics.searchPlaceholder": "Sök ämne",

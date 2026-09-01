@@ -13,6 +13,7 @@
   "locations.searchPlaceholder": "Rechercher un lieu",
   "locations.noneFound": "Aucun lieu trouvé.",
   "locations.allOf": "Tout {country}",
+  "locations.citiesIn": "Villes en {country}",
   "topics": "Sujets",
   "topics.select": "Sélectionner des sujets",
   "topics.searchPlaceholder": "Rechercher un sujet",

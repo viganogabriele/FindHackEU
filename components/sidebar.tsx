@@ -55,7 +55,13 @@ import { cn } from "@/lib/utils";
 import type { HackathonTopic } from "@/lib/constants/topics";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { useTranslation } from "@/contexts/translation-context";
-import { formatLocationValueLabel } from "@/lib/location-filter";
+import {
+  countryCodeFromLocationValue,
+  formatCountryLocationLabel,
+  formatLocationValueLabel,
+  getCityLocationOptionsForCountry,
+  isCountryLocationValue,
+} from "@/lib/location-filter";
 
 interface SidebarProps {
   uniqueUpcomingLocations?: string[];
@@ -261,6 +267,16 @@ function SidebarContent({
     updateFilter("locations", newLocations);
   };
 
+  const narrowCountryToCity = (countryLocation: string, city: string) => {
+    const locationsWithoutCountry = filters.locations.filter(
+      (location) => location !== countryLocation,
+    );
+    const newLocations = locationsWithoutCountry.includes(city)
+      ? locationsWithoutCountry.filter((location) => location !== city)
+      : [...locationsWithoutCountry, city];
+    updateFilter("locations", newLocations);
+  };
+
   const toggleTopic = (topic: HackathonTopic) => {
     const newTopics = filters.topics.includes(topic)
       ? filters.topics.filter((t: HackathonTopic) => t !== topic)
@@ -371,6 +387,51 @@ function SidebarContent({
                       </CommandItem>
                     ))}
                   </CommandGroup>
+                  {filters.locations
+                    .filter(isCountryLocationValue)
+                    .map((countryLocation) => {
+                      const countryCode =
+                        countryCodeFromLocationValue(countryLocation);
+                      if (!countryCode) return null;
+
+                      const cityOptions = getCityLocationOptionsForCountry(
+                        availableLocations,
+                        countryCode,
+                      );
+                      if (cityOptions.length === 0) return null;
+
+                      const countryLabel = formatCountryLocationLabel(
+                        countryCode,
+                        (country) => country,
+                      );
+                      return (
+                        <CommandGroup
+                          key={`cities-${countryLocation}`}
+                          heading={t("locations.citiesIn", {
+                            country: countryLabel,
+                          })}
+                        >
+                          {cityOptions.map((city) => (
+                            <CommandItem
+                              key={`narrow-${city}`}
+                              onSelect={() =>
+                                narrowCountryToCity(countryLocation, city)
+                              }
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  filters.locations.includes(city)
+                                    ? "opacity-100"
+                                    : "opacity-0",
+                                )}
+                              />
+                              {city}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      );
+                    })}
                 </CommandList>
               </Command>
             </PopoverContent>
@@ -597,7 +658,6 @@ export default function Sidebar({
   const { filters, updateFilter, clearFilters } = useFilters();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Determina le location da mostrare in base allo status
   const availableLocations =
     filters.status === "upcoming"
       ? uniqueUpcomingLocations
