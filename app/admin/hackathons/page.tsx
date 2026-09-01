@@ -97,9 +97,14 @@ export default async function HackathonsAdminPage({
           <SignOutButton email={authStatus.email!} />
         </div>
 
-        <Button asChild variant="link" size="sm" className="mb-4 -ml-3">
-          <Link href="/admin/candidates">Review candidates instead →</Link>
-        </Button>
+        <div className="mb-4 -ml-3 flex flex-wrap items-center gap-1">
+          <Button asChild variant="link" size="sm">
+            <Link href="/admin">← Admin dashboard</Link>
+          </Button>
+          <Button asChild variant="link" size="sm">
+            <Link href="/admin/candidates">Review candidates instead →</Link>
+          </Button>
+        </div>
 
         <form className="mb-6 flex gap-2" method="get">
           <input type="hidden" name="status" value={status} />
