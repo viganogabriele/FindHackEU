@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { HACKATHON_TOPICS } from "@/lib/constants/topics";
 import { submitManualCandidateFormAction } from "./actions";
+import { NO_AUTOFILL_PROPS } from "./form-utils";
 
 const EMPTY_FIELDS = {
   url: "",
@@ -110,9 +111,7 @@ export function ManualSubmitForm() {
               placeholder="https://..."
               value={fields.url}
               onChange={updateField("url")}
-              autoComplete="off"
-              data-1p-ignore
-              data-lpignore="true"
+              {...NO_AUTOFILL_PROPS}
             />
           </div>
           <div className="space-y-1.5">
@@ -124,9 +123,7 @@ export function ManualSubmitForm() {
               placeholder="Event name"
               value={fields.name}
               onChange={updateField("name")}
-              autoComplete="off"
-              data-1p-ignore
-              data-lpignore="true"
+              {...NO_AUTOFILL_PROPS}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -138,9 +135,7 @@ export function ManualSubmitForm() {
                 placeholder="Optional"
                 value={fields.city}
                 onChange={updateField("city")}
-                autoComplete="off"
-                data-1p-ignore
-                data-lpignore="true"
+                {...NO_AUTOFILL_PROPS}
               />
             </div>
             <div className="space-y-1.5">
@@ -151,9 +146,7 @@ export function ManualSubmitForm() {
                 placeholder="e.g. Italy or IT"
                 value={fields.countryCode}
                 onChange={updateField("countryCode")}
-                autoComplete="off"
-                data-1p-ignore
-                data-lpignore="true"
+                {...NO_AUTOFILL_PROPS}
               />
             </div>
           </div>
@@ -165,9 +158,7 @@ export function ManualSubmitForm() {
               type="date"
               value={fields.dateStart}
               onChange={updateField("dateStart")}
-              autoComplete="off"
-              data-1p-ignore
-              data-lpignore="true"
+              {...NO_AUTOFILL_PROPS}
             />
           </div>
 
@@ -199,9 +190,7 @@ export function ManualSubmitForm() {
                 type="hidden"
                 name="topics"
                 value={topic}
-                autoComplete="off"
-                data-1p-ignore
-                data-lpignore="true"
+                {...NO_AUTOFILL_PROPS}
               />
             ))}
           </div>

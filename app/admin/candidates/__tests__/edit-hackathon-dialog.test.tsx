@@ -149,4 +149,24 @@ describe("EditHackathonDialog", () => {
       expect(toast.success).toHaveBeenCalledTimes(1);
     });
   });
+
+  it("clears a previous validation error when reopened", async () => {
+    vi.mocked(editHackathonFormAction).mockResolvedValue({
+      outcome: "error",
+      message: "Name is required",
+    });
+
+    render(<EditHackathonDialog hackathon={hackathon} />);
+    const trigger = screen.getByRole("button", { name: "Edit hackathon" });
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("Name is required")).toBeTruthy(),
+    );
+    fireEvent.click(trigger);
+    fireEvent.click(trigger);
+
+    expect(screen.queryByText("Name is required")).toBeNull();
+  });
 });
