@@ -332,17 +332,18 @@ function StatusNav({
           variant={s === status ? "default" : "outline"}
           size="sm"
         >
-          <a
+          <Link
             href={`/admin/candidates?status=${s}${query ? `&q=${encodeURIComponent(query)}` : ""}`}
           >
             {s.charAt(0).toUpperCase() + s.slice(1)}
-            <span
+            <Badge
+              variant="secondary"
               aria-label={`${tabCounts[s] ?? "Unknown"} ${s} items`}
-              className="rounded-full bg-background/20 px-1.5 py-0.5 text-xs"
+              className="px-1.5"
             >
               {tabCounts[s] ?? "—"}
-            </span>
-          </a>
+            </Badge>
+          </Link>
         </Button>
       ))}
     </nav>
