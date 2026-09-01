@@ -2,8 +2,10 @@ import { europeanCountries } from "@/lib/european-countries";
 import { fetchWithRetry } from "@/lib/http/fetch-with-retry";
 
 interface GeocodingResponse {
-  element: {
-    countryCode?: unknown;
+  elements: {
+    element: {
+      countryCode?: unknown;
+    };
   };
 }
 
@@ -21,11 +23,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * the API may add or omit provider metadata without changing this contract.
  */
 function isGeocodingResponse(value: unknown): value is GeocodingResponse {
-  if (!isRecord(value) || !isRecord(value.element)) {
+  if (!isRecord(value) || !isRecord(value.elements)) {
     return false;
   }
 
-  const countryCode = value.element.countryCode;
+  if (!isRecord(value.elements.element)) {
+    return false;
+  }
+
+  const countryCode = value.elements.element.countryCode;
 
   return (
     countryCode === undefined ||
@@ -104,7 +110,7 @@ export class GeocodingService {
         return { status: "unavailable" };
       }
 
-      const countryCode = data.element.countryCode;
+      const countryCode = data.elements.element.countryCode;
 
       if (typeof countryCode !== "string" || !countryCode.trim()) {
         console.warn(

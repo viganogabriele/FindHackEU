@@ -17,7 +17,9 @@ function geocodingPayload(countryCode: unknown) {
     success: true,
     message: "OK",
     error: null,
-    element: { countryCode },
+    elements: {
+      element: { countryCode },
+    },
   };
 }
 
@@ -65,7 +67,25 @@ describe("GeocodingService.getCountryCodeFromCity", () => {
     ).resolves.toEqual({ status: "found", countryCode: "IT" });
   });
 
-  it("returns not_found when the provider returns an element without a country code", async () => {
+  it("returns unavailable when the response omits the nested element", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          success: true,
+          message: "OK",
+          error: null,
+          elements: {},
+        }),
+      ),
+    );
+
+    await expect(
+      GeocodingService.getCountryCodeFromCity("Rome"),
+    ).resolves.toEqual({ status: "unavailable" });
+  });
+
+  it("returns not_found when the provider returns elements.element without a country code", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(jsonResponse(geocodingPayload(undefined))),
