@@ -51,6 +51,18 @@ describe("GET /auth/callback", () => {
     );
   });
 
+  it("allows the /admin dashboard as a post-login destination (issue #81)", async () => {
+    const response = await GET(
+      new Request(
+        "https://app.example.com/auth/callback?code=oauth-code&next=%2Fadmin",
+      ),
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "https://app.example.com/admin",
+    );
+  });
+
   it("allows the published-hackathons admin page as a post-login destination", async () => {
     const response = await GET(
       new Request(

@@ -117,9 +117,14 @@ export default async function CandidatesAdminPage({
           <SignOutButton email={authStatus.email!} />
         </div>
 
-        <Button asChild variant="link" size="sm" className="mb-4 -ml-3">
-          <Link href="/admin/hackathons">Manage published hackathons →</Link>
-        </Button>
+        <div className="mb-4 -ml-3 flex flex-wrap items-center gap-1">
+          <Button asChild variant="link" size="sm">
+            <Link href="/admin">← Admin dashboard</Link>
+          </Button>
+          <Button asChild variant="link" size="sm">
+            <Link href="/admin/hackathons">Manage published hackathons →</Link>
+          </Button>
+        </div>
 
         <ManualSubmitForm />
 

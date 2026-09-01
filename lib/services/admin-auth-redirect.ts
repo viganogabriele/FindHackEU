@@ -1,4 +1,5 @@
 export const ADMIN_AUTH_REDIRECT_PATHS = [
+  "/admin",
   "/admin/candidates",
   "/admin/hackathons",
 ] as const;

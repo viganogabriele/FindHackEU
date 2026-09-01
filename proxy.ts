@@ -7,7 +7,12 @@ import { updateSupabaseSession } from "@/lib/services/supabase-auth-middleware";
  * login and must stay untouched by Supabase Auth's cookie handling.
  */
 function needsSupabaseSession(pathname: string): boolean {
-  return ["/admin/candidates", "/admin/hackathons", "/auth/callback"].some(
+  return [
+    "/admin",
+    "/admin/candidates",
+    "/admin/hackathons",
+    "/auth/callback",
+  ].some(
     (protectedPath) =>
       pathname === protectedPath || pathname.startsWith(`${protectedPath}/`),
   );
@@ -34,6 +39,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/admin",
     "/admin/candidates/:path*",
     "/admin/hackathons/:path*",
     "/auth/callback",

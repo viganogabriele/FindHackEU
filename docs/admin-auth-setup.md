@@ -1,6 +1,7 @@
-# Admin auth setup (`/admin/candidates` and `/admin/hackathons`)
+# Admin auth setup (`/admin`, `/admin/candidates`, and `/admin/hackathons`)
 
-Both development-only admin pages (issue #67) are gated behind Google sign-in
+All three development-only admin pages (issue #67, and `/admin` itself added
+in issue #81) are gated behind Google sign-in
 via Supabase Auth, restricted to a single allowlisted email. This is defense in
 depth on top of the existing `NODE_ENV !== "production"` gate, not a
 replacement for it - both checks still apply. Because Next.js sets
@@ -45,10 +46,10 @@ GOOGLE_CLIENT_SECRET=<the client secret from step 1>
 ADMIN_ALLOWED_EMAIL=<your own Google account email>
 ```
 
-`ADMIN_ALLOWED_EMAIL` is the only account allowed into either admin page -
+`ADMIN_ALLOWED_EMAIL` is the only account allowed into any admin page -
 this is a single-maintainer project, not a multi-user allowlist. If this
-variable is unset, both pages and all their server actions deny everyone (fail
-closed), not allow everyone.
+variable is unset, all three pages and their server actions deny everyone
+(fail closed), not allow everyone.
 
 ## 3. Restart local Supabase
 
@@ -105,7 +106,8 @@ https://<your-app.example.com>/auth/callback
 The local `supabase/config.toml` allowlist does not carry over to hosted
 Supabase. Configure each real deployment domain separately, and do not add a
 catch-all production wildcard. The application callback validates `next`
-again against `/admin/candidates` and `/admin/hackathons` before redirecting.
+again against `/admin`, `/admin/candidates`, and `/admin/hackathons` before
+redirecting.
 
 ## 5. Try it locally
 
@@ -113,13 +115,12 @@ again against `/admin/candidates` and `/admin/hackathons` before redirecting.
 npm run dev
 ```
 
-Visit either `http://localhost:3000/admin/candidates` or
-`http://localhost:3000/admin/hackathons` and click "Sign in with Google".
-After Google's consent screen, you should return to the page you started from,
-signed in - the header shows "Signed in as {your email} · Sign out" and the
-corresponding admin view renders. Signing in with any other Google account
-should still show the "Admin sign-in required" gate (the account is
-authenticated but not authorized).
+Visit `http://localhost:3000/admin` (or either of the two pages it links to)
+and click "Sign in with Google". After Google's consent screen, you should
+return to the page you started from, signed in - the header shows "Signed in
+as {your email} · Sign out" and the corresponding admin view renders. Signing
+in with any other Google account should still show the "Admin sign-in
+required" gate (the account is authenticated but not authorized).
 
 ## What was NOT verified by the agent that built this
 
@@ -127,7 +128,7 @@ Full sign-in end-to-end was **not** tested in the environment that
 implemented issue #67 - there were no real Google OAuth credentials
 available there. What _was_ verified live in that environment:
 
-- Both admin pages render the sign-in gate (not protected data) with no
+- All three admin pages render the sign-in gate (not protected data) with no
   session.
 - All five server actions reject (`"Not authorized"`) when called with no
   valid session.
