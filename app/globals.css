@@ -156,6 +156,18 @@
   --sidebar-ring: oklch(0.623 0.214 259.815);
 }
 
+.admin-theme .admin-topic-badge {
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
+  border-color: var(--border);
+}
+
+.admin-theme input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(1);
+  opacity: 0.85;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

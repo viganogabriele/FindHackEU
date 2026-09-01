@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
@@ -110,5 +111,43 @@ describe("EditCandidateDialog", () => {
     await waitFor(() => {
       expect(vi.mocked(toast.success)).toHaveBeenCalledWith("Candidate saved");
     });
+  });
+
+  it("shows one success toast when React StrictMode re-renders the result", async () => {
+    vi.mocked(editCandidateFormAction).mockResolvedValue({
+      outcome: "updated",
+    });
+
+    render(
+      <StrictMode>
+        <EditCandidateDialog candidate={candidate} />
+      </StrictMode>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit candidate" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("clears a previous validation error when reopened", async () => {
+    vi.mocked(editCandidateFormAction).mockResolvedValue({
+      outcome: "error",
+      message: "Name is required",
+    });
+
+    render(<EditCandidateDialog candidate={candidate} />);
+    const trigger = screen.getByRole("button", { name: "Edit candidate" });
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("Name is required")).toBeTruthy(),
+    );
+    fireEvent.click(trigger);
+    fireEvent.click(trigger);
+
+    expect(screen.queryByText("Name is required")).toBeNull();
   });
 });

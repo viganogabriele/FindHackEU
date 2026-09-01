@@ -54,6 +54,8 @@ interface HackathonCardProps {
   titleLink?: boolean;
   /** Use the tighter spacing needed by the admin review queue. */
   compact?: boolean;
+  /** Replace public light-mode topic colors with admin theme tokens. */
+  adminTheme?: boolean;
   className?: string;
 }
 
@@ -70,6 +72,7 @@ export function HackathonCard({
   meta,
   titleLink = false,
   compact = false,
+  adminTheme = false,
   className,
 }: HackathonCardProps) {
   const { t, formatDateRange } = useTranslation();
@@ -79,11 +82,11 @@ export function HackathonCard({
     <Card
       className={cn(
         "flex h-full flex-col transition-all duration-200 hover:shadow-lg",
-        compact && "gap-3 py-3",
+        compact && "gap-2 py-2",
         className,
       )}
     >
-      <CardHeader className={cn(compact && "gap-1 px-4")}>
+      <CardHeader className={cn(compact && "gap-1 px-4 py-2")}>
         <div className="flex items-start justify-between gap-2">
           <CardTitle
             className={cn(
@@ -107,7 +110,11 @@ export function HackathonCard({
           {hackathon.is_new && (
             <Badge
               variant="default"
-              className="shrink-0 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-sm"
+              className={cn(
+                "shrink-0",
+                !adminTheme &&
+                  "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm hover:from-emerald-600 hover:to-teal-700",
+              )}
             >
               <Sparkles className="mr-1 h-3 w-3" />
               {t("badge.new")}
@@ -123,7 +130,7 @@ export function HackathonCard({
       </CardHeader>
 
       <CardContent
-        className={cn("flex-1 space-y-4", compact && "space-y-2 px-4")}
+        className={cn("flex-1 space-y-4", compact && "space-y-1.5 px-4 py-2")}
       >
         <div className="space-y-2">
           <div
@@ -195,7 +202,10 @@ export function HackathonCard({
                   <Badge
                     key={`${topic}-${index}`}
                     variant="outline"
-                    className={`text-xs ${topicConfig.color}`}
+                    className={cn(
+                      "text-xs",
+                      adminTheme ? "admin-topic-badge" : topicConfig.color,
+                    )}
                   >
                     {topicConfig.label}
                   </Badge>
@@ -214,7 +224,7 @@ export function HackathonCard({
         <CardFooter
           className={cn(
             "flex flex-col gap-2",
-            compact && "flex-row gap-2 px-4 pt-2",
+            compact && "flex-row gap-2 border-t px-4 py-2",
           )}
         >
           {actions}

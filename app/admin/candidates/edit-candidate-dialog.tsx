@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useActionState } from "react";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { HACKATHON_TOPICS } from "@/lib/constants/topics";
 import { editCandidateFormAction } from "./actions";
 import type { Database } from "@/types/database";
 import { toast } from "sonner";
+import { NO_AUTOFILL_PROPS } from "./form-utils";
 
 type CandidateRow = Database["public"]["Tables"]["hackathon_candidates"]["Row"];
 
@@ -61,20 +62,7 @@ export function EditCandidateDialog({
   const [open, setOpen] = useState(false);
   const [fields, setFields] = useState(() => fieldsFromCandidate(candidate));
   const [topics, setTopics] = useState<string[]>(candidate.topics ?? []);
-  const boundAction = editCandidateFormAction.bind(null, candidate.id);
-  const [result, formAction, isPending] = useActionState(boundAction, null);
-
-  // Same "adjust state during render" pattern ManualSubmitForm uses: close
-  // and re-sync fields from the (now-updated) candidate once a save
-  // succeeds, guarded by comparing against the last result seen.
-  const [lastResult, setLastResult] = useState(result);
-  if (result !== lastResult) {
-    setLastResult(result);
-    if (result?.outcome === "updated") {
-      toast.success("Candidate saved");
-      setOpen(false);
-    }
-  }
+  const [formKey, setFormKey] = useState(0);
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
@@ -83,18 +71,8 @@ export function EditCandidateDialog({
       // opens, in case a previous open was closed without saving.
       setFields(fieldsFromCandidate(candidate));
       setTopics(candidate.topics ?? []);
+      setFormKey((key) => key + 1);
     }
-  }
-
-  function updateField(field: keyof typeof fields) {
-    return (e: React.ChangeEvent<HTMLInputElement>) =>
-      setFields((prev) => ({ ...prev, [field]: e.target.value }));
-  }
-
-  function toggleTopic(topic: string) {
-    setTopics((prev) =>
-      prev.includes(topic) ? prev.filter((t) => t !== topic) : [...prev, topic],
-    );
   }
 
   return (
@@ -120,90 +98,151 @@ export function EditCandidateDialog({
             wrong.
           </DialogDescription>
         </DialogHeader>
-        <form action={formAction} className="space-y-3">
-          <div className="space-y-1.5">
-            <Label>URL</Label>
-            <p className="truncate rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
-              {candidate.url}
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-name">Name *</Label>
-            <Input
-              id="edit-name"
-              name="name"
-              required
-              placeholder="Event name"
-              value={fields.name}
-              onChange={updateField("name")}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-city">City</Label>
-              <Input
-                id="edit-city"
-                name="city"
-                placeholder="Optional"
-                value={fields.city}
-                onChange={updateField("city")}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-countryCode">Country</Label>
-              <Input
-                id="edit-countryCode"
-                name="countryCode"
-                placeholder="e.g. Italy or IT"
-                value={fields.countryCode}
-                onChange={updateField("countryCode")}
-              />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-dateStart">Start date</Label>
-            <Input
-              id="edit-dateStart"
-              name="dateStart"
-              type="date"
-              value={fields.dateStart}
-              onChange={updateField("dateStart")}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Topics</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {HACKATHON_TOPICS.map((topic) => (
-                <Button
-                  key={topic}
-                  type="button"
-                  variant={topics.includes(topic) ? "default" : "outline"}
-                  size="sm"
-                  aria-pressed={topics.includes(topic)}
-                  onClick={() => toggleTopic(topic)}
-                  className="h-auto px-2 py-0.5 text-xs"
-                >
-                  {topic}
-                </Button>
-              ))}
-            </div>
-            {topics.map((topic) => (
-              <input key={topic} type="hidden" name="topics" value={topic} />
-            ))}
-          </div>
-
-          {result && result.outcome !== "updated" && (
-            <p className="text-sm text-destructive">{result.message}</p>
-          )}
-
-          <DialogFooter>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? "Saving…" : "Save changes"}
-            </Button>
-          </DialogFooter>
-        </form>
+        <EditCandidateForm
+          key={formKey}
+          candidate={candidate}
+          fields={fields}
+          topics={topics}
+          setOpen={setOpen}
+          setFields={setFields}
+          setTopics={setTopics}
+        />
       </DialogContent>
     </Dialog>
+  );
+}
+
+function EditCandidateForm({
+  candidate,
+  fields,
+  topics,
+  setOpen,
+  setFields,
+  setTopics,
+}: {
+  candidate: CandidateRow;
+  fields: ReturnType<typeof fieldsFromCandidate>;
+  topics: string[];
+  setOpen: (open: boolean) => void;
+  setFields: React.Dispatch<
+    React.SetStateAction<ReturnType<typeof fieldsFromCandidate>>
+  >;
+  setTopics: React.Dispatch<React.SetStateAction<string[]>>;
+}) {
+  const boundAction = editCandidateFormAction.bind(null, candidate.id);
+  const [result, formAction, isPending] = useActionState(boundAction, null);
+
+  useEffect(() => {
+    if (result?.outcome !== "updated") return;
+    toast.success("Candidate saved");
+    const closeTimeout = window.setTimeout(() => setOpen(false), 0);
+    return () => window.clearTimeout(closeTimeout);
+  }, [result, setOpen]);
+
+  function updateField(field: keyof typeof fields) {
+    return (e: React.ChangeEvent<HTMLInputElement>) =>
+      setFields((prev) => ({ ...prev, [field]: e.target.value }));
+  }
+
+  function toggleTopic(topic: string) {
+    setTopics((prev) =>
+      prev.includes(topic) ? prev.filter((t) => t !== topic) : [...prev, topic],
+    );
+  }
+
+  return (
+    <form action={formAction} className="space-y-3">
+      <div className="space-y-1.5">
+        <Label>URL</Label>
+        <p className="truncate rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+          {candidate.url}
+        </p>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="edit-name">Name *</Label>
+        <Input
+          id="edit-name"
+          name="name"
+          required
+          placeholder="Event name"
+          value={fields.name}
+          onChange={updateField("name")}
+          {...NO_AUTOFILL_PROPS}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="edit-city">City</Label>
+          <Input
+            id="edit-city"
+            name="city"
+            placeholder="Optional"
+            value={fields.city}
+            onChange={updateField("city")}
+            {...NO_AUTOFILL_PROPS}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="edit-countryCode">Country</Label>
+          <Input
+            id="edit-countryCode"
+            name="countryCode"
+            placeholder="e.g. Italy or IT"
+            value={fields.countryCode}
+            onChange={updateField("countryCode")}
+            {...NO_AUTOFILL_PROPS}
+          />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="edit-dateStart">Start date</Label>
+        <Input
+          id="edit-dateStart"
+          name="dateStart"
+          type="date"
+          value={fields.dateStart}
+          onChange={updateField("dateStart")}
+          {...NO_AUTOFILL_PROPS}
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label>Topics</Label>
+        <div className="flex flex-wrap gap-1.5">
+          {HACKATHON_TOPICS.map((topic) => (
+            <Button
+              key={topic}
+              type="button"
+              variant={topics.includes(topic) ? "default" : "outline"}
+              size="sm"
+              aria-pressed={topics.includes(topic)}
+              onClick={() => toggleTopic(topic)}
+              className="h-auto px-2 py-0.5 text-xs"
+            >
+              {topic}
+            </Button>
+          ))}
+        </div>
+        {topics.map((topic) => (
+          <input
+            key={topic}
+            type="hidden"
+            name="topics"
+            value={topic}
+            {...NO_AUTOFILL_PROPS}
+          />
+        ))}
+      </div>
+
+      {result && result.outcome !== "updated" && (
+        <p className="text-sm text-destructive">{result.message}</p>
+      )}
+
+      <DialogFooter>
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Saving…" : "Save changes"}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }

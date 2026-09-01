@@ -11,6 +11,13 @@ import { createRobotsCache } from "@/lib/discovery/robots-checker";
 import { normalizeUrl } from "@/lib/dedup/url-normalizer";
 import type { QueryBudget } from "@/lib/discovery/query-budget";
 import type { Database } from "@/types/database";
+import {
+  AUTO_PUBLISH_BLOCKER_TAGS,
+  type AutoPublishBlockerCode,
+} from "./auto-publish-blockers";
+
+export { AUTO_PUBLISH_BLOCKER_TAGS } from "./auto-publish-blockers";
+export type { AutoPublishBlockerCode } from "./auto-publish-blockers";
 
 type CandidateInsert =
   Database["public"]["Tables"]["hackathon_candidates"]["Insert"];
@@ -23,18 +30,6 @@ type AutoPublishCandidate = Pick<
   | "country_code"
   | "date_start"
 >;
-
-export const AUTO_PUBLISH_BLOCKER_TAGS = [
-  { code: "non-web-source", label: "Non-web source" },
-  { code: "unstructured-data", label: "Unstructured data" },
-  { code: "conflict", label: "Conflicting data" },
-  { code: "no-location", label: "No location" },
-  { code: "non-european-location", label: "Non-European location" },
-  { code: "no-date", label: "No date" },
-] as const;
-
-export type AutoPublishBlockerCode =
-  (typeof AUTO_PUBLISH_BLOCKER_TAGS)[number]["code"];
 
 export type AutoPublishBlocker = {
   code: AutoPublishBlockerCode;
