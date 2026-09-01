@@ -371,12 +371,23 @@ export async function POST(request: Request) {
         }> = [];
 
         // Normalizes either a `Date` (from a freshly-parsed hackathon) or a
-        // stored Postgres timestamptz string (e.g. "2026-09-02T00:00:00+00:00")
-        // to the same "YYYY-MM-DD" shape, so comparing an incoming value
-        // against what's already in the database doesn't flag every row as
-        // changed just because of a string-format mismatch.
-        const toDateOnly = (date?: Date | string | null) =>
-          date ? new Date(date).toISOString().split("T")[0] : null;
+        // stored Postgres timestamptz string to the same full-precision ISO
+        // shape, so comparing an incoming value against what's already in
+        // the database doesn't flag every row as changed just because of a
+        // string-format mismatch (e.g. millisecond precision differences).
+        //
+        // This used to truncate to "YYYY-MM-DD" (issue #20) and, critically,
+        // that truncated value was what actually got inserted/updated into
+        // `date_start`/`date_end` - even though those columns are
+        // `timestamptz` and the parsers already produce full timestamps.
+        // Every event's real start/end time was silently discarded at
+        // write time, regardless of source. Full timestamp precision is now
+        // preserved in storage; only the fuzzy-match day-bucketing below
+        // (`existingRowsByDay`/`findFuzzyMatch`) still deliberately reasons
+        // in day-only terms, since that's a "same calendar day" heuristic,
+        // not a storage concern.
+        const toFullTimestamp = (date?: Date | string | null) =>
+          date ? new Date(date).toISOString() : null;
         const sortedTopics = (topics?: string[] | null) =>
           JSON.stringify([...(topics || [])].sort());
 
@@ -389,8 +400,8 @@ export async function POST(request: Request) {
             name: hackathon.name,
             city: hackathon.city || null,
             country_code: hackathon.country_code || null,
-            date_start: toDateOnly(hackathon.date_start),
-            date_end: toDateOnly(hackathon.date_end),
+            date_start: toFullTimestamp(hackathon.date_start),
+            date_end: toFullTimestamp(hackathon.date_end),
             topics: hackathon.topics || null,
             notes: hackathon.notes || null,
           };
@@ -407,8 +418,8 @@ export async function POST(request: Request) {
           }
 
           const dateChanged =
-            incoming.date_start !== toDateOnly(existing.date_start) ||
-            incoming.date_end !== toDateOnly(existing.date_end);
+            incoming.date_start !== toFullTimestamp(existing.date_start) ||
+            incoming.date_end !== toFullTimestamp(existing.date_end);
           const locationChanged =
             incoming.city !== existing.city ||
             incoming.country_code !== existing.country_code;
