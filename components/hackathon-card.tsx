@@ -22,7 +22,6 @@ import { europeanCountries } from "@/lib/european-countries";
 import { getTopicDisplay } from "@/lib/constants/topics";
 import { cn } from "@/lib/utils";
 import {
-  useBookmarksHydration,
   useBookmarksStore,
 } from "@/lib/bookmarks-store";
 
@@ -87,7 +86,6 @@ export function HackathonCard({
   className,
 }: HackathonCardProps) {
   const { t, formatDateRange } = useTranslation();
-  useBookmarksHydration();
   const isBookmarked = useBookmarksStore((state) =>
     state.bookmarkedIds.includes(hackathon.id),
   );

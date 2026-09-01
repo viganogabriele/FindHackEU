@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import {
   HackathonCard,
   type HackathonCardData,
 } from "@/components/hackathon-card";
 import { TranslationProvider } from "@/contexts/translation-context";
+import {
+  useBookmarksHydration,
+  useBookmarksStore,
+} from "@/lib/bookmarks-store";
 
 // This repo's vitest.config.mts doesn't enable Jest-style test globals, so
 // @testing-library/react's usual auto-cleanup-after-each-test (which relies
@@ -28,6 +32,11 @@ function renderCard(hackathon: HackathonCardData, actions?: React.ReactNode) {
       <HackathonCard hackathon={hackathon} actions={actions} />
     </TranslationProvider>,
   );
+}
+
+function BookmarksHydrationHost() {
+  useBookmarksHydration();
+  return null;
 }
 
 const base: HackathonCardData = {
@@ -136,5 +145,25 @@ describe("HackathonCard", () => {
   it("renders no footer when actions is omitted", () => {
     renderCard(base);
     expect(document.querySelector('[data-slot="card-footer"]')).toBeNull();
+  });
+
+  it("hydrates bookmarks once when many cards render together", () => {
+    const rehydrate = vi
+      .spyOn(useBookmarksStore.persist, "rehydrate")
+      .mockResolvedValue();
+
+    render(
+      <TranslationProvider>
+        <BookmarksHydrationHost />
+        {Array.from({ length: 20 }, (_, index) => (
+          <HackathonCard
+            key={index}
+            hackathon={{ ...base, id: `hackathon-${index}` }}
+          />
+        ))}
+      </TranslationProvider>,
+    );
+
+    expect(rehydrate).toHaveBeenCalledTimes(1);
   });
 });
