@@ -31,7 +31,7 @@
   "topics.searchPlaceholder": "Zoek onderwerp",
   "topics.noneFound": "Geen onderwerp gevonden.",
   "dates": "Data",
-  "filters.includeNonEnglish": "Niet-Engelse hackathons opnemen",
+  "filters.includeOtherLanguages": "Hackathons in andere talen dan {language} opnemen",
   "dates.select": "Selecteer data",
   "sorting": "Sortering",
   "sort.byDate": "Sorteer op datum",

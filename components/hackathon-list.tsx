@@ -21,7 +21,7 @@ import {
   hackathonMatchesLocationFilter,
   hackathonMatchesRadiusFilter,
 } from "@/lib/location-filter";
-import { looksNonEnglish } from "@/lib/detect-non-english";
+import { looksLikeForeignLanguage } from "@/lib/detect-non-english";
 
 interface HackathonListProps {
   upcoming: Hackathon[];
@@ -34,7 +34,7 @@ export default function HackathonList({
   past,
   loading,
 }: HackathonListProps) {
-  const { t } = useTranslation();
+  const { locale, t } = useTranslation();
   const { filters } = useFilters();
 
   const filterHackathons = useCallback(
@@ -77,7 +77,10 @@ export default function HackathonList({
           }
         }
 
-        if (!filters.includeNonEnglish && looksNonEnglish(hackathon.name)) {
+        if (
+          !filters.includeNonEnglish &&
+          looksLikeForeignLanguage(hackathon.name, locale)
+        ) {
           return false;
         }
 
@@ -99,7 +102,7 @@ export default function HackathonList({
         return true;
       });
     },
-    [filters],
+    [filters, locale],
   );
 
   const currentHackathons = useMemo(() => {

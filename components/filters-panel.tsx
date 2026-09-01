@@ -94,7 +94,7 @@ export function FiltersPanel({
   uniqueTopics: HackathonTopic[];
 }) {
   const { filters, updateFilter, clearFilters } = useFilters();
-  const { t } = useTranslation();
+  const { locale, t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
   const [topicOpen, setTopicOpen] = useState(false);
@@ -109,13 +109,15 @@ export function FiltersPanel({
     formatLocationValueLabel(value, (country) =>
       t("locations.allOf", { country }),
     );
+  const languageName =
+    new Intl.DisplayNames([locale], { type: "language" }).of(locale) ?? locale;
   const activeCount =
     Number(Boolean(filters.search)) +
     filters.locations.length +
     Number(Boolean(filters.radius)) +
     filters.topics.length +
     Number(Boolean(filters.dateRange?.from || filters.dateRange?.to)) +
-    Number(!filters.includeNonEnglish);
+    Number(filters.includeNonEnglish);
 
   const toggleLocation = (location: string) => {
     updateFilter(
@@ -216,11 +218,13 @@ export function FiltersPanel({
           },
         ]
       : []),
-    ...(!filters.includeNonEnglish
+    ...(filters.includeNonEnglish
       ? [
           {
             id: "language",
-            label: t("filters.includeNonEnglish"),
+            label: t("filters.includeOtherLanguages", {
+              language: languageName,
+            }),
             onRemove: () => updateFilter("includeNonEnglish", true),
           },
         ]
@@ -553,7 +557,7 @@ export function FiltersPanel({
         </Field>
         <div className="flex items-center justify-between gap-6 rounded-md border p-3">
           <Label htmlFor="include-non-english" className="leading-snug">
-            {t("filters.includeNonEnglish")}
+            {t("filters.includeOtherLanguages", { language: languageName })}
           </Label>
           <Switch
             id="include-non-english"
