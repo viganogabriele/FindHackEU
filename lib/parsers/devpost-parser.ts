@@ -297,7 +297,10 @@ export class DevpostParser extends BaseParser {
     // mismatching trailing code produced false negatives for genuine
     // non-European locations that happen to share a city name with a
     // European one (e.g. "Paris, TX", "Manchester, NH", "Berlin, NH").
-    if (isTwoLetterCode && REGIONAL_LOCATION_CODES.has(countryPart.toUpperCase())) {
+    if (
+      isTwoLetterCode &&
+      REGIONAL_LOCATION_CODES.has(countryPart.toUpperCase())
+    ) {
       return { city, nonEuropean: false };
     }
 
