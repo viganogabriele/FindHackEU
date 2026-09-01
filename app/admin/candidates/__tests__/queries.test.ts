@@ -2,9 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 import {
   candidateSearchOrFilter,
   candidatesByStatusQuery,
+  candidatesByStatusCountQuery,
   hackathonsByModerationStateQuery,
+  hackathonsByModerationStateCountQuery,
   approvedOrPastHackathonsQuery,
+  approvedOrPastHackathonsCountQuery,
   archivedHackathonsQuery,
+  archivedHackathonsCountQuery,
 } from "../queries";
 
 /**
@@ -92,6 +96,40 @@ function createFilteringQueryBuilderMock(rows: Array<Record<string, unknown>>) {
   return { builder, calls };
 }
 
+function createCountQueryBuilderMock(count: number | null = 0) {
+  const calls: RecordedCall[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const builder: any = {};
+
+  for (const method of [
+    "select",
+    "eq",
+    "is",
+    "not",
+    "order",
+    "or",
+    "ilike",
+    "limit",
+  ]) {
+    builder[method] = (...args: unknown[]) => {
+      calls.push({ method, args });
+      return builder;
+    };
+  }
+
+  builder.then = (
+    resolve: (value: {
+      data: null;
+      count: number | null;
+      error: null;
+    }) => unknown,
+    reject?: (reason: unknown) => unknown,
+  ) =>
+    Promise.resolve({ data: null, count, error: null }).then(resolve, reject);
+
+  return { builder, calls };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function fakeClient(builder: unknown): any {
   return { from: vi.fn().mockReturnValue(builder) };
@@ -130,6 +168,86 @@ describe("candidatesByStatusQuery", () => {
 
     const orCall = calls.find((c) => c.method === "or");
     expect(orCall?.args[0]).toBe(candidateSearchOrFilter("berlin"));
+  });
+});
+
+describe("count-only tab queries", () => {
+  it("counts pending candidates without fetching or limiting rows", async () => {
+    const { builder, calls } = createCountQueryBuilderMock(12);
+    const client = fakeClient(builder);
+
+    const result = await candidatesByStatusCountQuery(
+      client,
+      "pending",
+      "berlin",
+    );
+
+    expect(calls).toContainEqual({
+      method: "select",
+      args: ["id", { count: "exact", head: true }],
+    });
+    expect(calls).toContainEqual({ method: "eq", args: ["status", "pending"] });
+    expect(calls.some((call) => call.method === "limit")).toBe(false);
+    expect(result).toEqual({ data: null, count: 12, error: null });
+  });
+
+  it("counts pending or rejected published hackathons with the same filters", async () => {
+    const { builder, calls } = createCountQueryBuilderMock(4);
+    const client = fakeClient(builder);
+
+    await hackathonsByModerationStateCountQuery(client, "rejected", "berlin");
+
+    expect(calls).toContainEqual({
+      method: "select",
+      args: ["id", { count: "exact", head: true }],
+    });
+    expect(calls).toContainEqual({
+      method: "eq",
+      args: ["moderation_state", "rejected"],
+    });
+    expect(calls).toContainEqual({ method: "is", args: ["archived_at", null] });
+    expect(calls).toContainEqual({
+      method: "ilike",
+      args: ["name", "%berlin%"],
+    });
+    expect(calls.some((call) => call.method === "limit")).toBe(false);
+  });
+
+  it("counts the approved/past date split without ordering rows", async () => {
+    const { builder, calls } = createCountQueryBuilderMock(8);
+    const client = fakeClient(builder);
+    const now = new Date("2026-09-01T12:00:00.000Z");
+
+    await approvedOrPastHackathonsCountQuery(client, "past", "", now);
+
+    expect(calls).toContainEqual({
+      method: "select",
+      args: ["id", { count: "exact", head: true }],
+    });
+    expect(calls).toContainEqual({
+      method: "or",
+      args: [
+        `status.eq.past,and(status.eq.estimated,date_start.lt.${now.toISOString()})`,
+      ],
+    });
+    expect(calls.some((call) => call.method === "order")).toBe(false);
+  });
+
+  it("counts archived hackathons using the archived-only filter", async () => {
+    const { builder, calls } = createCountQueryBuilderMock(3);
+    const client = fakeClient(builder);
+
+    await archivedHackathonsCountQuery(client, "");
+
+    expect(calls).toContainEqual({
+      method: "select",
+      args: ["id", { count: "exact", head: true }],
+    });
+    expect(calls).toContainEqual({
+      method: "not",
+      args: ["archived_at", "is", null],
+    });
+    expect(calls.some((call) => call.method === "order")).toBe(false);
   });
 });
 
