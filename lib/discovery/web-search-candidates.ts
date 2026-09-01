@@ -8,6 +8,7 @@ import {
 } from "@/lib/search/search-provider";
 import { classifyAndFetchPage } from "@/lib/discovery/fetch-classifier";
 import { createRobotsCache } from "@/lib/discovery/robots-checker";
+import { normalizeUrl } from "@/lib/dedup/url-normalizer";
 import type { QueryBudget } from "@/lib/discovery/query-budget";
 import type { Database } from "@/types/database";
 
@@ -198,6 +199,12 @@ export interface DiscoverCandidatesStats {
   timeouts: number;
   /** Fetched fine, but the body heuristically looks like a JS-only SPA with no server-rendered content. */
   requiresJs: number;
+  /** Result URLs rejected before any network request because their outcome was unsafe. */
+  invalidUrls: number;
+  /** Result pages whose evidence extraction failed unexpectedly. */
+  extractionErrors: number;
+  /** Unexpected per-result fetch/classification failures isolated from the rest of the run. */
+  fetchErrors: number;
   /** How many generated queries were never run because the daily budget (issue #18) was exhausted mid-run. */
   queriesSkippedForBudget: number;
 }
@@ -238,6 +245,9 @@ export async function discoverWebCandidates(
     httpErrors: 0,
     timeouts: 0,
     requiresJs: 0,
+    invalidUrls: 0,
+    extractionErrors: 0,
+    fetchErrors: 0,
     queriesSkippedForBudget: 0,
   };
 
@@ -249,6 +259,9 @@ export async function discoverWebCandidates(
 
   const queries = generateQueries(maxQueries, countries);
   const candidates: CandidateInsert[] = [];
+  const knownNormalizedUrls = new Set(
+    Array.from(knownUrls, (knownUrl) => normalizeUrl(knownUrl)),
+  );
   const seenInThisRun = new Set<string>();
   // One robots.txt cache per discovery run (issue #16) - shared across
   // every query/result in this call so the same host's robots.txt is
@@ -287,17 +300,33 @@ export async function discoverWebCandidates(
 
     for (const result of searchOutcome.results) {
       stats.resultsSeen++;
+      const normalizedResultUrl = normalizeUrl(result.url);
 
-      if (knownUrls.has(result.url) || seenInThisRun.has(result.url)) {
+      if (
+        knownNormalizedUrls.has(normalizedResultUrl) ||
+        seenInThisRun.has(normalizedResultUrl)
+      ) {
         stats.alreadyKnownSkipped++;
         continue;
       }
-      seenInThisRun.add(result.url);
+      seenInThisRun.add(normalizedResultUrl);
 
-      const { outcome, evidence } = await classifyAndFetchPage(
-        result.url,
-        robotsCache,
-      );
+      let outcome: Awaited<ReturnType<typeof classifyAndFetchPage>>["outcome"];
+      let evidence: Awaited<
+        ReturnType<typeof classifyAndFetchPage>
+      >["evidence"];
+      try {
+        const classified = await classifyAndFetchPage(result.url, robotsCache);
+        outcome = classified.outcome;
+        evidence = classified.evidence;
+      } catch (error) {
+        stats.fetchErrors++;
+        console.warn(
+          `Skipping candidate ${result.url}: page classification failed`,
+          error,
+        );
+        continue;
+      }
 
       if (outcome === "blocked-by-robots") {
         stats.blockedByRobots++;
@@ -323,6 +352,18 @@ export async function discoverWebCandidates(
         );
         continue;
       }
+      if (outcome === "invalid-url") {
+        stats.invalidUrls++;
+        console.warn(`Skipping candidate ${result.url}: unsafe URL`);
+        continue;
+      }
+      if (outcome === "extraction-error") {
+        stats.extractionErrors++;
+        console.warn(
+          `Skipping candidate ${result.url}: evidence extraction failed`,
+        );
+        continue;
+      }
 
       if (!evidence) {
         stats.evidenceNotFound++;
@@ -330,19 +371,19 @@ export async function discoverWebCandidates(
       }
 
       // evidence.country_code comes from JSON-LD's addressCountry, which is
-      // typically a full country name (e.g. "India"), not a 2-letter code -
-      // classifyCountryCode() is designed for exactly-2-letter codes vs.
-      // free text and would wrongly call an unrecognized full name
-      // "unrecognized" (ambiguous, don't drop) rather than "non_european"
-      // (a real name that just isn't in Europe). Same fix as
-      // DevfolioParser's explicit-country-name handling: an explicit,
-      // non-empty country name that doesn't normalize to a European code
-      // is dropped directly, not passed through classifyCountryCode().
+      // often a full country name rather than an ISO code. Only drop values
+      // that are explicitly recognizable as non-European; an unknown
+      // location fragment is not enough evidence to discard an otherwise
+      // useful candidate.
       let country_code = europeanCountries.normalizeCountry(
         evidence.country_code,
       );
 
-      if (evidence.country_code && !country_code) {
+      if (
+        evidence.country_code &&
+        europeanCountries.classifyCountryCode(evidence.country_code) ===
+          "non_european"
+      ) {
         stats.nonEuropeanDropped++;
         continue;
       }
@@ -356,7 +397,7 @@ export async function discoverWebCandidates(
         // try inferring from the query itself (e.g. "hackathon Germany
         // 2026"), same low-confidence tier as a known-city fallback
         // elsewhere in this codebase.
-        const inferredFromQuery = europeanCountries.normalizeCountry(query);
+        const inferredFromQuery = europeanCountries.inferCountryFromText(query);
         if (inferredFromQuery) {
           country_code = inferredFromQuery;
         }

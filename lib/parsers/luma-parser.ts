@@ -132,7 +132,7 @@ export class LumaParser extends BaseParser {
 
     for (const slug of this.slugs) {
       try {
-        const { events, pagesFetched, truncated } =
+        const { events, pagesFetched, truncated, truncationReason } =
           await this.fetchEventsForSlug(slug);
         const stats: LumaDropStats = {
           excludedPastFutureWindow: 0,
@@ -153,11 +153,14 @@ export class LumaParser extends BaseParser {
             `future window, ${stats.droppedByCountry} as non-European`,
         );
 
-        if (truncated) {
+        if (truncated && truncationReason) {
           const truncationMessage =
-            `stopped at the ${this.maxPagesPerSlug}-page limit while Luma ` +
-            `still reported more results (has_more: true) - some events ` +
-            `for this category were not fetched this run`;
+            truncationReason === "missing-cursor"
+              ? "Luma reported has_more: true but no next_cursor - some " +
+                "events for this category may not have been fetched this run"
+              : `stopped at the ${this.maxPagesPerSlug}-page limit while Luma ` +
+                `still reported more results (has_more: true) - some events ` +
+                `for this category were not fetched this run`;
 
           console.warn(`Luma [${slug}]: ${truncationMessage}.`);
 
@@ -219,6 +222,7 @@ export class LumaParser extends BaseParser {
     // (found in code review): silently truncating without any signal that
     // real events beyond the page cap were left unfetched.
     truncated: boolean;
+    truncationReason?: "page-limit" | "missing-cursor";
   }> {
     const allEvents: LumaEventEntry[] = [];
     let cursor: string | null = null;
@@ -278,8 +282,17 @@ export class LumaParser extends BaseParser {
         `Luma [${slug}]: fetched page ${page} with ${events.length} events`,
       );
 
-      if (!data.has_more || !data.next_cursor) {
+      if (!data.has_more) {
         return { events: allEvents, pagesFetched: page, truncated: false };
+      }
+
+      if (!data.next_cursor) {
+        return {
+          events: allEvents,
+          pagesFetched: page,
+          truncated: true,
+          truncationReason: "missing-cursor",
+        };
       }
 
       if (page >= this.maxPagesPerSlug) {
@@ -289,7 +302,12 @@ export class LumaParser extends BaseParser {
       cursor = data.next_cursor;
     }
 
-    return { events: allEvents, pagesFetched: page, truncated: true };
+    return {
+      events: allEvents,
+      pagesFetched: page,
+      truncated: true,
+      truncationReason: "page-limit",
+    };
   }
 
   /**
@@ -528,11 +546,23 @@ export class LumaParser extends BaseParser {
     city: string | undefined,
     country_code: string | undefined,
   ): ParsedHackathon["location_type"] {
-    if (rawLocationType === "online") return "online";
-    if (rawLocationType === "hybrid") return "hybrid";
-    if (rawLocationType === "offline") return "physical";
+    if (rawLocationType === undefined) {
+      return city || country_code ? "physical" : "tbd";
+    }
 
-    return city || country_code ? "physical" : "tbd";
+    switch (rawLocationType?.toLowerCase()) {
+      case "online":
+        return "online";
+      case "hybrid":
+        return "hybrid";
+      case "offline":
+        return "physical";
+      default:
+        // City/country metadata alone cannot override an explicit unknown
+        // value. Keep it reviewable rather than silently promoting it to
+        // "physical" or "online".
+        return "tbd";
+    }
   }
 
   /**

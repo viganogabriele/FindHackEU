@@ -41,6 +41,21 @@ describe("submitManualCandidate", () => {
     expect(result.outcome).toBe("invalid");
   });
 
+  it.each(["javascript:alert(1)", "ftp://example.org/event"])(
+    "rejects a non-HTTP URL: %s",
+    async (url) => {
+      const result = await submitManualCandidate({
+        url,
+        name: "Some Hackathon",
+      });
+
+      expect(result).toEqual({
+        outcome: "invalid",
+        message: "A public HTTP(S) URL is required.",
+      });
+    },
+  );
+
   it("rejects a non-European country name", async () => {
     const result = await submitManualCandidate({
       url: "https://example.org/event",

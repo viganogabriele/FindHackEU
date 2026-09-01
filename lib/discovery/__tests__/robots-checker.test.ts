@@ -31,6 +31,14 @@ describe("parseRobotsTxt / isPathAllowed", () => {
     expect(isPathAllowed(rules, "/everything/page")).toBe(true);
   });
 
+  it("keeps wildcard rules when a second user-agent shares the same group", () => {
+    const rules = parseRobotsTxt(
+      "User-agent: *\nUser-agent: HackTrackBot\nDisallow: /private\n",
+    );
+
+    expect(isPathAllowed(rules, "/private/page")).toBe(false);
+  });
+
   it("prefers the longer, more specific Allow over a broader Disallow", () => {
     const rules = parseRobotsTxt(
       "User-agent: *\nDisallow: /directory/\nAllow: /directory/sitemap/\n",
@@ -58,7 +66,7 @@ describe("isAllowedByRobots", () => {
     vi.restoreAllMocks();
   });
 
-  it("fetches and caches robots.txt per host, only once", async () => {
+  it("fetches and caches robots.txt per origin, only once", async () => {
     const fetchSpy = vi.fn(async () => ({
       ok: true,
       status: 200,
@@ -72,6 +80,31 @@ describe("isAllowedByRobots", () => {
     await isAllowedByRobots("https://example.org/other/page", cache);
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not share robots.txt between HTTP and HTTPS origins", async () => {
+    const fetchSpy = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      text: async () => "User-agent: *\nDisallow: /blocked\n",
+    }));
+    vi.stubGlobal("fetch", fetchSpy);
+    const cache = createRobotsCache();
+
+    await isAllowedByRobots("http://example.org/blocked/page", cache);
+    await isAllowedByRobots("https://example.org/blocked/page", cache);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects unsafe URLs without fetching their robots.txt", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    expect(
+      await isAllowedByRobots("http://127.0.0.1/private", createRobotsCache()),
+    ).toBe(false);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("returns false for a disallowed path, true for an allowed one", async () => {

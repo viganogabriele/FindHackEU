@@ -84,9 +84,18 @@ export class DevfolioParser extends BaseParser {
 
     for (const filter of this.filters) {
       try {
-        const items = await this.fetchFilter(filter);
+        const { items, truncated } = await this.fetchFilter(filter);
         for (const item of items) {
           byUuid.set(item.uuid, item);
+        }
+
+        if (truncated) {
+          const truncationMessage =
+            `stopped at the ${this.maxPagesPerFilter}-page limit while Devfolio ` +
+            `reported more pages for filter "${filter}" - some events were ` +
+            "not fetched this run";
+          errors.push(`[${filter}] ${truncationMessage}`);
+          console.warn(`Devfolio [${filter}]: ${truncationMessage}.`);
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -135,7 +144,10 @@ export class DevfolioParser extends BaseParser {
     return { hackathons, errors, status, dropped };
   }
 
-  private async fetchFilter(filter: string): Promise<DevfolioHackathon[]> {
+  private async fetchFilter(filter: string): Promise<{
+    items: DevfolioHackathon[];
+    truncated: boolean;
+  }> {
     const allItems: DevfolioHackathon[] = [];
     let page = 1;
     let totalPages = 1;
@@ -167,7 +179,10 @@ export class DevfolioParser extends BaseParser {
       page++;
     }
 
-    return allItems;
+    return {
+      items: allItems,
+      truncated: totalPages > this.maxPagesPerFilter,
+    };
   }
 
   private mapEventToHackathon(

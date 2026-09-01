@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { europeanCountries } from "@/lib/european-countries";
+import { assertPublicHttpUrl } from "@/lib/http/fetch-public-url";
 
 export interface ManualCandidateInput {
   url: string;
@@ -42,9 +43,12 @@ export async function submitManualCandidate(
   }
 
   try {
-    new URL(url);
+    assertPublicHttpUrl(url);
   } catch {
-    return { outcome: "invalid", message: "A valid URL is required." };
+    return {
+      outcome: "invalid",
+      message: "A public HTTP(S) URL is required.",
+    };
   }
 
   let country_code: string | null = null;

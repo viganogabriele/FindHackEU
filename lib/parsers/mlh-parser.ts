@@ -175,7 +175,13 @@ export class MlhParser extends BaseParser {
     }
 
     const data: MlhPageData = JSON.parse(html.slice(start, end));
-    return data.props?.upcomingEvents ?? [];
+    if (!Array.isArray(data.props?.upcomingEvents)) {
+      throw new Error(
+        `MLH season page for ${season} did not contain an upcomingEvents array`,
+      );
+    }
+
+    return data.props.upcomingEvents;
   }
 
   /** Maps MLH's own `formatType` field to this project's location_type enum (issue #21). */

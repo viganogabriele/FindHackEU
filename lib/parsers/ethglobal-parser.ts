@@ -131,8 +131,10 @@ export class EthGlobalParser extends BaseParser {
   /**
    * Finds every embedded event object of type "hackathon" in the page's
    * RSC payload via brace-depth matching (see class doc comment), then
-   * un-escapes and JSON-parses each one independently so a single
-   * malformed object doesn't prevent extracting the rest.
+   * un-escapes and JSON-parses each one independently so a single malformed
+   * object doesn't prevent extracting the rest. The matching scanner
+   * understands JSON strings, because braces in an event name/description
+   * are data, not object delimiters.
    */
   private extractEvents(html: string): EthGlobalEvent[] {
     const marker = '\\"type\\":\\"hackathon\\"';
@@ -145,21 +147,14 @@ export class EthGlobalParser extends BaseParser {
     while ((markerIndex = html.indexOf(marker, searchFrom)) !== -1) {
       searchFrom = markerIndex + marker.length;
 
-      const start = this.findEnclosingObjectStart(html, markerIndex);
-      if (start === -1 || seenStarts.has(start)) {
+      const object = this.findEventObjectContainingMarker(html, markerIndex);
+      if (!object || seenStarts.has(object.start)) {
         continue;
       }
-      seenStarts.add(start);
-
-      const end = this.findMatchingObjectEnd(html, start);
-      if (end === -1) {
-        continue;
-      }
-
-      const raw = html.slice(start, end + 1).replace(/\\"/g, '"');
+      seenStarts.add(object.start);
 
       try {
-        const obj = JSON.parse(raw) as EthGlobalEvent;
+        const obj = JSON.parse(object.raw) as EthGlobalEvent;
         if (obj.type === "hackathon") {
           events.push(obj);
         }
@@ -179,29 +174,86 @@ export class EthGlobalParser extends BaseParser {
     return events;
   }
 
-  /** Scans backward from `pos` to find the `{` that opens the object containing it. */
-  private findEnclosingObjectStart(html: string, pos: number): number {
-    let depth = 0;
-    for (let i = pos; i >= 0; i--) {
-      if (html[i] === "}") {
-        depth++;
-      } else if (html[i] === "{") {
-        if (depth === 0) {
-          return i;
+  private findEventObjectContainingMarker(
+    html: string,
+    markerIndex: number,
+  ): { start: number; raw: string } | null {
+    // Search candidates from the marker backwards. A brace inside a string
+    // may look like an object start in the raw RSC text, so only accept a
+    // candidate whose quote-aware match can also be parsed as JSON.
+    for (let start = markerIndex; start >= 0; start--) {
+      if (html[start] !== "{") continue;
+
+      const end = this.findMatchingObjectEnd(html, start);
+      if (end < markerIndex) continue;
+
+      const raw = this.decodeRscJson(html.slice(start, end + 1));
+      try {
+        const object = JSON.parse(raw) as { type?: unknown };
+        if (object.type === "hackathon") {
+          return { start, raw };
         }
-        depth--;
+      } catch {
+        // Try the next enclosing brace.
       }
     }
-    return -1;
+
+    return null;
   }
 
-  /** Scans forward from an object's opening `{` at `start` to find its matching `}`. */
+  /**
+   * Decode the escaped quotes used by the RSC string without changing other
+   * JSON escape sequences. This keeps braces inside string values available
+   * to the normal JSON-aware depth scanner below.
+   */
+  private decodeRscJson(raw: string): string {
+    let decoded = "";
+
+    for (let i = 0; i < raw.length; i++) {
+      if (raw[i] === "\\" && raw[i + 1] === '"') {
+        decoded += '"';
+        i++;
+      } else {
+        decoded += raw[i];
+      }
+    }
+
+    return decoded;
+  }
+
+  /** Scans forward from an object's opening `{` to find its matching `}`. */
   private findMatchingObjectEnd(html: string, start: number): number {
     let depth = 0;
+    let inString = false;
+    let escaped = false;
+
     for (let i = start; i < html.length; i++) {
-      if (html[i] === "{") {
+      let character = html[i];
+
+      // RSC escapes every JSON quote once for the surrounding JavaScript
+      // string. Preserve backslashes that belong to JSON string escapes;
+      // decode only the outer `\\"` representation.
+      if (character === "\\" && html[i + 1] === '"') {
+        character = '"';
+        i++;
+      }
+
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (character === "\\") {
+          escaped = true;
+        } else if (character === '"') {
+          inString = false;
+        }
+        continue;
+      }
+
+      if (character === '"') {
+        inString = true;
+      } else if (character === "{") {
         depth++;
-      } else if (html[i] === "}") {
+      } else if (character === "}") {
         depth--;
         if (depth === 0) {
           return i;
@@ -257,18 +309,16 @@ export class EthGlobalParser extends BaseParser {
         country_code,
         location_confidence,
         // ETHGlobal's own `medium` field is an explicit structured signal
-        // (issue #21). Only "physical"/"virtual" have been observed live
-        // (2026-09-01, both in a raw fetch of the events page and browsing
-        // ethglobal.com/events directly) - no "hybrid" value was found, so
-        // any other non-empty value is still treated as "online" rather
-        // than guessed as "hybrid". A genuinely missing `medium` (no
-        // signal at all) is left "tbd" rather than assumed online.
+        // (issue #21). Map only values with a known meaning; a future or
+        // malformed value must not silently become an online event.
         location_type:
           event.medium === "physical"
             ? "physical"
-            : event.medium
+            : event.medium === "virtual" || event.medium === "online"
               ? "online"
-              : "tbd",
+              : event.medium === "hybrid" || event.medium === "hybrid_physical"
+                ? "hybrid"
+                : "tbd",
         date_start: dates.start,
         date_end: dates.end,
         topics: this.extractTopics(event.name),

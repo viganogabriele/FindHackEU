@@ -4,6 +4,7 @@ import {
   fetchPageHtml,
 } from "@/lib/search/extract-event-evidence";
 import { isAllowedByRobots, RobotsCache } from "@/lib/discovery/robots-checker";
+import { assertPublicHttpUrl } from "@/lib/http/fetch-public-url";
 
 /**
  * Every way a candidate URL can end up (issue #16): `"ok"` is the only
@@ -17,7 +18,9 @@ export type FetchOutcome =
   | "blocked-by-robots"
   | "http-error"
   | "timeout"
-  | "requires-js";
+  | "requires-js"
+  | "invalid-url"
+  | "extraction-error";
 
 export interface ClassifiedFetchResult {
   outcome: FetchOutcome;
@@ -42,9 +45,15 @@ const SCRIPT_TO_TEXT_RATIO_THRESHOLD = 2;
  * page with some server-rendered content will not.
  */
 function looksLikeRequiresJs(html: string): boolean {
-  const scriptContent = (html.match(/<script[\s\S]*?<\/script>/gi) ?? []).join(
-    "",
-  );
+  const scriptContent = Array.from(
+    html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi),
+  )
+    .filter(
+      ([, attributes]) =>
+        !/\btype\s*=\s*["']application\/ld\+json["']/i.test(attributes),
+    )
+    .map(([, , content]) => content)
+    .join("");
   const renderedText = html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
@@ -80,6 +89,12 @@ export async function classifyAndFetchPage(
   url: string,
   robotsCache: RobotsCache,
 ): Promise<ClassifiedFetchResult> {
+  try {
+    assertPublicHttpUrl(url);
+  } catch {
+    return { outcome: "invalid-url", evidence: null };
+  }
+
   const allowed = await isAllowedByRobots(url, robotsCache);
   if (!allowed) {
     return { outcome: "blocked-by-robots", evidence: null };
@@ -99,5 +114,10 @@ export async function classifyAndFetchPage(
     return { outcome: "requires-js", evidence: null };
   }
 
-  return { outcome: "ok", evidence: extractEvidenceFromHtml(html) };
+  try {
+    return { outcome: "ok", evidence: extractEvidenceFromHtml(html) };
+  } catch (error) {
+    console.error(`Could not extract evidence from ${url}:`, error);
+    return { outcome: "extraction-error", evidence: null };
+  }
 }
