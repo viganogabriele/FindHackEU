@@ -13,6 +13,7 @@ import {
   editCandidate,
   type EditCandidateResult,
 } from "@/lib/services/edit-candidate";
+import { moveCandidateToPending } from "@/lib/services/candidate-moderation";
 import { requireAdminAuth } from "@/lib/services/require-admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 
@@ -61,6 +62,20 @@ export async function rejectCandidateAction(
   await assertAuthorized();
 
   await rejectCandidate(candidateId, reviewerNote);
+
+  revalidatePath("/admin/candidates");
+}
+
+export async function moveCandidateToPendingAction(
+  candidateId: string,
+): Promise<void> {
+  await assertAuthorized();
+
+  const result = await moveCandidateToPending(supabaseAdmin, candidateId);
+
+  if (result.outcome === "error") {
+    throw new Error(result.message);
+  }
 
   revalidatePath("/admin/candidates");
 }

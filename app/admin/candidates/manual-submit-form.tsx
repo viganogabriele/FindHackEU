@@ -110,6 +110,9 @@ export function ManualSubmitForm() {
               placeholder="https://..."
               value={fields.url}
               onChange={updateField("url")}
+              autoComplete="off"
+              data-1p-ignore
+              data-lpignore="true"
             />
           </div>
           <div className="space-y-1.5">
@@ -121,6 +124,9 @@ export function ManualSubmitForm() {
               placeholder="Event name"
               value={fields.name}
               onChange={updateField("name")}
+              autoComplete="off"
+              data-1p-ignore
+              data-lpignore="true"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -132,6 +138,9 @@ export function ManualSubmitForm() {
                 placeholder="Optional"
                 value={fields.city}
                 onChange={updateField("city")}
+                autoComplete="off"
+                data-1p-ignore
+                data-lpignore="true"
               />
             </div>
             <div className="space-y-1.5">
@@ -142,6 +151,9 @@ export function ManualSubmitForm() {
                 placeholder="e.g. Italy or IT"
                 value={fields.countryCode}
                 onChange={updateField("countryCode")}
+                autoComplete="off"
+                data-1p-ignore
+                data-lpignore="true"
               />
             </div>
           </div>
@@ -153,6 +165,9 @@ export function ManualSubmitForm() {
               type="date"
               value={fields.dateStart}
               onChange={updateField("dateStart")}
+              autoComplete="off"
+              data-1p-ignore
+              data-lpignore="true"
             />
           </div>
 
@@ -179,7 +194,15 @@ export function ManualSubmitForm() {
               ))}
             </div>
             {topics.map((topic) => (
-              <input key={topic} type="hidden" name="topics" value={topic} />
+              <input
+                key={topic}
+                type="hidden"
+                name="topics"
+                value={topic}
+                autoComplete="off"
+                data-1p-ignore
+                data-lpignore="true"
+              />
             ))}
           </div>
 

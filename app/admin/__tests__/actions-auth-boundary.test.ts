@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   requireAdminAuth: vi.fn(),
   promoteCandidate: vi.fn(),
   rejectCandidate: vi.fn(),
+  moveCandidateToPending: vi.fn(),
   submitManualCandidate: vi.fn(),
   editHackathon: vi.fn(),
   revalidatePath: vi.fn(),
@@ -16,6 +17,7 @@ vi.mock("@/lib/services/require-admin-auth", () => ({
 vi.mock("@/lib/services/promote-candidate", () => ({
   promoteCandidate: mocks.promoteCandidate,
   rejectCandidate: mocks.rejectCandidate,
+  moveCandidateToPending: mocks.moveCandidateToPending,
 }));
 vi.mock("@/lib/services/submit-manual-candidate", () => ({
   submitManualCandidate: mocks.submitManualCandidate,
@@ -34,6 +36,7 @@ import {
   approveCandidateAction,
   deleteCandidateAction,
   rejectCandidateAction,
+  moveCandidateToPendingAction,
   submitManualCandidateFormAction,
 } from "../candidates/actions";
 import {
@@ -47,6 +50,10 @@ import {
 const protectedActions = [
   ["approveCandidateAction", () => approveCandidateAction("candidate-id")],
   ["rejectCandidateAction", () => rejectCandidateAction("candidate-id")],
+  [
+    "moveCandidateToPendingAction",
+    () => moveCandidateToPendingAction("candidate-id"),
+  ],
   ["deleteCandidateAction", () => deleteCandidateAction("candidate-id")],
   [
     "submitManualCandidateFormAction",

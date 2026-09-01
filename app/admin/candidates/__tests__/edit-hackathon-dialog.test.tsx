@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
@@ -128,6 +129,24 @@ describe("EditHackathonDialog", () => {
 
     await waitFor(() => {
       expect(vi.mocked(toast.success)).toHaveBeenCalledWith("Hackathon saved");
+    });
+  });
+
+  it("shows one success toast when React StrictMode re-renders the result", async () => {
+    vi.mocked(editHackathonFormAction).mockResolvedValue({
+      outcome: "updated",
+    });
+
+    render(
+      <StrictMode>
+        <EditHackathonDialog hackathon={hackathon} />
+      </StrictMode>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit hackathon" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledTimes(1);
     });
   });
 });

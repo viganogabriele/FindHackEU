@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useActionState } from "react";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -64,17 +64,13 @@ export function EditCandidateDialog({
   const boundAction = editCandidateFormAction.bind(null, candidate.id);
   const [result, formAction, isPending] = useActionState(boundAction, null);
 
-  // Same "adjust state during render" pattern ManualSubmitForm uses: close
-  // and re-sync fields from the (now-updated) candidate once a save
-  // succeeds, guarded by comparing against the last result seen.
-  const [lastResult, setLastResult] = useState(result);
-  if (result !== lastResult) {
-    setLastResult(result);
+  useEffect(() => {
     if (result?.outcome === "updated") {
       toast.success("Candidate saved");
-      setOpen(false);
+      const closeTimeout = window.setTimeout(() => setOpen(false), 0);
+      return () => window.clearTimeout(closeTimeout);
     }
-  }
+  }, [result]);
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
@@ -136,6 +132,9 @@ export function EditCandidateDialog({
               placeholder="Event name"
               value={fields.name}
               onChange={updateField("name")}
+              autoComplete="off"
+              data-1p-ignore
+              data-lpignore="true"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -147,6 +146,9 @@ export function EditCandidateDialog({
                 placeholder="Optional"
                 value={fields.city}
                 onChange={updateField("city")}
+                autoComplete="off"
+                data-1p-ignore
+                data-lpignore="true"
               />
             </div>
             <div className="space-y-1.5">
@@ -157,6 +159,9 @@ export function EditCandidateDialog({
                 placeholder="e.g. Italy or IT"
                 value={fields.countryCode}
                 onChange={updateField("countryCode")}
+                autoComplete="off"
+                data-1p-ignore
+                data-lpignore="true"
               />
             </div>
           </div>
@@ -168,6 +173,9 @@ export function EditCandidateDialog({
               type="date"
               value={fields.dateStart}
               onChange={updateField("dateStart")}
+              autoComplete="off"
+              data-1p-ignore
+              data-lpignore="true"
             />
           </div>
 
@@ -189,7 +197,15 @@ export function EditCandidateDialog({
               ))}
             </div>
             {topics.map((topic) => (
-              <input key={topic} type="hidden" name="topics" value={topic} />
+              <input
+                key={topic}
+                type="hidden"
+                name="topics"
+                value={topic}
+                autoComplete="off"
+                data-1p-ignore
+                data-lpignore="true"
+              />
             ))}
           </div>
 

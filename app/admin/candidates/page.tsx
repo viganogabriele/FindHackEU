@@ -15,11 +15,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
-import { HackathonCard as SharedHackathonCard } from "@/components/hackathon-card";
+import {
+  HackathonCard as SharedHackathonCard,
+  type HackathonCardData,
+} from "@/components/hackathon-card";
 import type { Database } from "@/types/database";
 import {
   approveCandidateAction,
   rejectCandidateAction,
+  moveCandidateToPendingAction,
   deleteCandidateAction,
 } from "./actions";
 import {
@@ -398,10 +402,8 @@ function SignInGate({
 /**
  * The Pending tab (issue #102): a union of not-yet-published candidates and
  * published hackathons the maintainer moved back for re-review. Rendered as
- * two clearly-labeled sections rather than one interleaved list - same
- * pattern PR #101's ArchivedTab established for its own two-source union -
- * since the two row shapes need genuinely different cards (`CandidateCard`
- * vs `PublishedHackathonCard`) and action sets.
+ * one list with a source marker on already-published rows. Both row types use
+ * the same compact card component and visual hierarchy.
  */
 async function PendingTab({
   authStatus,
@@ -465,23 +467,13 @@ async function PendingTab({
         ))}
       </ul>
 
-      <Separator className="mb-6" />
-
-      <h2 className="mb-3 text-lg font-semibold">Published hackathons</h2>
-
       {hackathonsError && (
         <p className="text-sm text-destructive">
           Failed to load hackathons: {hackathonsError.message}
         </p>
       )}
 
-      {!hackathonsError && hackathons?.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          No pending hackathons{query ? ` matching "${query}"` : ""}.
-        </p>
-      )}
-
-      <ul className="space-y-3">
+      <ul className="space-y-2">
         {hackathons?.map((hackathon) => (
           <PublishedHackathonCard
             key={hackathon.id}
@@ -499,7 +491,8 @@ async function PendingTab({
  * candidates and published hackathons the maintainer explicitly rejected
  * post-publication. This is the tab that used to be merged with Archived
  * (PR #101) - see the module doc comment's "archived" bullet for why that
- * was corrected here. Same two-section layout as PendingTab.
+ * was corrected here. Published rows are kept in the same list and carry an
+ * explicit source marker.
  */
 async function RejectedTab({
   authStatus,
@@ -552,23 +545,13 @@ async function RejectedTab({
         ))}
       </ul>
 
-      <Separator className="mb-6" />
-
-      <h2 className="mb-3 text-lg font-semibold">Published hackathons</h2>
-
       {hackathonsError && (
         <p className="text-sm text-destructive">
           Failed to load hackathons: {hackathonsError.message}
         </p>
       )}
 
-      {!hackathonsError && hackathons?.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          No rejected hackathons{query ? ` matching "${query}"` : ""}.
-        </p>
-      )}
-
-      <ul className="space-y-3">
+      <ul className="space-y-2">
         {hackathons?.map((hackathon) => (
           <PublishedHackathonCard
             key={hackathon.id}
@@ -627,7 +610,7 @@ async function ApprovedOrPastTab({
         </p>
       )}
 
-      <ul className="space-y-3">
+      <ul className="space-y-2">
         {hackathons?.map((hackathon) => (
           <PublishedHackathonCard
             key={hackathon.id}
@@ -681,7 +664,7 @@ async function ArchivedTab({
         </p>
       )}
 
-      <ul className="space-y-3">
+      <ul className="space-y-2">
         {hackathons?.map((hackathon) => (
           <PublishedHackathonCard
             key={hackathon.id}
@@ -728,6 +711,7 @@ function CandidateCard({
       <SharedHackathonCard
         hackathon={candidateToHackathonCardData(candidate)}
         compact
+        adminTheme
         titleLink
         meta={<CandidateContext candidate={candidate} status={status} />}
         actions={
@@ -746,6 +730,21 @@ function CandidateCard({
               </Button>
             </form>
             <EditCandidateDialog candidate={candidate} />
+            {status === "rejected" && (
+              <form
+                action={moveCandidateToPendingAction.bind(null, candidate.id)}
+              >
+                <Button
+                  type="submit"
+                  variant="outline"
+                  size="icon"
+                  title="Move to pending"
+                  aria-label="Move to pending"
+                >
+                  <Clock3 aria-hidden="true" />
+                </Button>
+              </form>
+            )}
             {status !== "rejected" && (
               <form
                 action={rejectCandidateAction.bind(
@@ -892,51 +891,14 @@ function PublishedHackathonCard({
 }) {
   return (
     <li>
-      <Card className="gap-0 py-0">
-        <CardContent className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <a
-              href={hackathon.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="line-clamp-2 font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              {hackathon.name}
-            </a>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {(hackathon.city || hackathon.country_code) && (
-                <Badge variant="secondary" className="h-5 px-1.5 text-[11px]">
-                  {[hackathon.city, hackathon.country_code]
-                    .filter(Boolean)
-                    .join(", ")}
-                </Badge>
-              )}
-              <Badge variant="outline" className="h-5 px-1.5 text-[11px]">
-                {hackathon.source}
-              </Badge>
-              <Badge variant="outline" className="h-5 px-1.5 text-[11px]">
-                {new Date(hackathon.date_start).toLocaleDateString()}
-              </Badge>
-              {hackathon.status === "estimated" && (
-                <Badge
-                  variant="outline"
-                  className="h-5 px-1.5 text-[11px]"
-                  title="No structured date was recoverable when this was approved - date_start is a placeholder used only to sort it into Approved/Past (issue #102)."
-                >
-                  Date estimated
-                </Badge>
-              )}
-            </div>
-            {tab === "archived" && hackathon.archived_at && (
-              <p className="mt-1.5 text-xs text-muted-foreground">
-                Archived {new Date(hackathon.archived_at).toLocaleDateString()}
-                {hackathon.archived_reason
-                  ? ` - ${hackathon.archived_reason}`
-                  : ""}
-              </p>
-            )}
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+      <SharedHackathonCard
+        hackathon={hackathonToHackathonCardData(hackathon)}
+        compact
+        adminTheme
+        titleLink
+        meta={<PublishedContext hackathon={hackathon} tab={tab} />}
+        actions={
+          <div className="flex w-full flex-wrap items-center justify-end gap-1">
             {tab === "archived" && (
               <form action={unarchiveHackathonAction.bind(null, hackathon.id)}>
                 <Button
@@ -1016,9 +978,61 @@ function PublishedHackathonCard({
               />
             </form>
           </div>
-        </CardContent>
-      </Card>
+        }
+      />
     </li>
+  );
+}
+
+function hackathonToHackathonCardData(
+  hackathon: HackathonRow,
+): HackathonCardData {
+  return {
+    id: hackathon.id,
+    name: hackathon.name,
+    url: hackathon.url,
+    date_start: hackathon.date_start,
+    date_end: hackathon.date_end,
+    city: hackathon.city,
+    country_code: hackathon.country_code,
+    location_type: hackathon.location_type,
+    topics: hackathon.topics,
+    notes: hackathon.notes,
+    is_new: hackathon.is_new,
+  };
+}
+
+function PublishedContext({
+  hackathon,
+  tab,
+}: {
+  hackathon: HackathonRow;
+  tab: PublishedHackathonTab;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+      <span>Source: {hackathon.source}</span>
+      {tab === "pending" || tab === "rejected" ? (
+        <Badge variant="secondary" className="h-5 px-1.5 text-[11px]">
+          Already published
+        </Badge>
+      ) : null}
+      {hackathon.status === "estimated" && (
+        <Badge
+          variant="outline"
+          className="h-5 px-1.5 text-[11px]"
+          title="No structured date was recoverable when this was approved - date_start is a placeholder used only to sort it into Approved/Past."
+        >
+          Date estimated
+        </Badge>
+      )}
+      {tab === "archived" && hackathon.archived_at && (
+        <span>
+          Archived {new Date(hackathon.archived_at).toLocaleDateString()}
+          {hackathon.archived_reason ? ` - ${hackathon.archived_reason}` : ""}
+        </span>
+      )}
+    </div>
   );
 }
 
