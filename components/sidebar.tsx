@@ -55,6 +55,7 @@ import { cn } from "@/lib/utils";
 import type { HackathonTopic } from "@/lib/constants/topics";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { useTranslation } from "@/contexts/translation-context";
+import { formatLocationValueLabel } from "@/lib/location-filter";
 
 interface SidebarProps {
   uniqueUpcomingLocations?: string[];
@@ -248,6 +249,11 @@ function SidebarContent({
   const [locationOpen, setLocationOpen] = useState(false);
   const { t } = useTranslation();
 
+  const locationLabel = (value: string) =>
+    formatLocationValueLabel(value, (country) =>
+      t("locations.allOf", { country }),
+    );
+
   const toggleLocation = (location: string) => {
     const newLocations = filters.locations.includes(location)
       ? filters.locations.filter((l: string) => l !== location)
@@ -361,7 +367,7 @@ function SidebarContent({
                               : "opacity-0",
                           )}
                         />
-                        {location}
+                        {locationLabel(location)}
                       </CommandItem>
                     ))}
                   </CommandGroup>
@@ -380,7 +386,7 @@ function SidebarContent({
                   className="cursor-pointer text-xs"
                   onClick={() => toggleLocation(location)}
                 >
-                  {location}
+                  {locationLabel(location)}
                   <X className="ml-1 h-3 w-3" />
                 </Badge>
               ))}

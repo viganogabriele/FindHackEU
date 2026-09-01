@@ -12,6 +12,7 @@
   "locations.selected": "sélectionné",
   "locations.searchPlaceholder": "Rechercher un lieu",
   "locations.noneFound": "Aucun lieu trouvé.",
+  "locations.allOf": "Tout {country}",
   "topics": "Sujets",
   "topics.select": "Sélectionner des sujets",
   "topics.searchPlaceholder": "Rechercher un sujet",

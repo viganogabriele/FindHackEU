@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { Hackathon } from "@/types/hackathon";
 import { FilterProvider } from "@/contexts/filter-context";
-import { europeanCountries } from "@/lib/european-countries";
+import { buildLocationOptions } from "@/lib/location-filter";
 import { dedupeByNormalizedUrl } from "@/lib/dedup/url-normalizer";
 import { useTranslation } from "@/contexts/translation-context";
 import LanguageSelect from "@/components/language-select";
@@ -83,27 +83,12 @@ export default function Home() {
 
   const { uniqueUpcomingLocations, uniquePastLocations, uniqueTopics } =
     useMemo(() => {
-      // Genera le location uniche per eventi upcoming
-      const upcomingLocations = Array.from(
-        new Set(
-          upcoming
-            .map((h) =>
-              europeanCountries.formatLocation(h.city, h.country_code),
-            )
-            .filter((loc): loc is string => Boolean(loc)),
-        ),
-      );
-
-      // Genera le location uniche per eventi past
-      const pastLocations = Array.from(
-        new Set(
-          past
-            .map((h) =>
-              europeanCountries.formatLocation(h.city, h.country_code),
-            )
-            .filter((loc): loc is string => Boolean(loc)),
-        ),
-      );
+      // Location options for each status, one country-wide entry per
+      // distinct country plus every distinct "City, Country" combination
+      // (issue #73 - lets a visitor filter by "all of Italy" instead of
+      // picking every city one at a time).
+      const upcomingLocations = buildLocationOptions(upcoming);
+      const pastLocations = buildLocationOptions(past);
 
       const allHackathons = [...upcoming, ...past];
       const topics = Array.from(
@@ -111,8 +96,8 @@ export default function Home() {
       );
 
       return {
-        uniqueUpcomingLocations: upcomingLocations.sort(),
-        uniquePastLocations: pastLocations.sort(),
+        uniqueUpcomingLocations: upcomingLocations,
+        uniquePastLocations: pastLocations,
         uniqueTopics: topics.sort(),
       };
     }, [upcoming, past]);

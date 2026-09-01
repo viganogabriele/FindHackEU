@@ -12,6 +12,7 @@
   "locations.selected": "selecionado",
   "locations.searchPlaceholder": "Pesquisar local",
   "locations.noneFound": "Nenhum local encontrado.",
+  "locations.allOf": "Todo o(a) {country}",
   "topics": "Tópicos",
   "topics.select": "Selecionar tópicos",
   "topics.searchPlaceholder": "Pesquisar tópico",

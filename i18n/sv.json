@@ -12,6 +12,7 @@
   "locations.selected": "valda",
   "locations.searchPlaceholder": "Sök plats",
   "locations.noneFound": "Ingen plats hittades.",
+  "locations.allOf": "Hela {country}",
   "topics": "Ämnen",
   "topics.select": "Välj ämnen",
   "topics.searchPlaceholder": "Sök ämne",

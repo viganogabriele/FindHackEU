@@ -12,6 +12,7 @@
   "locations.selected": "selectat",
   "locations.searchPlaceholder": "Caută locație",
   "locations.noneFound": "Nicio locație găsită.",
+  "locations.allOf": "Toată {country}",
   "topics": "Subiecte",
   "topics.select": "Selectează subiecte",
   "topics.searchPlaceholder": "Caută subiect",

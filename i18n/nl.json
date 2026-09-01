@@ -12,6 +12,7 @@
   "locations.selected": "geselecteerd",
   "locations.searchPlaceholder": "Zoek locatie",
   "locations.noneFound": "Geen locatie gevonden.",
+  "locations.allOf": "Heel {country}",
   "topics": "Onderwerpen",
   "topics.select": "Selecteer onderwerpen",
   "topics.searchPlaceholder": "Zoek onderwerp",
