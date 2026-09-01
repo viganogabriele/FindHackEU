@@ -1,0 +1,29 @@
+name: Website Uptime Check
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      APP_URL: ${{ vars.APP_URL }}
+    steps:
+      - name: Check public health endpoint
+        run: |
+          set -euo pipefail
+
+          if [ -z "$APP_URL" ]; then
+            echo "Repository variable APP_URL is not configured"
+            exit 1
+          fi
+
+          url="${APP_URL%/}/api/health"
+          echo "Checking $url"
+          curl --fail --silent --show-error --location \
+            --connect-timeout 10 --max-time 20 --retry 2 --retry-delay 5 \
+            "$url"
+          echo
