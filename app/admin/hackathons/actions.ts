@@ -7,6 +7,10 @@ import {
   archiveHackathon,
   unarchiveHackathon,
 } from "@/lib/services/archive-hackathon";
+import {
+  setHackathonModerationState,
+  type ModerationState,
+} from "@/lib/services/hackathon-moderation";
 
 function assertDevOnly() {
   if (process.env.NODE_ENV === "production") {
@@ -98,6 +102,38 @@ export async function unarchiveHackathonAction(
   await assertAuthorized();
 
   const result = await unarchiveHackathon(supabaseAdmin, hackathonId);
+
+  if (result.outcome === "error") {
+    throw new Error(result.message);
+  }
+
+  revalidatePath("/admin/candidates");
+}
+
+/**
+ * Moves a published `hackathons` row between moderation states (issue #102)
+ * - "Move to pending"/"Reject" on an Approved-or-Past card, "Approve"/
+ * "Reject" on a Pending-sourced-from-hackathons card, "Approve"/"Move to
+ * pending" on a Rejected-sourced-from-hackathons card. Backed by
+ * `lib/services/hackathon-moderation.ts`, the counterpart to
+ * `archiveHackathonAction`/`unarchiveHackathonAction` above for a fully
+ * independent concern (editorial moderation, not date-based retention) - a
+ * candidate-sourced Pending/Rejected row keeps using
+ * `approveCandidateAction`/`rejectCandidateAction`
+ * (app/admin/candidates/actions.ts) unchanged, since this action only
+ * touches `hackathons`, never `hackathon_candidates`.
+ */
+export async function setHackathonModerationStateAction(
+  hackathonId: string,
+  state: ModerationState,
+): Promise<void> {
+  await assertAuthorized();
+
+  const result = await setHackathonModerationState(
+    supabaseAdmin,
+    hackathonId,
+    state,
+  );
 
   if (result.outcome === "error") {
     throw new Error(result.message);

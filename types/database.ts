@@ -34,6 +34,14 @@ export interface Database {
           // this is set.
           archived_at: string | null;
           archived_reason: string | null;
+          // Added for issue #102: independent moderation lifecycle from
+          // issue #72's archived_at (date-based retention). Every published
+          // hackathon, regardless of origin, can be moved between these
+          // three states from the admin UI - 'approved' is the default,
+          // matching every pre-existing row's implicit status. The public
+          // API only returns 'approved' rows (in addition to the existing
+          // archived_at is null filter).
+          moderation_state: "approved" | "pending" | "rejected";
         };
         Insert: {
           id?: string;
@@ -58,6 +66,10 @@ export interface Database {
           is_new?: boolean;
           archived_at?: string | null;
           archived_reason?: string | null;
+          // Optional on insert: the DB default ('approved') matches current
+          // implicit behavior for every caller that doesn't have an
+          // opinion (the main scraping pipeline, promote-candidate.ts).
+          moderation_state?: "approved" | "pending" | "rejected";
         };
         Update: {
           id?: string;
@@ -80,6 +92,7 @@ export interface Database {
           is_new?: boolean;
           archived_at?: string | null;
           archived_reason?: string | null;
+          moderation_state?: "approved" | "pending" | "rejected";
         };
       };
       hackathon_candidates: {

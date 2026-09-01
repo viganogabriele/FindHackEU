@@ -20,7 +20,15 @@ import {
   deleteHackathonAction,
   archiveHackathonAction,
   unarchiveHackathonAction,
+  setHackathonModerationStateAction,
 } from "../hackathons/actions";
+import type { ModerationState } from "@/lib/services/hackathon-moderation";
+import {
+  candidatesByStatusQuery,
+  hackathonsByModerationStateQuery,
+  approvedOrPastHackathonsQuery,
+  archivedHackathonsQuery,
+} from "./queries";
 import { ManualSubmitForm } from "./manual-submit-form";
 import { EditCandidateDialog } from "./edit-candidate-dialog";
 import { GoogleSignInButton } from "./google-sign-in-button";
@@ -32,50 +40,72 @@ import { candidateToHackathonCardData } from "./candidate-card-data";
 
 type CandidateRow = Database["public"]["Tables"]["hackathon_candidates"]["Row"];
 type HackathonRow = Database["public"]["Tables"]["hackathons"]["Row"];
+type AuthStatus = Awaited<ReturnType<typeof getAdminAuthStatus>>;
 
-// "archived" is a fourth tab (issue #72), distinct from the candidate
-// pending/approved/rejected workflow above it - see the Archived-tab render
-// branch below for why it also surfaces rejected candidates rather than
-// being hackathons-only.
-type StatusFilter = "pending" | "approved" | "rejected" | "archived";
-type HackathonStatusFilter = "upcoming" | "past" | "estimated";
+// Five top-level tabs (issue #102, superseding issue #82's four-tab
+// structure). Each is a genuinely distinct concept, not a UI grouping of
+// convenience:
+//
+//   - "pending"  - not yet accepted, for whatever reason. Union of
+//                  `hackathon_candidates(status='pending')` (never
+//                  published) and `hackathons(moderation_state='pending')`
+//                  (published, then moved back for re-review).
+//   - "approved" - live/public right now, not over yet. `hackathons` rows
+//                  with `moderation_state='approved'`, `archived_at is
+//                  null`, and an upcoming (or future-dated "estimated")
+//                  date. Never `hackathon_candidates` rows directly - a
+//                  candidate becomes an "approved" row only once
+//                  `promoteCandidate()` copies it into `hackathons` (see
+//                  issue #82's rationale, still true here: most published
+//                  rows never went through candidate review at all).
+//   - "rejected" - editorial "no". Union of
+//                  `hackathon_candidates(status='rejected')` (never
+//                  published) and `hackathons(moderation_state='rejected')`
+//                  (published, then explicitly rejected). Distinct from
+//                  "archived" - see that tab's doc comment below for the
+//                  issue #101->#102 correction.
+//   - "past"     - the Approved-shaped counterpart for events that are
+//                  over: `moderation_state='approved'`, `archived_at is
+//                  null`, past (or past-dated "estimated") date. Not
+//                  "no longer wanted" - still fully public, just historical.
+//   - "archived" - `hackathons(archived_at is not null)` ONLY (issue #72's
+//                  date-based retention tier). PR #101 originally merged
+//                  this with rejected candidates into one tab; the
+//                  maintainer clarified afterward (issue #102's context)
+//                  that Rejected (editorial "no") and Archived (retention)
+//                  are separate concepts that must be separate tabs, so
+//                  this tab is un-merged back to hackathons-only here.
+//
+// "estimated" (`hackathons.status`) is deliberately NOT a sixth tab - see
+// `approvedOrPastHackathonsQuery` in ./queries.ts for exactly how it's
+// folded into Approved/Past instead, per the maintainer's explicit ask.
+type StatusFilter = "pending" | "approved" | "rejected" | "past" | "archived";
 
 const STATUSES: StatusFilter[] = [
   "pending",
   "approved",
   "rejected",
-  "archived",
-];
-const HACKATHON_STATUSES: HackathonStatusFilter[] = [
-  "upcoming",
   "past",
-  "estimated",
+  "archived",
 ];
 
 /**
  * Review queue for web-search-discovered event candidates (issue #12,
  * #13/#14/#17 - see docs/discovery-research.md and the
- * hackathon_candidates migration). Nothing here is auto-published:
- * "Approve" is the only path that copies a candidate into the real
- * `hackathons` table (lib/services/promote-candidate.ts).
+ * hackathon_candidates migration), unified (issue #82, restructured by
+ * issue #102) with full lifecycle management for every published
+ * `hackathons` row regardless of origin.
  *
- * The "Approved" tab (issue #82) is special: it does NOT list
- * `hackathon_candidates` rows with `status = 'approved'`. Most published
- * hackathons never went through the candidate-review flow at all - they
- * came from the main scraping pipeline (app/api/update/route.ts, sources
- * like luma/devfolio/mlh/ethglobal/eventbrite) - so scoping "Approved" to
- * candidate-sourced rows would only ever surface a small minority of what's
- * actually live. Instead, "Approved" queries the `hackathons` table
- * directly (same shape /admin/hackathons used to: status/search filters,
- * deleteHackathonAction for management) so every published hackathon,
- * regardless of source, is manageable from one page. This makes the
- * standalone /admin/hackathons route redundant - it now just redirects
- * here (see app/admin/hackathons/page.tsx).
- *
- * The "Archived" tab (issue #72) is the fourth: it merges rejected
- * candidates and archived (soft-deleted) hackathons into one "what did I
- * turn away, and why" view - see `ArchivedTab` below for the full design
- * rationale.
+ * Issue #102's core idea: `hackathon_candidates` and `hackathons` stay two
+ * separate tables (merging them was considered and explicitly rejected as
+ * far riskier than necessary), but `hackathons` gained its own
+ * `moderation_state` column (`'approved' | 'pending' | 'rejected'`,
+ * default `'approved'`) - orthogonal to issue #72's `archived_at` - so a
+ * published hackathon can move between the same three states a
+ * not-yet-published candidate already could, from this same page, in
+ * either direction. See the `StatusFilter` doc comment above for exactly
+ * what each of the five tabs shows, and ./queries.ts for the query that
+ * backs each one.
  *
  * Dev-only (`notFound()` outside development, same pattern as
  * app/api/dev/trigger-update/route.ts) AND gated behind Google sign-in via
@@ -90,7 +120,6 @@ export default async function CandidatesAdminPage({
 }: {
   searchParams: Promise<{
     status?: string;
-    hstatus?: string;
     q?: string;
     error?: string;
   }>;
@@ -116,71 +145,9 @@ export default async function CandidatesAdminPage({
     : "pending";
   const query = params.q?.trim() ?? "";
 
-  if (status === "approved") {
-    const hackathonStatus: HackathonStatusFilter = HACKATHON_STATUSES.includes(
-      params.hstatus as HackathonStatusFilter,
-    )
-      ? (params.hstatus as HackathonStatusFilter)
-      : "upcoming";
-
-    let hackathonsQuery = supabaseAdmin
-      .from("hackathons")
-      .select("*")
-      .eq("status", hackathonStatus)
-      // Issue #72: an archived hackathon moves to the Archived tab below,
-      // not this one - without this filter it would show up in both.
-      .is("archived_at", null)
-      .order("date_start", { ascending: hackathonStatus !== "past" })
-      .limit(200);
-
-    if (query) {
-      hackathonsQuery = hackathonsQuery.ilike("name", `%${query}%`);
-    }
-
-    const { data: hackathonsData, error: hackathonsError } =
-      await hackathonsQuery;
-    const hackathons = hackathonsData as HackathonRow[] | null;
-
+  if (status === "approved" || status === "past") {
     return (
-      <AdminShell authStatus={authStatus} status={status} query={query}>
-        <StatusNav status={status} query={query} />
-
-        <nav className="mb-6 flex gap-2">
-          {HACKATHON_STATUSES.map((s) => (
-            <Button
-              key={s}
-              asChild
-              variant={s === hackathonStatus ? "default" : "outline"}
-              size="sm"
-            >
-              <a
-                href={`/admin/candidates?status=approved&hstatus=${s}${query ? `&q=${encodeURIComponent(query)}` : ""}`}
-              >
-                {s.charAt(0).toUpperCase() + s.slice(1)}
-              </a>
-            </Button>
-          ))}
-        </nav>
-
-        {hackathonsError && (
-          <p className="text-sm text-destructive">
-            Failed to load hackathons: {hackathonsError.message}
-          </p>
-        )}
-
-        {!hackathonsError && hackathons?.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            No {hackathonStatus} hackathons{query ? ` matching "${query}"` : ""}
-            .
-          </p>
-        )}
-
-        <ul className="space-y-3">
-          {hackathons?.map((hackathon) => (
-            <HackathonCard key={hackathon.id} hackathon={hackathon} />
-          ))}
-        </ul>
-      </AdminShell>
+      <ApprovedOrPastTab kind={status} authStatus={authStatus} query={query} />
     );
   }
 
@@ -188,74 +155,16 @@ export default async function CandidatesAdminPage({
     return <ArchivedTab authStatus={authStatus} query={query} />;
   }
 
-  let dbQuery = supabaseAdmin
-    .from("hackathon_candidates")
-    .select("*")
-    .eq("status", status)
-    .order("created_at", { ascending: false })
-    .limit(200);
-
-  // Search by more than just name (issue #83) - the maintainer wants to
-  // narrow a large queue by city/country/the discovery query text too, not
-  // just the candidate's name. Each value is quoted (PostgREST's `.or()`
-  // filter list is comma-separated, and quoting is how it lets a value
-  // itself contain a comma/parenthesis without breaking the filter) with
-  // backslashes/quotes escaped for that quoted form.
-  if (query) {
-    const escaped = query.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-    const pattern = `"%${escaped}%"`;
-    dbQuery = dbQuery.or(
-      `name.ilike.${pattern},city.ilike.${pattern},country_code.ilike.${pattern},query.ilike.${pattern}`,
-    );
+  if (status === "rejected") {
+    return <RejectedTab authStatus={authStatus} query={query} />;
   }
 
-  // Cast, not trusted Supabase inference - see lib/services/promote-candidate.ts's
-  // doc comment for why this repo's current Supabase client setup resolves
-  // a direct `.select()` result to `never`.
-  const { data: candidatesData, error } = await dbQuery;
-
-  const candidates = candidatesData as CandidateRow[] | null;
-
-  return (
-    <AdminShell
-      authStatus={authStatus}
-      status={status}
-      query={query}
-      showManualForm
-    >
-      <StatusNav status={status} query={query} />
-
-      {error && (
-        <p className="text-sm text-destructive">
-          Failed to load candidates: {error.message}
-        </p>
-      )}
-
-      {!error && candidates?.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          No {status} candidates{query ? ` matching "${query}"` : ""}.
-        </p>
-      )}
-
-      <ul className="space-y-4">
-        {candidates?.map((candidate) => (
-          <CandidateCard
-            key={candidate.id}
-            candidate={candidate}
-            status={status}
-          />
-        ))}
-      </ul>
-    </AdminShell>
-  );
+  return <PendingTab authStatus={authStatus} query={query} />;
 }
 
 /**
  * Shared chrome (back link, header, dashboard cross-link, sign-out, search
- * form) for both the candidate-review tabs and the Approved tab's
- * published-hackathons view - the two views differ in what's below the
- * search form (a status sub-nav and CandidateCard/HackathonCard lists), not
- * in this shell.
+ * form) for all five tabs.
  */
 function AdminShell({
   authStatus,
@@ -264,7 +173,7 @@ function AdminShell({
   showManualForm = false,
   children,
 }: {
-  authStatus: Awaited<ReturnType<typeof getAdminAuthStatus>>;
+  authStatus: AuthStatus;
   status: StatusFilter;
   query: string;
   showManualForm?: boolean;
@@ -284,9 +193,11 @@ function AdminShell({
           <div>
             <h1 className="mb-2 text-2xl font-bold">Hackathon candidates</h1>
             <p className="text-sm text-muted-foreground">
-              Web-search candidates for review, plus published hackathons under
-              Approved. Only Approved is public - Archived covers rejected
-              candidates and archived (soft-deleted) hackathons.
+              Every hackathon - web-search candidate or published, regardless of
+              origin - is in exactly one of Pending/Approved/Rejected/
+              Past/Archived, and can be moved between Pending/Approved/ Rejected
+              here. Only Approved and Past are public; Archived is purely 1-year
+              retention, separate from an editorial Rejected.
             </p>
           </div>
           <SignOutButton email={authStatus.email!} />
@@ -320,14 +231,10 @@ function AdminShell({
   );
 }
 
-/**
- * The Pending/Approved/Rejected tab selector. Kept separate from AdminShell
- * because the Approved branch renders an additional status sub-nav (see
- * above) between this and its list.
- */
+/** The five-tab selector shared by every tab render branch. */
 function StatusNav({ status, query }: { status: StatusFilter; query: string }) {
   return (
-    <nav className="mb-6 flex gap-2">
+    <nav className="mb-6 flex flex-wrap gap-2">
       {STATUSES.map((s) => (
         <Button
           key={s}
@@ -393,6 +300,289 @@ function SignInGate({
 }
 
 /**
+ * The Pending tab (issue #102): a union of not-yet-published candidates and
+ * published hackathons the maintainer moved back for re-review. Rendered as
+ * two clearly-labeled sections rather than one interleaved list - same
+ * pattern PR #101's ArchivedTab established for its own two-source union -
+ * since the two row shapes need genuinely different cards (`CandidateCard`
+ * vs `PublishedHackathonCard`) and action sets.
+ */
+async function PendingTab({
+  authStatus,
+  query,
+}: {
+  authStatus: AuthStatus;
+  query: string;
+}) {
+  const [
+    { data: candidatesData, error: candidatesError },
+    { data: hackathonsData, error: hackathonsError },
+  ] = await Promise.all([
+    candidatesByStatusQuery(supabaseAdmin, "pending", query),
+    hackathonsByModerationStateQuery(supabaseAdmin, "pending", query),
+  ]);
+
+  const candidates = candidatesData as CandidateRow[] | null;
+  const hackathons = hackathonsData as HackathonRow[] | null;
+
+  return (
+    <AdminShell
+      authStatus={authStatus}
+      status="pending"
+      query={query}
+      showManualForm
+    >
+      <StatusNav status="pending" query={query} />
+
+      <h2 className="mb-3 text-lg font-semibold">From candidate review</h2>
+
+      {candidatesError && (
+        <p className="text-sm text-destructive">
+          Failed to load candidates: {candidatesError.message}
+        </p>
+      )}
+
+      {!candidatesError && candidates?.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No pending candidates{query ? ` matching "${query}"` : ""}.
+        </p>
+      )}
+
+      <ul className="mb-8 space-y-4">
+        {candidates?.map((candidate) => (
+          <CandidateCard
+            key={candidate.id}
+            candidate={candidate}
+            status="pending"
+          />
+        ))}
+      </ul>
+
+      <Separator className="mb-6" />
+
+      <h2 className="mb-1 text-lg font-semibold">From published hackathons</h2>
+      <p className="mb-3 text-sm text-muted-foreground">
+        Already-published hackathons moved back to pending for re-review - never
+        auto-populated, only reachable via &quot;Move to pending&quot; on an
+        Approved/Past/Rejected card.
+      </p>
+
+      {hackathonsError && (
+        <p className="text-sm text-destructive">
+          Failed to load hackathons: {hackathonsError.message}
+        </p>
+      )}
+
+      {!hackathonsError && hackathons?.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No pending hackathons{query ? ` matching "${query}"` : ""}.
+        </p>
+      )}
+
+      <ul className="space-y-3">
+        {hackathons?.map((hackathon) => (
+          <PublishedHackathonCard
+            key={hackathon.id}
+            hackathon={hackathon}
+            tab="pending"
+          />
+        ))}
+      </ul>
+    </AdminShell>
+  );
+}
+
+/**
+ * The Rejected tab (issue #102): a union of never-published rejected
+ * candidates and published hackathons the maintainer explicitly rejected
+ * post-publication. This is the tab that used to be merged with Archived
+ * (PR #101) - see the module doc comment's "archived" bullet for why that
+ * was corrected here. Same two-section layout as PendingTab.
+ */
+async function RejectedTab({
+  authStatus,
+  query,
+}: {
+  authStatus: AuthStatus;
+  query: string;
+}) {
+  const [
+    { data: candidatesData, error: candidatesError },
+    { data: hackathonsData, error: hackathonsError },
+  ] = await Promise.all([
+    candidatesByStatusQuery(supabaseAdmin, "rejected", query),
+    hackathonsByModerationStateQuery(supabaseAdmin, "rejected", query),
+  ]);
+
+  const candidates = candidatesData as CandidateRow[] | null;
+  const hackathons = hackathonsData as HackathonRow[] | null;
+
+  return (
+    <AdminShell authStatus={authStatus} status="rejected" query={query}>
+      <StatusNav status="rejected" query={query} />
+
+      <h2 className="mb-3 text-lg font-semibold">From candidate review</h2>
+
+      {candidatesError && (
+        <p className="text-sm text-destructive">
+          Failed to load candidates: {candidatesError.message}
+        </p>
+      )}
+
+      {!candidatesError && candidates?.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No rejected candidates{query ? ` matching "${query}"` : ""}.
+        </p>
+      )}
+
+      <ul className="mb-8 space-y-4">
+        {candidates?.map((candidate) => (
+          <CandidateCard
+            key={candidate.id}
+            candidate={candidate}
+            status="rejected"
+          />
+        ))}
+      </ul>
+
+      <Separator className="mb-6" />
+
+      <h2 className="mb-1 text-lg font-semibold">From published hackathons</h2>
+      <p className="mb-3 text-sm text-muted-foreground">
+        Published hackathons rejected after the fact - an editorial &quot;no
+        longer belongs on the site&quot; call, distinct from Archived (1-year
+        retention) below.
+      </p>
+
+      {hackathonsError && (
+        <p className="text-sm text-destructive">
+          Failed to load hackathons: {hackathonsError.message}
+        </p>
+      )}
+
+      {!hackathonsError && hackathons?.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No rejected hackathons{query ? ` matching "${query}"` : ""}.
+        </p>
+      )}
+
+      <ul className="space-y-3">
+        {hackathons?.map((hackathon) => (
+          <PublishedHackathonCard
+            key={hackathon.id}
+            hackathon={hackathon}
+            tab="rejected"
+          />
+        ))}
+      </ul>
+    </AdminShell>
+  );
+}
+
+/**
+ * Approved and Past (issue #102) share this one render function - both are
+ * `hackathons`-only, `moderation_state='approved'`, `archived_at is null`,
+ * differing only in the date-derived kind (see
+ * `approvedOrPastHackathonsQuery` in ./queries.ts for exactly how
+ * `status = 'estimated'` rows are folded into one or the other rather than
+ * being their own category).
+ */
+async function ApprovedOrPastTab({
+  kind,
+  authStatus,
+  query,
+}: {
+  kind: "approved" | "past";
+  authStatus: AuthStatus;
+  query: string;
+}) {
+  const { data, error } = await approvedOrPastHackathonsQuery(
+    supabaseAdmin,
+    kind,
+    query,
+  );
+
+  const hackathons = data as HackathonRow[] | null;
+
+  return (
+    <AdminShell authStatus={authStatus} status={kind} query={query}>
+      <StatusNav status={kind} query={query} />
+
+      {error && (
+        <p className="text-sm text-destructive">
+          Failed to load hackathons: {error.message}
+        </p>
+      )}
+
+      {!error && hackathons?.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No {kind} hackathons{query ? ` matching "${query}"` : ""}.
+        </p>
+      )}
+
+      <ul className="space-y-3">
+        {hackathons?.map((hackathon) => (
+          <PublishedHackathonCard
+            key={hackathon.id}
+            hackathon={hackathon}
+            tab={kind}
+          />
+        ))}
+      </ul>
+    </AdminShell>
+  );
+}
+
+/**
+ * The Archived tab (issue #72, corrected by issue #102): `hackathons` rows
+ * with `archived_at is not null`, ONLY - no longer merged with rejected
+ * candidates (that was PR #101's original design; the maintainer clarified
+ * afterward that Rejected and Archived are separate concepts - see the
+ * module doc comment's "archived" bullet and ./queries.ts's
+ * `archivedHackathonsQuery` doc comment for the full correction). Unarchive
+ * restores it to whichever `moderation_state` it already had (almost always
+ * still "approved" - archiving doesn't touch moderation state at all).
+ */
+async function ArchivedTab({
+  authStatus,
+  query,
+}: {
+  authStatus: AuthStatus;
+  query: string;
+}) {
+  const { data, error } = await archivedHackathonsQuery(supabaseAdmin, query);
+  const hackathons = data as HackathonRow[] | null;
+
+  return (
+    <AdminShell authStatus={authStatus} status="archived" query={query}>
+      <StatusNav status="archived" query={query} />
+
+      {error && (
+        <p className="text-sm text-destructive">
+          Failed to load archived hackathons: {error.message}
+        </p>
+      )}
+
+      {!error && hackathons?.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No archived hackathons{query ? ` matching "${query}"` : ""}.
+        </p>
+      )}
+
+      <ul className="space-y-3">
+        {hackathons?.map((hackathon) => (
+          <PublishedHackathonCard
+            key={hackathon.id}
+            hackathon={hackathon}
+            tab="archived"
+          />
+        ))}
+      </ul>
+    </AdminShell>
+  );
+}
+
+/**
  * Pending/Rejected candidate card (issue #93). Renders the candidate as a
  * real hackathon card - same date/location/topics presentation the public
  * site uses once the event is published - via the shared `HackathonCard`
@@ -411,13 +601,17 @@ function SignInGate({
  * `EditCandidateDialog`, letting a wrong/incomplete scraped field
  * (mis-parsed date, missing city, wrong topics) be corrected before
  * Approve copies it into the real `hackathons` table.
+ *
+ * Only ever rendered for `status: "pending" | "rejected"` (issue #102 - the
+ * candidate-review lifecycle never reaches "approved"/"past"/"archived",
+ * those are hackathons-only concepts once a candidate is promoted).
  */
 function CandidateCard({
   candidate,
   status,
 }: {
   candidate: CandidateRow;
-  status: StatusFilter;
+  status: "pending" | "rejected";
 }) {
   return (
     <li className="space-y-2">
@@ -425,13 +619,11 @@ function CandidateCard({
         hackathon={candidateToHackathonCardData(candidate)}
         actions={
           <div className="flex w-full flex-wrap items-center gap-2">
-            {status !== "approved" && (
-              <form action={approveCandidateAction.bind(null, candidate.id)}>
-                <Button type="submit" variant="default">
-                  {status === "rejected" ? "Approve anyway" : "Approve"}
-                </Button>
-              </form>
-            )}
+            <form action={approveCandidateAction.bind(null, candidate.id)}>
+              <Button type="submit" variant="default">
+                {status === "rejected" ? "Approve anyway" : "Approve"}
+              </Button>
+            </form>
             {status !== "rejected" && (
               <form
                 action={rejectCandidateAction.bind(
@@ -524,21 +716,41 @@ function AutoPublishBlockers({ candidate }: { candidate: CandidateRow }) {
   );
 }
 
+type PublishedHackathonTab =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "past"
+  | "archived";
+
 /**
- * A published `hackathons` row, shown on the Approved tab (issue #82) -
- * ported from the now-retired /admin/hackathons page, same shape and same
- * `deleteHackathonAction`. Deliberately a different card than
- * `CandidateCard`: a published hackathon has no approve/reject workflow.
+ * A published `hackathons` row, shown on every tab except the two
+ * candidate-only sections - Approved/Past (issue #82's "Approved should
+ * show every published hackathon, not just candidate-promoted ones",
+ * extended by issue #102's Past split), Pending/Rejected's
+ * "From published hackathons" section (issue #102's new moderation
+ * lifecycle for already-published rows), and Archived (issue #72).
  *
- * Two removal actions (issue #72), on purpose: Archive is the softer,
- * reversible default for "no longer wanted but not wrong" (e.g. the "Social
- * Hackathon Umbria" case from the issue - a real hackathon by its own
- * title, just not the kind of event this project wants listed); hard
- * Delete stays for genuine junk/mistakes that shouldn't be kept around at
- * all. No confirmation dialog on Archive (unlike Delete) - it's reversible
- * from the Archived tab, so a misclick isn't destructive.
+ * `tab` drives which action buttons render:
+ *   - "pending"            -> Approve / Reject (via `HackathonModerationActions`)
+ *   - "approved" / "past"  -> Move to pending / Reject, plus Archive (issue #72)
+ *   - "rejected"           -> Approve / Move to pending
+ *   - "archived"           -> none (must Unarchive first - archiving doesn't
+ *                              touch moderation_state, so unarchiving alone
+ *                              restores it to wherever it already was)
+ *
+ * Archive/Unarchive and hard Delete are unchanged from PR #101/#82 - see
+ * their own action doc comments in ../hackathons/actions.ts for the
+ * reversible-vs-irreversible-removal rationale, which issue #102 doesn't
+ * touch.
  */
-function HackathonCard({ hackathon }: { hackathon: HackathonRow }) {
+function PublishedHackathonCard({
+  hackathon,
+  tab,
+}: {
+  hackathon: HackathonRow;
+  tab: PublishedHackathonTab;
+}) {
   return (
     <li>
       <Card>
@@ -563,25 +775,60 @@ function HackathonCard({ hackathon }: { hackathon: HackathonRow }) {
               <Badge variant="outline">
                 {new Date(hackathon.date_start).toLocaleDateString()}
               </Badge>
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <form
-              action={archiveHackathonAction.bind(
-                null,
-                hackathon.id,
-                undefined,
+              {hackathon.status === "estimated" && (
+                <Badge
+                  variant="outline"
+                  title="No structured date was recoverable when this was approved - date_start is a placeholder used only to sort it into Approved/Past (issue #102)."
+                >
+                  Date estimated
+                </Badge>
               )}
-            >
-              <Button
-                type="submit"
-                variant="ghost"
-                size="icon"
-                title="Archive (remove from the public listing, reversible)"
+            </div>
+            {tab === "archived" && hackathon.archived_at && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Archived {new Date(hackathon.archived_at).toLocaleDateString()}
+                {hackathon.archived_reason
+                  ? ` - ${hackathon.archived_reason}`
+                  : ""}
+              </p>
+            )}
+            {/* Extension point for issue #103 (edit for published
+                hackathons) and #104 (compact reason tags) - not implemented
+                here, out of scope for issue #102. An Edit button/reason-tag
+                row would go here, alongside the existing badges. */}
+          </div>
+          <div className="flex flex-wrap items-center gap-1">
+            <HackathonModerationActions hackathon={hackathon} tab={tab} />
+            {(tab === "approved" || tab === "past") && (
+              <form
+                action={archiveHackathonAction.bind(
+                  null,
+                  hackathon.id,
+                  undefined,
+                )}
               >
-                <Archive className="h-4 w-4" />
-              </Button>
-            </form>
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  size="icon"
+                  title="Archive (remove from the public listing, reversible)"
+                >
+                  <Archive className="h-4 w-4" />
+                </Button>
+              </form>
+            )}
+            {tab === "archived" && (
+              <form action={unarchiveHackathonAction.bind(null, hackathon.id)}>
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  size="icon"
+                  title="Unarchive (restore to the public listing)"
+                >
+                  <ArchiveRestore className="h-4 w-4" />
+                </Button>
+              </form>
+            )}
             <form action={deleteHackathonAction.bind(null, hackathon.id)}>
               <ConfirmDeleteButton
                 confirmMessage={`Permanently delete "${hackathon.name}" from the live site? This cannot be undone.`}
@@ -595,188 +842,61 @@ function HackathonCard({ hackathon }: { hackathon: HackathonRow }) {
 }
 
 /**
- * The fourth tab (issue #72): "what did I reject or archive, and why".
- *
- * Design decision, documented per the issue's request: this literally
- * merges both kinds of "not currently live" rows into one page load, rather
- * than just linking to the existing Rejected tab -
- *
- *   - **Archived hackathons** (`hackathons.archived_at is not null`) are the
- *     primary content: a hackathon that was published and later archived
- *     (manually, or by the retention sweep), each with the reason shown and
- *     an Unarchive action to restore it to the public listing.
- *   - **Rejected candidates** (`hackathon_candidates.status = 'rejected'`)
- *     are shown directly below in a second, clearly-labeled section, reusing
- *     the exact same interactive `CandidateCard` (Approve anyway/Delete/Edit)
- *     the standalone Rejected tab uses - not a stripped-down read-only
- *     summary - so this tab is a genuinely complete "everything I turned
- *     away" view on its own, not just a teaser pointing elsewhere. The
- *     standalone Rejected tab (`?status=rejected`) is kept too, since
- *     reviewing pending candidates alongside just the rejected ones (without
- *     archived hackathons mixed in) is still a useful narrower view.
+ * The moderation-state transition buttons for a `PublishedHackathonCard`
+ * (issue #102) - all backed by the single
+ * `setHackathonModerationStateAction(hackathonId, state)` server action
+ * (../hackathons/actions.ts), just bound to a different target state per
+ * tab. No buttons on "archived" - see `PublishedHackathonCard`'s doc
+ * comment for why.
  */
-async function ArchivedTab({
-  authStatus,
-  query,
+function HackathonModerationActions({
+  hackathon,
+  tab,
 }: {
-  authStatus: Awaited<ReturnType<typeof getAdminAuthStatus>>;
-  query: string;
+  hackathon: HackathonRow;
+  tab: PublishedHackathonTab;
 }) {
-  let archivedHackathonsQuery = supabaseAdmin
-    .from("hackathons")
-    .select("*")
-    .not("archived_at", "is", null)
-    .order("archived_at", { ascending: false })
-    .limit(200);
-
-  if (query) {
-    archivedHackathonsQuery = archivedHackathonsQuery.ilike(
-      "name",
-      `%${query}%`,
-    );
+  if (tab === "archived") {
+    return null;
   }
 
-  let rejectedCandidatesQuery = supabaseAdmin
-    .from("hackathon_candidates")
-    .select("*")
-    .eq("status", "rejected")
-    .order("created_at", { ascending: false })
-    .limit(200);
-
-  if (query) {
-    const escaped = query.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-    const pattern = `"%${escaped}%"`;
-    rejectedCandidatesQuery = rejectedCandidatesQuery.or(
-      `name.ilike.${pattern},city.ilike.${pattern},country_code.ilike.${pattern},query.ilike.${pattern}`,
-    );
-  }
-
-  const [
-    { data: archivedHackathonsData, error: archivedHackathonsError },
-    { data: rejectedCandidatesData, error: rejectedCandidatesError },
-  ] = await Promise.all([archivedHackathonsQuery, rejectedCandidatesQuery]);
-
-  const archivedHackathons = archivedHackathonsData as HackathonRow[] | null;
-  const rejectedCandidates = rejectedCandidatesData as CandidateRow[] | null;
+  const transitions: Array<{ label: string; state: ModerationState }> =
+    tab === "pending"
+      ? [
+          { label: "Approve", state: "approved" },
+          { label: "Reject", state: "rejected" },
+        ]
+      : tab === "rejected"
+        ? [
+            { label: "Approve", state: "approved" },
+            { label: "Move to pending", state: "pending" },
+          ]
+        : [
+            // "approved" or "past"
+            { label: "Move to pending", state: "pending" },
+            { label: "Reject", state: "rejected" },
+          ];
 
   return (
-    <AdminShell authStatus={authStatus} status="archived" query={query}>
-      <StatusNav status="archived" query={query} />
-
-      <h2 className="mb-3 text-lg font-semibold">Archived hackathons</h2>
-
-      {archivedHackathonsError && (
-        <p className="text-sm text-destructive">
-          Failed to load archived hackathons: {archivedHackathonsError.message}
-        </p>
-      )}
-
-      {!archivedHackathonsError && archivedHackathons?.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          No archived hackathons{query ? ` matching "${query}"` : ""}.
-        </p>
-      )}
-
-      <ul className="mb-8 space-y-3">
-        {archivedHackathons?.map((hackathon) => (
-          <ArchivedHackathonCard key={hackathon.id} hackathon={hackathon} />
-        ))}
-      </ul>
-
-      <Separator className="mb-6" />
-
-      <h2 className="mb-1 text-lg font-semibold">Rejected candidates</h2>
-      <p className="mb-3 text-sm text-muted-foreground">
-        Candidates never published - shown here alongside archived hackathons so
-        &quot;what did I turn away, and why&quot; is one page, not two.
-      </p>
-
-      {rejectedCandidatesError && (
-        <p className="text-sm text-destructive">
-          Failed to load rejected candidates: {rejectedCandidatesError.message}
-        </p>
-      )}
-
-      {!rejectedCandidatesError && rejectedCandidates?.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          No rejected candidates{query ? ` matching "${query}"` : ""}.
-        </p>
-      )}
-
-      <ul className="space-y-4">
-        {rejectedCandidates?.map((candidate) => (
-          <CandidateCard
-            key={candidate.id}
-            candidate={candidate}
-            status="rejected"
-          />
-        ))}
-      </ul>
-    </AdminShell>
-  );
-}
-
-/**
- * An archived `hackathons` row (issue #72) - shows the reason and when it
- * was archived, with Unarchive (restores it to the public listing) as the
- * primary action. Hard Delete stays available too, for an archived row the
- * maintainer decides should be purged entirely rather than kept around
- * indefinitely as archived.
- */
-function ArchivedHackathonCard({ hackathon }: { hackathon: HackathonRow }) {
-  return (
-    <li>
-      <Card>
-        <CardContent className="flex items-start justify-between gap-2">
-          <div>
-            <a
-              href={hackathon.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium hover:underline"
-            >
-              {hackathon.name}
-            </a>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {hackathon.city && (
-                <Badge variant="secondary">{hackathon.city}</Badge>
-              )}
-              {hackathon.country_code && (
-                <Badge variant="secondary">{hackathon.country_code}</Badge>
-              )}
-              <Badge variant="outline">{hackathon.source}</Badge>
-              <Badge variant="outline">
-                {new Date(hackathon.date_start).toLocaleDateString()}
-              </Badge>
-            </div>
-            {hackathon.archived_at && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Archived {new Date(hackathon.archived_at).toLocaleDateString()}
-                {hackathon.archived_reason
-                  ? ` - ${hackathon.archived_reason}`
-                  : ""}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            <form action={unarchiveHackathonAction.bind(null, hackathon.id)}>
-              <Button
-                type="submit"
-                variant="ghost"
-                size="icon"
-                title="Unarchive (restore to the public listing)"
-              >
-                <ArchiveRestore className="h-4 w-4" />
-              </Button>
-            </form>
-            <form action={deleteHackathonAction.bind(null, hackathon.id)}>
-              <ConfirmDeleteButton
-                confirmMessage={`Permanently delete "${hackathon.name}"? This cannot be undone.`}
-              />
-            </form>
-          </div>
-        </CardContent>
-      </Card>
-    </li>
+    <>
+      {transitions.map(({ label, state }, index) => (
+        <form
+          key={state}
+          action={setHackathonModerationStateAction.bind(
+            null,
+            hackathon.id,
+            state,
+          )}
+        >
+          <Button
+            type="submit"
+            variant={index === 0 ? "default" : "outline"}
+            size="sm"
+          >
+            {label}
+          </Button>
+        </form>
+      ))}
+    </>
   );
 }
