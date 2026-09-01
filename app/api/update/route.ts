@@ -21,6 +21,7 @@ import { TwitterBot } from "@/lib/bots/twitter-bot";
 import { ReadmeUpdater } from "@/lib/services/readme-updater";
 import { LocationEnhancementService } from "@/lib/services/location-enhancement-service";
 import { MemoryOptimizer } from "@/lib/utils/memory-optimizer";
+import { checkUpdateCooldown } from "@/lib/services/update-cooldown";
 import { Hackathon } from "@/types/hackathon";
 import type {
   ParseStatus,
@@ -87,6 +88,46 @@ export async function POST(request: Request) {
         testMode ? " (TEST MODE - no notifications/README)" : ""
       }...`,
     );
+
+    // ---------------------------------------------------------
+    // Cooldown between runs (issue #77)
+    //
+    // Checked before a 'running' row is even created - a run that's
+    // rejected here never happened, mirroring how an auth failure above
+    // never creates one either. This only guards against back-to-back
+    // *manual* triggers (trigger-update.mjs, the dev button, a direct
+    // curl) hammering the same external hosts twice in quick succession;
+    // the daily cron (.github/workflows/update.yml) runs hours apart, so
+    // it never trips this in normal operation.
+    // ---------------------------------------------------------
+    const cooldown = await checkUpdateCooldown(supabaseAdmin);
+
+    if (cooldown.blocked) {
+      console.log(
+        `Skipping update: another run finished too recently ` +
+          `(retry in ${cooldown.retryAfterSeconds}s).`,
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          skipped: true,
+          reason: "cooldown",
+          message:
+            `A previous /api/update run finished too recently. ` +
+            `Wait ${cooldown.retryAfterSeconds}s before retrying to avoid ` +
+            `re-triggering rate limits on external sources (e.g. Eventbrite).`,
+          minIntervalMinutes: cooldown.minIntervalMinutes,
+          lastRunFinishedAt: cooldown.lastRunFinishedAt,
+          retryAfterSeconds: cooldown.retryAfterSeconds,
+          timestamp: new Date().toISOString(),
+        },
+        {
+          status: 429,
+          headers: { "Retry-After": String(cooldown.retryAfterSeconds) },
+        },
+      );
+    }
 
     // ---------------------------------------------------------
     // Run history (issue #32)
