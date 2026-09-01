@@ -333,7 +333,9 @@ describe("DevfolioParser", () => {
       { pagesByFilter: { upcoming: 6 } },
     );
 
-    const result = await new DevfolioParser().parse();
+    const pendingParse = new DevfolioParser().parse();
+    await vi.runAllTimersAsync();
+    const result = await pendingParse;
 
     expect(result.hackathons).toHaveLength(1);
     expect(result.status).toBe("partial");

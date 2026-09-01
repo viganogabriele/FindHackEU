@@ -310,7 +310,9 @@ describe("MlhParser", () => {
       }),
     );
 
-    const result = await new MlhParser().parse();
+    const pendingParse = new MlhParser().parse();
+    await vi.runAllTimersAsync();
+    const result = await pendingParse;
 
     expect(result.hackathons).toEqual([]);
     expect(result.status).toBe("partial");
