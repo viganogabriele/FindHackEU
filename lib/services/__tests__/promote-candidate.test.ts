@@ -8,7 +8,10 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 import { supabaseAdmin } from "@/lib/supabase";
-import { promoteCandidate } from "@/lib/services/promote-candidate";
+import {
+  promoteCandidate,
+  rejectCandidate,
+} from "@/lib/services/promote-candidate";
 
 const candidate = {
   id: "candidate-1",
@@ -108,5 +111,17 @@ describe("promoteCandidate", () => {
       outcome: "error",
       message: "Promotion RPC returned an invalid response",
     });
+  });
+
+  it("surfaces a rejection update error", async () => {
+    const eq = vi.fn().mockResolvedValue({
+      error: { message: "candidate update failed" },
+    });
+    const update = vi.fn().mockReturnValue({ eq });
+    vi.mocked(supabaseAdmin.from).mockReturnValue({ update } as never);
+
+    await expect(
+      rejectCandidate("candidate-1", "not an event"),
+    ).rejects.toThrow("candidate update failed");
   });
 });

@@ -145,7 +145,7 @@ export async function rejectCandidate(
   candidateId: string,
   reviewerNote?: string,
 ): Promise<void> {
-  await supabaseAdmin
+  const { error } = await supabaseAdmin
     .from("hackathon_candidates")
     // @ts-expect-error - Supabase generated types may not include update shape
     .update({
@@ -154,4 +154,8 @@ export async function rejectCandidate(
       reviewer_note: reviewerNote ?? null,
     })
     .eq("id", candidateId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }
