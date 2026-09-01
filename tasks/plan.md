@@ -48,8 +48,8 @@ Correct the verified security, correctness, consistency, and documentation findi
 
 ## Risks and Mitigations
 
-| Risk | Impact | Mitigation |
-| --- | --- | --- |
-| A new SQL identity column conflicts with existing rows | High | Backfill deterministically, use a non-unique index plus transactional advisory lock, and verify on local Supabase. |
-| Strict URL/date validation rejects malformed third-party data | Medium | Reject only unsafe/ambiguous values and keep per-result/per-event fallbacks. |
-| Provider payload shapes change while status is corrected | Medium | Add fixtures for missing metadata, truncation, unknown values, and malformed RSC strings. |
+| Risk                                                          | Impact | Mitigation                                                                                                         |
+| ------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------ |
+| A new SQL identity column conflicts with existing rows        | High   | Backfill deterministically, use a non-unique index plus transactional advisory lock, and verify on local Supabase. |
+| Strict URL/date validation rejects malformed third-party data | Medium | Reject only unsafe/ambiguous values and keep per-result/per-event fallbacks.                                       |
+| Provider payload shapes change while status is corrected      | Medium | Add fixtures for missing metadata, truncation, unknown values, and malformed RSC strings.                          |
