@@ -21,6 +21,20 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
+type QueryOptions = {
+  countOnly?: boolean;
+};
+
+function selectRows(
+  client: AnySupabaseClient,
+  table: "hackathon_candidates" | "hackathons",
+  countOnly: boolean,
+) {
+  return countOnly
+    ? client.from(table).select("id", { count: "exact", head: true })
+    : client.from(table).select("*");
+}
+
 /**
  * Issue #83's multi-field search (name/city/country/query), quoted for
  * PostgREST's comma-separated `.or()` filter list - unchanged from the
@@ -42,19 +56,31 @@ export function candidatesByStatusQuery(
   client: AnySupabaseClient,
   status: "pending" | "rejected",
   query: string,
+  options: QueryOptions = {},
 ) {
-  let q = client
-    .from("hackathon_candidates")
-    .select("*")
-    .eq("status", status)
-    .order("created_at", { ascending: false })
-    .limit(200);
+  const countOnly = options.countOnly ?? false;
+  let q = selectRows(client, "hackathon_candidates", countOnly).eq(
+    "status",
+    status,
+  );
+
+  if (!countOnly) {
+    q = q.order("created_at", { ascending: false }).limit(200);
+  }
 
   if (query) {
     q = q.or(candidateSearchOrFilter(query));
   }
 
   return q;
+}
+
+export function candidatesByStatusCountQuery(
+  client: AnySupabaseClient,
+  status: "pending" | "rejected",
+  query: string,
+) {
+  return candidatesByStatusQuery(client, status, query, { countOnly: true });
 }
 
 /**
@@ -69,22 +95,34 @@ export function hackathonsByModerationStateQuery(
   client: AnySupabaseClient,
   moderationState: "pending" | "rejected",
   query: string,
+  options: QueryOptions = {},
 ) {
-  let q = client
-    .from("hackathons")
-    .select("*")
+  const countOnly = options.countOnly ?? false;
+  let q = selectRows(client, "hackathons", countOnly)
     .eq("moderation_state", moderationState)
     // An automatically archived row belongs only in the Archived tab, even
     // if its moderation state is still pending or rejected.
-    .is("archived_at", null)
-    .order("created_at", { ascending: false })
-    .limit(200);
+    .is("archived_at", null);
+
+  if (!countOnly) {
+    q = q.order("created_at", { ascending: false }).limit(200);
+  }
 
   if (query) {
     q = q.ilike("name", `%${query}%`);
   }
 
   return q;
+}
+
+export function hackathonsByModerationStateCountQuery(
+  client: AnySupabaseClient,
+  moderationState: "pending" | "rejected",
+  query: string,
+) {
+  return hackathonsByModerationStateQuery(client, moderationState, query, {
+    countOnly: true,
+  });
 }
 
 /**
@@ -109,18 +147,20 @@ export function approvedOrPastHackathonsQuery(
   kind: "approved" | "past",
   query: string,
   now: Date = new Date(),
+  options: QueryOptions = {},
 ) {
+  const countOnly = options.countOnly ?? false;
   const nowIso = now.toISOString();
 
-  let q = client
-    .from("hackathons")
-    .select("*")
+  let q = selectRows(client, "hackathons", countOnly)
     .eq("moderation_state", "approved")
     // Issue #72: an archived hackathon moves to the Archived tab, not this
     // one - without this filter it would show up in both.
-    .is("archived_at", null)
-    .order("date_start", { ascending: kind === "approved" })
-    .limit(200);
+    .is("archived_at", null);
+
+  if (!countOnly) {
+    q = q.order("date_start", { ascending: kind === "approved" }).limit(200);
+  }
 
   q =
     kind === "approved"
@@ -134,6 +174,17 @@ export function approvedOrPastHackathonsQuery(
   }
 
   return q;
+}
+
+export function approvedOrPastHackathonsCountQuery(
+  client: AnySupabaseClient,
+  kind: "approved" | "past",
+  query: string,
+  now: Date = new Date(),
+) {
+  return approvedOrPastHackathonsQuery(client, kind, query, now, {
+    countOnly: true,
+  });
 }
 
 /**
@@ -150,17 +201,29 @@ export function approvedOrPastHackathonsQuery(
 export function archivedHackathonsQuery(
   client: AnySupabaseClient,
   query: string,
+  options: QueryOptions = {},
 ) {
-  let q = client
-    .from("hackathons")
-    .select("*")
-    .not("archived_at", "is", null)
-    .order("archived_at", { ascending: false })
-    .limit(200);
+  const countOnly = options.countOnly ?? false;
+  let q = selectRows(client, "hackathons", countOnly).not(
+    "archived_at",
+    "is",
+    null,
+  );
+
+  if (!countOnly) {
+    q = q.order("archived_at", { ascending: false }).limit(200);
+  }
 
   if (query) {
     q = q.ilike("name", `%${query}%`);
   }
 
   return q;
+}
+
+export function archivedHackathonsCountQuery(
+  client: AnySupabaseClient,
+  query: string,
+) {
+  return archivedHackathonsQuery(client, query, { countOnly: true });
 }

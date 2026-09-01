@@ -42,16 +42,16 @@ const candidate: CandidateRow = {
 };
 
 describe("EditCandidateDialog", () => {
-  it("renders a disabled-no-more Edit trigger button", () => {
+  it("renders an accessible icon Edit trigger button", () => {
     render(<EditCandidateDialog candidate={candidate} />);
-    const trigger = screen.getByRole("button", { name: "Edit" });
+    const trigger = screen.getByRole("button", { name: "Edit candidate" });
     expect(trigger).toBeTruthy();
     expect(trigger.hasAttribute("disabled")).toBe(false);
   });
 
   it("opens the dialog pre-filled with the candidate's current values", () => {
     render(<EditCandidateDialog candidate={candidate} />);
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit candidate" }));
 
     expect(screen.getByDisplayValue("Hack The Peak")).toBeTruthy();
     expect(screen.getByDisplayValue("Bolzano")).toBeTruthy();
@@ -66,7 +66,7 @@ describe("EditCandidateDialog", () => {
 
   it("submits through the bound server action on Save", () => {
     render(<EditCandidateDialog candidate={candidate} />);
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit candidate" }));
 
     const nameInput = screen.getByDisplayValue(
       "Hack The Peak",
