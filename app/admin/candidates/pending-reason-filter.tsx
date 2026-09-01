@@ -14,6 +14,7 @@ import {
   AUTO_PUBLISH_BLOCKER_TAGS,
   type AutoPublishBlockerCode,
 } from "@/lib/discovery/auto-publish-blockers";
+import { NO_AUTOFILL_PROPS } from "./form-utils";
 
 /** URL-backed pending-reason filter with no separate Apply step. */
 export function PendingReasonFilter({
@@ -32,32 +33,30 @@ export function PendingReasonFilter({
     setSelected(selectedCodes);
   }, [selectedCodes]);
 
-  function updateReason(code: AutoPublishBlockerCode, checked: boolean) {
-    const next = checked
-      ? [...selected, code]
-      : selected.filter((selectedCode) => selectedCode !== code);
-    setSelected(next);
-
+  function applyReasons(codes: AutoPublishBlockerCode[]) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("status", "pending");
     if (query) params.set("q", query);
     else params.delete("q");
     params.delete("reason");
-    next.forEach((reason) => params.append("reason", reason));
-
+    codes.forEach((reason) => params.append("reason", reason));
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }
+
+  function updateReason(code: AutoPublishBlockerCode, checked: boolean) {
+    const next = checked
+      ? [...selected, code]
+      : selected.filter((selectedCode) => selectedCode !== code);
+    setSelected(next);
   }
 
   function clearReasons() {
     setSelected([]);
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("status", "pending");
-    params.delete("reason");
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    applyReasons([]);
   }
 
   return (
-    <Popover>
+    <Popover onOpenChange={(open) => !open && applyReasons(selected)}>
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -78,37 +77,45 @@ export function PendingReasonFilter({
         align="end"
         className="w-[min(20rem,calc(100vw-2rem))] p-3"
       >
-        <fieldset className="space-y-2">
-          <legend className="text-sm font-medium">
-            Filter by pending reason
-          </legend>
-          <div className="grid gap-1">
-            {AUTO_PUBLISH_BLOCKER_TAGS.map((tag) => (
-              <label
-                key={tag.code}
-                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                <input
-                  type="checkbox"
-                  value={tag.code}
-                  checked={selected.includes(tag.code)}
-                  onChange={(event) =>
-                    updateReason(tag.code, event.target.checked)
-                  }
-                  className="h-4 w-4 cursor-pointer rounded border-input accent-primary"
-                  autoComplete="off"
-                  data-1p-ignore
-                  data-lpignore="true"
-                />
-                <Badge
-                  variant={selected.includes(tag.code) ? "default" : "outline"}
+        <form method="get" action={pathname}>
+          <input type="hidden" name="status" value="pending" />
+          {query && <input type="hidden" name="q" value={query} />}
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">
+              Filter by pending reason
+            </legend>
+            <div className="grid gap-1">
+              {AUTO_PUBLISH_BLOCKER_TAGS.map((tag) => (
+                <label
+                  key={tag.code}
+                  className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-accent hover:text-accent-foreground"
                 >
-                  {tag.label}
-                </Badge>
-              </label>
-            ))}
-          </div>
-        </fieldset>
+                  <input
+                    type="checkbox"
+                    value={tag.code}
+                    checked={selected.includes(tag.code)}
+                    onChange={(event) =>
+                      updateReason(tag.code, event.target.checked)
+                    }
+                    className="h-4 w-4 cursor-pointer rounded border-input accent-primary"
+                    {...NO_AUTOFILL_PROPS}
+                    name="reason"
+                  />
+                  <Badge
+                    variant={
+                      selected.includes(tag.code) ? "default" : "outline"
+                    }
+                  >
+                    {tag.label}
+                  </Badge>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <Button type="submit" size="sm" className="mt-3">
+            Apply
+          </Button>
+        </form>
         {selected.length > 0 && (
           <Button
             type="button"

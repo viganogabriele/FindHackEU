@@ -261,6 +261,7 @@ function AdminShell({
   query,
   tabCounts,
   showManualForm = false,
+  reasonCodes = [],
   children,
 }: {
   authStatus: AuthStatus;
@@ -268,6 +269,7 @@ function AdminShell({
   query: string;
   tabCounts: TabCounts;
   showManualForm?: boolean;
+  reasonCodes?: AutoPublishBlockerCode[];
   children: ReactNode;
 }) {
   return (
@@ -295,7 +297,11 @@ function AdminShell({
 
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="flex min-w-0 flex-1">
-            <AdminSearchInput status={status} query={query} />
+            <AdminSearchInput
+              status={status}
+              query={query}
+              reasonCodes={reasonCodes}
+            />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <TriggerUpdateButton />
@@ -437,6 +443,7 @@ async function PendingTab({
       query={query}
       tabCounts={tabCounts}
       showManualForm
+      reasonCodes={blockerCodes}
     >
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Review queue</h2>
@@ -449,13 +456,15 @@ async function PendingTab({
         </p>
       )}
 
-      {!candidatesError && visibleCandidates?.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          {candidates?.length === 0
-            ? `No pending candidates${query ? ` matching "${query}"` : ""}.`
-            : "No pending candidates carry all selected reason tags."}
-        </p>
-      )}
+      {!candidatesError &&
+        visibleCandidates?.length === 0 &&
+        hackathons?.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            {candidates?.length === 0
+              ? `No pending candidates${query ? ` matching "${query}"` : ""}.`
+              : "No pending candidates carry all selected reason tags."}
+          </p>
+        )}
 
       <ul className="space-y-2">
         {visibleCandidates?.map((candidate) => (
@@ -526,11 +535,13 @@ async function RejectedTab({
         </p>
       )}
 
-      {!candidatesError && candidates?.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          No rejected candidates{query ? ` matching "${query}"` : ""}.
-        </p>
-      )}
+      {!candidatesError &&
+        candidates?.length === 0 &&
+        hackathons?.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            No rejected candidates{query ? ` matching "${query}"` : ""}.
+          </p>
+        )}
 
       <ul className="space-y-2">
         {candidates?.map((candidate) => (
