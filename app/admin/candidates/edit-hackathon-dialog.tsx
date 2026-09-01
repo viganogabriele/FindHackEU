@@ -49,8 +49,12 @@ function fieldsFromHackathon(hackathon: HackathonRow) {
  */
 export function EditHackathonDialog({
   hackathon,
+  disabled = false,
+  disabledReason,
 }: {
   hackathon: HackathonRow;
+  disabled?: boolean;
+  disabledReason?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [fields, setFields] = useState(() => fieldsFromHackathon(hackathon));
@@ -83,8 +87,9 @@ export function EditHackathonDialog({
           type="button"
           variant="outline"
           size="icon"
-          title="Edit hackathon"
-          aria-label="Edit hackathon"
+          title={disabledReason ?? "Edit hackathon"}
+          aria-label={disabledReason ?? "Edit hackathon"}
+          disabled={disabled}
         >
           <Pencil aria-hidden="true" />
         </Button>

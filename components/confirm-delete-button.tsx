@@ -24,8 +24,12 @@ import {
  */
 export function ConfirmDeleteButton({
   confirmMessage,
+  disabled = false,
+  disabledReason,
 }: {
   confirmMessage: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -37,8 +41,9 @@ export function ConfirmDeleteButton({
           type="button"
           variant="destructive"
           size="icon"
-          title="Delete permanently"
-          aria-label="Delete permanently"
+          title={disabledReason ?? "Delete permanently"}
+          aria-label={disabledReason ?? "Delete permanently"}
+          disabled={disabled}
         >
           <Trash2 aria-hidden="true" />
         </Button>
