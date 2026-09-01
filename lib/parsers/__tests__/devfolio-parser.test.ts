@@ -78,7 +78,7 @@ describe("DevfolioParser", () => {
     });
 
     const pendingParse = new DevfolioParser().parse();
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.runAllTimersAsync();
     const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(1);
@@ -105,7 +105,7 @@ describe("DevfolioParser", () => {
     });
 
     const pendingParse = new DevfolioParser().parse();
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.runAllTimersAsync();
     const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(0);
@@ -127,7 +127,7 @@ describe("DevfolioParser", () => {
     });
 
     const pendingParse = new DevfolioParser().parse();
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.runAllTimersAsync();
     const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(1);
@@ -149,7 +149,7 @@ describe("DevfolioParser", () => {
     mockFetchPerFilter({ upcoming: [event], application_open: [event] });
 
     const pendingParse = new DevfolioParser().parse();
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.runAllTimersAsync();
     const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(1);
@@ -169,7 +169,7 @@ describe("DevfolioParser", () => {
     });
 
     const pendingParse = new DevfolioParser().parse();
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.runAllTimersAsync();
     const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(0);
@@ -190,7 +190,7 @@ describe("DevfolioParser", () => {
     });
 
     const pendingParse = new DevfolioParser().parse();
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.runAllTimersAsync();
     const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(1);
@@ -232,12 +232,40 @@ describe("DevfolioParser", () => {
     });
 
     const pendingParse = new DevfolioParser().parse();
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.runAllTimersAsync();
     const result = await pendingParse;
 
     expect(result.hackathons).toHaveLength(1);
     expect(result.dropped?.byDateWindow).toBe(1);
     expect(result.dropped?.byCountry).toBe(1);
+  });
+
+  it("waits between successive requests, including pagination", async () => {
+    const requestTimes: number[] = [];
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(input.toString());
+      const filter = url.searchParams.get("filter");
+      requestTimes.push(Date.now());
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => buildResponse([], filter === "upcoming" ? 2 : 1),
+        text: async () => "",
+      } as Response;
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const pendingParse = new DevfolioParser().parse();
+    await vi.runAllTimersAsync();
+    await pendingParse;
+
+    expect(requestTimes).toHaveLength(4);
+    expect(
+      requestTimes.slice(1).map((time, index) => time - requestTimes[index]),
+    ).toEqual([500, 500, 500]);
   });
 
   it("reports status 'failed' when every filter request rejects", async () => {
@@ -248,11 +276,10 @@ describe("DevfolioParser", () => {
       }),
     );
 
-    // fetchWithRetry's backoff uses real setTimeout, which needs the fake
-    // clock advanced manually before the retried attempts resolve - same
-    // pattern as luma-parser.test.ts's equivalent failure-case tests.
+    // fetchWithRetry's backoff and parser delays use setTimeout. Drain the
+    // fake clock so retries and every inter-request delay resolve.
     const pendingParse = new DevfolioParser().parse();
-    await vi.advanceTimersByTimeAsync(30_000);
+    await vi.runAllTimersAsync();
     const result = await pendingParse;
 
     expect(result.hackathons).toEqual([]);
@@ -281,7 +308,7 @@ describe("DevfolioParser", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const pendingParse = new DevfolioParser().parse();
-    await vi.advanceTimersByTimeAsync(30_000);
+    await vi.runAllTimersAsync();
     const result = await pendingParse;
 
     expect(result.status).toBe("partial");

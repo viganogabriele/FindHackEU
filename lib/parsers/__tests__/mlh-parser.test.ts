@@ -86,7 +86,7 @@ describe("MlhParser", () => {
     });
 
     const pendingParse = new MlhParser().parse();
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.runAllTimersAsync();
     const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(1);
@@ -113,7 +113,7 @@ describe("MlhParser", () => {
     });
 
     const pendingParse = new MlhParser().parse();
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.runAllTimersAsync();
     const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(0);
@@ -135,7 +135,7 @@ describe("MlhParser", () => {
     });
 
     const pendingParse = new MlhParser().parse();
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.runAllTimersAsync();
     const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(1);
@@ -161,7 +161,7 @@ describe("MlhParser", () => {
     });
 
     const pendingParse = new MlhParser().parse();
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.runAllTimersAsync();
     const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(1);
@@ -184,7 +184,7 @@ describe("MlhParser", () => {
     });
 
     const pendingParse = new MlhParser().parse();
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.runAllTimersAsync();
     const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(1);
@@ -205,7 +205,7 @@ describe("MlhParser", () => {
     });
 
     const pendingParse = new MlhParser().parse();
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.runAllTimersAsync();
     const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(0);
@@ -247,7 +247,7 @@ describe("MlhParser", () => {
     });
 
     const pendingParse = new MlhParser().parse();
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.runAllTimersAsync();
     const result = await pendingParse;
 
     expect(result.hackathons).toHaveLength(1);
@@ -264,7 +264,7 @@ describe("MlhParser", () => {
     );
 
     const pendingParse = new MlhParser().parse();
-    await vi.advanceTimersByTimeAsync(30_000);
+    await vi.runAllTimersAsync();
     const result = await pendingParse;
 
     expect(result.hackathons).toEqual([]);
@@ -284,7 +284,7 @@ describe("MlhParser", () => {
     );
 
     const pendingParse = new MlhParser().parse();
-    await vi.advanceTimersByTimeAsync(30_000);
+    await vi.runAllTimersAsync();
     const result = await pendingParse;
 
     expect(result.status).toBe("failed");
