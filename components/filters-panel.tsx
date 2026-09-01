@@ -19,6 +19,7 @@ import {
   formatLocationValueLabel,
   getCityLocationOptionsForCountry,
   isCountryLocationValue,
+  narrowCountryToCity,
 } from "@/lib/location-filter";
 import { cn } from "@/lib/utils";
 import { useFilters } from "@/contexts/filter-context";
@@ -130,6 +131,12 @@ export function FiltersPanel({
       filters.topics.includes(topic)
         ? filters.topics.filter((item) => item !== topic)
         : [...filters.topics, topic],
+    );
+  };
+  const selectCityWithinCountry = (countryLocation: string, city: string) => {
+    updateFilter(
+      "locations",
+      narrowCountryToCity(filters.locations, countryLocation, city),
     );
   };
   const applyRadius = async () => {
@@ -271,7 +278,7 @@ export function FiltersPanel({
                 {activeCount > 0 && (
                   <Button variant="ghost" size="sm" onClick={clearFilters}>
                     <FilterX className="size-4" aria-hidden="true" />{" "}
-                    {t("radius.clear")}
+                    {t("filters.clearAll")}
                   </Button>
                 )}
               </div>
@@ -392,29 +399,9 @@ export function FiltersPanel({
                             {cities.map((city) => (
                               <CommandItem
                                 key={city}
-                                onSelect={() => {
-                                  updateFilter(
-                                    "locations",
-                                    filters.locations
-                                      .filter(
-                                        (location) =>
-                                          location !== countryLocation,
-                                      )
-                                      .includes(city)
-                                      ? filters.locations.filter(
-                                          (location) =>
-                                            location !== countryLocation &&
-                                            location !== city,
-                                        )
-                                      : [
-                                          ...filters.locations.filter(
-                                            (location) =>
-                                              location !== countryLocation,
-                                          ),
-                                          city,
-                                        ],
-                                  );
-                                }}
+                                onSelect={() =>
+                                  selectCityWithinCountry(countryLocation, city)
+                                }
                               >
                                 <Check
                                   className={cn(

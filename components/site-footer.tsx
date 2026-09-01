@@ -10,6 +10,9 @@ export function SiteFooter() {
     { href: "/privacy", label: t("external.privacy") },
     { href: "/terms", label: t("external.terms") },
   ];
+  if (process.env.NODE_ENV !== "production") {
+    links.push({ href: "/admin", label: "Admin dashboard" });
+  }
 
   return (
     <footer className="border-t">

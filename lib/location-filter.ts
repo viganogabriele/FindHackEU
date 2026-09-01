@@ -172,6 +172,21 @@ export function getCityLocationOptionsForCountry(
   );
 }
 
+/** Replace a country-wide selection with a city, toggling the city if present. */
+export function narrowCountryToCity(
+  selectedLocations: string[],
+  countryLocation: string,
+  city: string,
+): string[] {
+  const locationsWithoutCountry = selectedLocations.filter(
+    (location) => location !== countryLocation,
+  );
+
+  return locationsWithoutCountry.includes(city)
+    ? locationsWithoutCountry.filter((location) => location !== city)
+    : [...locationsWithoutCountry, city];
+}
+
 /**
  * Whether a hackathon matches the selected `locations` filter, honoring
  * both country-wide markers (matches any city in that country) and plain
