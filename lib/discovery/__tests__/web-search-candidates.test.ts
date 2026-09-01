@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   discoverWebCandidates,
   generateQueries,
+  getAutoPublishBlockers,
   isAutoPublishEligible,
 } from "@/lib/discovery/web-search-candidates";
 import { createInMemoryQueryBudget } from "@/lib/discovery/query-budget";
@@ -590,5 +591,72 @@ describe("isAutoPublishEligible", () => {
     expect(isAutoPublishEligible({ ...trustedCandidate, ...override })).toBe(
       false,
     );
+  });
+
+  describe("getAutoPublishBlockers", () => {
+    it("returns no blockers for complete, non-conflicting JSON-LD web-search evidence", () => {
+      expect(getAutoPublishBlockers(trustedCandidate)).toEqual([]);
+    });
+
+    it("is consistent with isAutoPublishEligible for the trusted candidate", () => {
+      expect(getAutoPublishBlockers(trustedCandidate).length === 0).toBe(
+        isAutoPublishEligible(trustedCandidate),
+      );
+    });
+
+    it.each([
+      [
+        "Open Graph evidence",
+        { extraction_method: "og-meta" as const },
+        "extraction method",
+      ],
+      ["conflicting evidence", { has_conflict: true }, "conflict"],
+      ["missing country", { country_code: null }, "country"],
+      [
+        "non-European country",
+        { country_code: "US" },
+        "recognized European country",
+      ],
+      ["missing date", { date_start: null }, "date"],
+      ["manual source", { source: "manual" }, "source"],
+    ])("reports why %s is not auto-published", (_reason, override, phrase) => {
+      const blockers = getAutoPublishBlockers({
+        ...trustedCandidate,
+        ...override,
+      });
+      expect(blockers.some((blocker) => blocker.includes(phrase))).toBe(true);
+    });
+
+    it("reports every failed criterion at once, not just the first", () => {
+      const blockers = getAutoPublishBlockers({
+        ...trustedCandidate,
+        extraction_method: "og-meta",
+        has_conflict: true,
+        country_code: null,
+        date_start: null,
+        source: "manual",
+      });
+      expect(blockers).toHaveLength(5);
+    });
+
+    it("stays in sync with isAutoPublishEligible across arbitrary combinations", () => {
+      const overrides = [
+        {},
+        { extraction_method: "og-meta" as const },
+        { has_conflict: true },
+        { country_code: null },
+        { country_code: "US" },
+        { date_start: null },
+        { source: "manual" },
+        { extraction_method: "og-meta" as const, has_conflict: true },
+      ];
+
+      for (const override of overrides) {
+        const candidate = { ...trustedCandidate, ...override };
+        expect(getAutoPublishBlockers(candidate).length === 0).toBe(
+          isAutoPublishEligible(candidate),
+        );
+      }
+    });
   });
 });

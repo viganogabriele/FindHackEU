@@ -15,31 +15,72 @@ import type { Database } from "@/types/database";
 type CandidateInsert =
   Database["public"]["Tables"]["hackathon_candidates"]["Insert"];
 
+type AutoPublishCandidate = Pick<
+  CandidateInsert,
+  | "source"
+  | "extraction_method"
+  | "has_conflict"
+  | "country_code"
+  | "date_start"
+>;
+
 /**
  * Auto-publication is deliberately narrower than candidate collection:
  * only structured, geographically verified, non-conflicting web evidence
  * may skip human review. Everything else remains visible in the queue.
  */
 export function isAutoPublishEligible(
-  candidate: Pick<
-    CandidateInsert,
-    | "source"
-    | "extraction_method"
-    | "has_conflict"
-    | "country_code"
-    | "date_start"
-  >,
+  candidate: AutoPublishCandidate,
 ): boolean {
-  return (
-    candidate.source === "web-search" &&
-    candidate.extraction_method === "jsonld-event" &&
-    candidate.has_conflict !== true &&
-    typeof candidate.country_code === "string" &&
-    europeanCountries.classifyCountryCode(candidate.country_code) ===
-      "european" &&
-    typeof candidate.date_start === "string" &&
-    !Number.isNaN(Date.parse(candidate.date_start))
-  );
+  return getAutoPublishBlockers(candidate).length === 0;
+}
+
+/**
+ * Returns which of `isAutoPublishEligible`'s criteria this candidate
+ * fails, phrased in plain language rather than raw field/enum names where
+ * avoidable (issue #78). An empty array means the candidate is eligible
+ * for auto-publish - mirrors `isAutoPublishEligible` exactly (in fact,
+ * `isAutoPublishEligible` is defined in terms of this function) so the
+ * two can never silently drift apart.
+ */
+export function getAutoPublishBlockers(
+  candidate: AutoPublishCandidate,
+): string[] {
+  const blockers: string[] = [];
+
+  if (candidate.source !== "web-search") {
+    blockers.push(`source is "${candidate.source}", not web-search`);
+  }
+
+  if (candidate.extraction_method !== "jsonld-event") {
+    blockers.push(
+      `extraction method is "${candidate.extraction_method}", not structured event data (jsonld-event)`,
+    );
+  }
+
+  if (candidate.has_conflict === true) {
+    blockers.push("title conflicts with the page's own description");
+  }
+
+  if (
+    typeof candidate.country_code !== "string" ||
+    europeanCountries.classifyCountryCode(candidate.country_code) !== "european"
+  ) {
+    blockers.push(
+      candidate.country_code
+        ? `country "${candidate.country_code}" isn't a recognized European country`
+        : "no country could be determined",
+    );
+  }
+
+  if (
+    typeof candidate.date_start !== "string" ||
+    Number.isNaN(Date.parse(candidate.date_start))
+  ) {
+    blockers.push("no usable start date was found");
+  }
+
+  return blockers;
 }
 
 /**
