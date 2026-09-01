@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { NO_AUTOFILL_PROPS } from "./form-utils";
+import { NO_AUTOFILL_PROPS } from "@/lib/form-utils";
 
 /**
  * Debounced, URL-backed admin search. The page remains server-rendered: each

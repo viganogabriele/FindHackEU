@@ -19,7 +19,7 @@ import { HACKATHON_TOPICS } from "@/lib/constants/topics";
 import { editCandidateFormAction } from "./actions";
 import type { Database } from "@/types/database";
 import { toast } from "sonner";
-import { NO_AUTOFILL_PROPS } from "./form-utils";
+import { NO_AUTOFILL_PROPS } from "@/lib/form-utils";
 
 type CandidateRow = Database["public"]["Tables"]["hackathon_candidates"]["Row"];
 

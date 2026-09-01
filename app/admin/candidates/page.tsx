@@ -9,6 +9,7 @@ import {
   Clock3,
   X,
 } from "lucide-react";
+import { CopyLinkButton } from "@/components/copy-link-button";
 import { supabaseAdmin } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -722,6 +723,7 @@ function CandidateCard({
         meta={<CandidateContext candidate={candidate} status={status} />}
         actions={
           <div className="flex w-full flex-wrap items-center justify-end gap-1">
+            <CopyLinkButton url={candidate.url} />
             <form action={approveCandidateAction.bind(null, candidate.id)}>
               <Button
                 type="submit"
@@ -893,6 +895,7 @@ function PublishedHackathonCard({
         meta={<PublishedContext hackathon={hackathon} tab={tab} />}
         actions={
           <div className="flex w-full flex-wrap items-center justify-end gap-1">
+            <CopyLinkButton url={hackathon.url} />
             {tab === "archived" && (
               <form action={unarchiveHackathonAction.bind(null, hackathon.id)}>
                 <Button
