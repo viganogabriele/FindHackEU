@@ -87,30 +87,106 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status") || "upcoming";
+  const ascending = status === "upcoming";
+
+  // Opt-in bounded pagination (issue #62): `fetchAllRows` fixed the bug
+  // where an unpaginated query silently truncated past PostgREST's
+  // max_rows, but for this *public* endpoint fetching the entire matching
+  // dataset every time just moves the scaling problem from "silently
+  // truncates" to "an ever-growing single response". Omitting `limit`
+  // keeps the exact previous behavior (full dataset, same response shape)
+  // for backward compatibility - only passing `limit` opts into the new,
+  // smaller/paginated shape (adds `nextCursor`).
+  const limitParam = searchParams.get("limit");
+  const limit = limitParam ? Number.parseInt(limitParam, 10) : null;
+  const cursorParam = searchParams.get("cursor");
+
+  if (limitParam && (!Number.isFinite(limit) || limit! <= 0)) {
+    return NextResponse.json(
+      { error: "Invalid 'limit' query parameter" },
+      { status: 400 },
+    );
+  }
+
+  // Keyset ("after this row") cursor over the same (date_start, id) sort
+  // key `.order()` already uses below - chosen over offset-based paging
+  // per this issue's own tradeoff note: an offset shifts under concurrent
+  // inserts (a row landing in the previous page's covered range),
+  // whereas keyset pagination is stable regardless of writes happening
+  // between page fetches. The cursor is an opaque token, not meant to be
+  // constructed by API consumers directly.
+  let cursor: { dateStart: string; id: string } | null = null;
+
+  if (cursorParam) {
+    try {
+      const decoded = Buffer.from(cursorParam, "base64url").toString("utf-8");
+      const [dateStart, id] = decoded.split("|");
+      if (!dateStart || !id) throw new Error("malformed cursor");
+      cursor = { dateStart, id };
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid 'cursor' query parameter" },
+        { status: 400 },
+      );
+    }
+  }
 
   try {
-    // Paginated (see lib/services/fetch-all-rows.ts): a plain, unpaginated
-    // select silently truncates once the table exceeds PostgREST's
-    // max_rows, which would make this endpoint quietly drop hackathons
-    // from its response with no error (found in code review).
-    const data = await fetchAllRows((from, to) =>
-      supabase
-        .from("hackathons")
-        .select(
-          "id, name, city, country_code, date_start, date_end, topics, notes, url, status, is_new, source",
-        )
-        .eq("status", status)
-        // `id` as a secondary, always-unique tie-breaker so rows sharing
-        // a `date_start` can't land inconsistently across a page boundary
-        // (found in code review).
-        .order("date_start", { ascending: status === "upcoming" })
-        .order("id", { ascending: true })
-        .range(from, to),
-    );
+    let query = supabase
+      .from("hackathons")
+      .select(
+        "id, name, city, country_code, date_start, date_end, topics, notes, url, status, is_new, source",
+      )
+      .eq("status", status)
+      // `id` as a secondary, always-unique tie-breaker so rows sharing
+      // a `date_start` can't land inconsistently across a page boundary
+      // (found in code review).
+      .order("date_start", { ascending })
+      .order("id", { ascending: true });
+
+    if (cursor) {
+      // Row-value comparison "(date_start, id) > (cursor.dateStart, cursor.id)"
+      // (or "<" when sorting descending) expressed as the equivalent
+      // `.or()` filter PostgREST supports: strictly past the cursor's
+      // date_start, OR tied on date_start and past its id.
+      const op = ascending ? "gt" : "lt";
+      query = query.or(
+        `date_start.${op}.${cursor.dateStart},and(date_start.eq.${cursor.dateStart},id.gt.${cursor.id})`,
+      );
+    }
+
+    let data;
+    let nextCursor: string | null = null;
+
+    if (limit) {
+      const { data: page, error } = await query.limit(limit + 1);
+      if (error) throw error;
+
+      // Cast, not trusted Supabase inference - a direct `.select()` result
+      // resolves to `never` in this project's current client setup (same
+      // rough edge documented in lib/services/promote-candidate.ts).
+      const rows = (page ?? []) as Array<{ date_start: string; id: string }>;
+      const hasMore = rows.length > limit;
+      data = hasMore ? rows.slice(0, limit) : rows;
+
+      const last = data[data.length - 1];
+      if (hasMore && last) {
+        nextCursor = Buffer.from(
+          `${last.date_start}|${last.id}`,
+          "utf-8",
+        ).toString("base64url");
+      }
+    } else {
+      // No `limit` - preserve the exact previous behavior (full dataset
+      // via fetchAllRows, see lib/services/fetch-all-rows.ts) rather than
+      // silently truncating existing consumers that don't pass `limit`.
+      data = await fetchAllRows((from, to) => query.range(from, to));
+    }
 
     return NextResponse.json(
       {
         data,
+        ...(limit ? { nextCursor } : {}),
       },
       {
         headers: {
