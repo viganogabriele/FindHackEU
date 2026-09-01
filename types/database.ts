@@ -10,6 +10,10 @@ export interface Database {
           // location: REMOVED - Use city + country_code instead
           city: string | null;
           country_code: string | null;
+          // Nullable until the coordinate backfill has run for historical
+          // rows. New city-based pipeline rows are populated when possible.
+          latitude: number | null;
+          longitude: number | null;
           // Added for issue #21 (extend the location model beyond
           // city/country): distinguishes physical/online/hybrid/unannounced
           // events so the frontend can render something more useful than a
@@ -53,6 +57,8 @@ export interface Database {
           // location: REMOVED - Use city + country_code instead
           city?: string | null;
           country_code?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
           // Optional on insert: the DB default ('tbd') covers callers that
           // don't have a signal yet.
           location_type?: "physical" | "online" | "hybrid" | "tbd";
@@ -82,6 +88,8 @@ export interface Database {
           // location: REMOVED - Use city + country_code instead
           city?: string | null;
           country_code?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
           location_type?: "physical" | "online" | "hybrid" | "tbd";
           venue?: string | null;
           date_start?: string;

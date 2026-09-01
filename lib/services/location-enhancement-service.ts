@@ -12,8 +12,8 @@ import pLimit from "p-limit";
  */
 export class LocationEnhancementService {
   /**
-   * Applica il geocoding a hackathon che hanno città ma non country code
-   * Solo se l'hackathon sarà effettivamente inserito nel database
+   * Applica il geocoding a nuovi hackathon che hanno una città ma non le
+   * coordinate; il country code può essere già fornito dalla fonte.
    * @param hackathons Lista di hackathon parsed
    * @param existingUrls URLs già presenti nel database per evitare geocoding inutile
    * @returns Lista di hackathon con location enhanced
@@ -47,11 +47,14 @@ export class LocationEnhancementService {
           //    lib/dedup/url-normalizer.ts - così un alias come lu.ma vs
           //    luma.com non sembra "nuovo" solo per una differenza
           //    cosmetica nell'URL, trovato in code review)
-          // 2. Ha una città ma non un country code
+          // 2. Has a city but is missing coordinates. Coordinates are now
+          // needed by the public radius filter (issue #109); even a source
+          // that already supplied a country code may still need geocoding.
           const shouldGeocode = Boolean(
             !existingUrls.has(normalizeUrl(hackathon.url)) &&
             hackathon.city &&
-            !hackathon.country_code,
+            (hackathon.latitude === undefined ||
+              hackathon.longitude === undefined),
           );
 
           if (!shouldGeocode) {
@@ -61,27 +64,25 @@ export class LocationEnhancementService {
 
           const city = hackathon.city!;
 
-          // Cheap, free-of-cost pass first: a known-city lookup (with
-          // multilingual/diacritic normalization, see
-          // lib/european-countries.ts) resolves common cases like
-          // "Zurich"/"Zürich"/"Zurigo" -> CH without ever hitting the
-          // paid geocoding API. This is the "apply geocoding more
-          // systematically, but not more expensively" part of issue #5.
+          // Keep the known-city lookup as a fallback for country resolution
+          // when the paid geocoder is unavailable. It cannot provide
+          // coordinates, so it must not short-circuit the API request.
           const inferredCountry = europeanCountries.inferCountryFromCity(city);
 
           if (inferredCountry) {
             console.log(
-              `Enhanced location from known-city map: ${city} -> ${inferredCountry}`,
+              `Known city map suggests ${city} -> ${inferredCountry}`,
             );
-            return {
-              ...hackathon,
-              country_code: inferredCountry,
-              location_confidence: "low" as const,
-            };
           }
 
           try {
-            const outcome = await GeocodingService.getCountryCodeFromCity(city);
+            const geocodingAddress = hackathon.country_code
+              ? `${city}, ${europeanCountries.getCountryName(hackathon.country_code) ?? hackathon.country_code}`
+              : city;
+            const outcome =
+              await GeocodingService.getCoordinatesFromAddress(
+                geocodingAddress,
+              );
 
             switch (outcome.status) {
               case "found": {
@@ -90,12 +91,30 @@ export class LocationEnhancementService {
                 );
                 return {
                   ...hackathon,
-                  country_code: outcome.countryCode,
-                  location_confidence: "low" as const,
+                  country_code: hackathon.country_code ?? outcome.countryCode,
+                  ...(outcome.latitude !== undefined &&
+                  outcome.longitude !== undefined
+                    ? {
+                        latitude: outcome.latitude,
+                        longitude: outcome.longitude,
+                      }
+                    : {}),
+                  ...(hackathon.country_code
+                    ? {}
+                    : { location_confidence: "low" as const }),
                 };
               }
 
               case "non_european": {
+                // A source-provided country is higher confidence than a
+                // city-only geocoder result. Preserve the event rather than
+                // dropping it because an ambiguous city name was resolved
+                // elsewhere, but do not persist coordinates from that
+                // conflicting result.
+                if (hackathon.country_code) {
+                  return hackathon;
+                }
+
                 console.log(
                   `Dropping hackathon "${hackathon.name}": city "${city}" geocoded to non-European country ${outcome.countryCode}.`,
                 );
@@ -113,7 +132,13 @@ export class LocationEnhancementService {
                   `Country could not be determined for city "${city}" (hackathon "${hackathon.name}"), keeping with undetermined country.`,
                 );
                 undeterminedCountryCount++;
-                return hackathon;
+                return inferredCountry
+                  ? {
+                      ...hackathon,
+                      country_code: inferredCountry,
+                      location_confidence: "low" as const,
+                    }
+                  : hackathon;
               }
 
               case "unavailable":
@@ -127,7 +152,13 @@ export class LocationEnhancementService {
                   `Geocoding unavailable for "${city}" (hackathon "${hackathon.name}"), keeping with undetermined country.`,
                 );
                 geocodingUnavailableCount++;
-                return hackathon;
+                return inferredCountry
+                  ? {
+                      ...hackathon,
+                      country_code: inferredCountry,
+                      location_confidence: "low" as const,
+                    }
+                  : hackathon;
               }
             }
           } catch (error) {

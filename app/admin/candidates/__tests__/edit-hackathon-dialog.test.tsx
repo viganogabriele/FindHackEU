@@ -22,6 +22,8 @@ const hackathon: HackathonRow = {
   name: "Hack The Peak",
   city: "Bolzano",
   country_code: "IT",
+  latitude: null,
+  longitude: null,
   location_type: "physical",
   venue: null,
   date_start: "2026-11-15T00:00:00.000Z",

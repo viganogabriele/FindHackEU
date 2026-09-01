@@ -5,6 +5,8 @@ interface GeocodingResponse {
   elements: {
     element: {
       countryCode?: unknown;
+      latitude?: unknown;
+      longitude?: unknown;
     };
   };
 }
@@ -50,22 +52,51 @@ function isGeocodingResponse(value: unknown): value is GeocodingResponse {
  * silently swallowed).
  */
 export type GeocodingOutcome =
-  | { status: "found"; countryCode: string }
+  | {
+      status: "found";
+      countryCode: string;
+      latitude?: number;
+      longitude?: number;
+    }
   | { status: "not_found" }
-  | { status: "non_european"; countryCode: string }
+  | {
+      status: "non_european";
+      countryCode: string;
+      latitude?: number;
+      longitude?: number;
+    }
   | { status: "unavailable" };
+
+function getCoordinate(value: unknown, min: number, max: number) {
+  const numberValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim() !== ""
+        ? Number(value)
+        : NaN;
+
+  return Number.isFinite(numberValue) &&
+    numberValue >= min &&
+    numberValue <= max
+    ? numberValue
+    : undefined;
+}
 
 export class GeocodingService {
   private static readonly API_URL = "https://geocoding.openapi.it/geocode";
 
-  /**
-   * Ottiene il country code da una città usando l'API di geocoding
-   * @param city Nome della città
-   * @returns un `GeocodingOutcome` che distingue "trovato", "non trovato",
-   * "trovato ma non europeo" e "geocoding non disponibile" (nessuna API
-   * key, errore di rete, risposta malformata)
-   */
+  /** Backward-compatible country lookup name used by the ingestion pipeline. */
   static async getCountryCodeFromCity(city: string): Promise<GeocodingOutcome> {
+    return this.getCoordinatesFromAddress(city);
+  }
+
+  /**
+   * Resolve a city or address to country metadata and, when available,
+   * latitude/longitude for distance filtering.
+   */
+  static async getCoordinatesFromAddress(
+    city: string,
+  ): Promise<GeocodingOutcome> {
     try {
       const apiKey = process.env.OPENAPI_GEOCODING_KEY;
       if (!apiKey) {
@@ -141,6 +172,7 @@ export class GeocodingService {
           return {
             status: "non_european",
             countryCode: countryCode.trim().toUpperCase(),
+            ...getCoordinates(data),
           };
         }
 
@@ -152,10 +184,25 @@ export class GeocodingService {
 
       console.log(`Geocoding success: ${city} -> ${normalizedCountryCode}`);
 
-      return { status: "found", countryCode: normalizedCountryCode };
+      return {
+        status: "found",
+        countryCode: normalizedCountryCode,
+        ...getCoordinates(data),
+      };
     } catch (error) {
       console.error(`Error geocoding city ${city}:`, error);
       return { status: "unavailable" };
     }
   }
+}
+
+function getCoordinates(
+  data: GeocodingResponse,
+): { latitude: number; longitude: number } | Record<string, never> {
+  const latitude = getCoordinate(data.elements.element.latitude, -90, 90);
+  const longitude = getCoordinate(data.elements.element.longitude, -180, 180);
+
+  return latitude !== undefined && longitude !== undefined
+    ? { latitude, longitude }
+    : {};
 }

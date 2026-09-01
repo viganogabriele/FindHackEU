@@ -22,6 +22,8 @@ function makeHackathon(overrides: Partial<Hackathon>): Hackathon {
     name: "Test Hackathon",
     city: "Berlin",
     country_code: "DE",
+    latitude: null,
+    longitude: null,
     location_type: "physical",
     venue: null,
     date_start: "2099-01-01T09:00:00.000Z",

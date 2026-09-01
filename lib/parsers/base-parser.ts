@@ -16,6 +16,9 @@ export interface ParsedHackathon {
   name: string;
   city?: string;
   country_code?: string;
+  /** Coordinates used by the public radius filter (issue #109). */
+  latitude?: number;
+  longitude?: number;
   /**
    * Lightweight confidence marker for `country_code` (issue #5). Kept
    * in-memory only, not persisted to the DB, to avoid a schema change.
