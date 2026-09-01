@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import type { Database } from "@/types/database";
 
 // This repo's vitest.config.mts doesn't enable Jest-style test globals, so
@@ -9,12 +15,21 @@ import type { Database } from "@/types/database";
 // the same note.
 afterEach(cleanup);
 
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
 vi.mock("../actions", () => ({
   editCandidateFormAction: vi.fn(),
 }));
 
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn() },
+}));
+
 import { EditCandidateDialog } from "../edit-candidate-dialog";
 import { editCandidateFormAction } from "../actions";
+import { toast } from "sonner";
 
 type CandidateRow = Database["public"]["Tables"]["hackathon_candidates"]["Row"];
 
@@ -81,5 +96,19 @@ describe("EditCandidateDialog", () => {
     // lib/services/__tests__/edit-candidate.test.ts and actions.ts's own
     // straightforward `.bind` wiring.
     expect(vi.mocked(editCandidateFormAction)).toHaveBeenCalled();
+  });
+
+  it("shows a success toast after the server confirms the save", async () => {
+    vi.mocked(editCandidateFormAction).mockResolvedValue({
+      outcome: "updated",
+    });
+
+    render(<EditCandidateDialog candidate={candidate} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit candidate" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(vi.mocked(toast.success)).toHaveBeenCalledWith("Candidate saved");
+    });
   });
 });

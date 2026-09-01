@@ -18,6 +18,7 @@ import {
 import { HACKATHON_TOPICS } from "@/lib/constants/topics";
 import { editHackathonFormAction } from "../hackathons/actions";
 import type { Database } from "@/types/database";
+import { toast } from "sonner";
 
 type HackathonRow = Database["public"]["Tables"]["hackathons"]["Row"];
 
@@ -62,6 +63,7 @@ export function EditHackathonDialog({
   if (result !== lastResult) {
     setLastResult(result);
     if (result?.outcome === "updated") {
+      toast.success("Hackathon saved");
       setOpen(false);
     }
   }
@@ -102,7 +104,7 @@ export function EditHackathonDialog({
       <DialogTrigger asChild>
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           size="icon"
           title="Edit hackathon"
           aria-label="Edit hackathon"

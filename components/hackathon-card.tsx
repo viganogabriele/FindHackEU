@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 export interface HackathonCardData {
   id: string;
   name: string;
+  url?: string;
   date_start: string | null;
   date_end?: string | null;
   city?: string | null;
@@ -47,6 +48,12 @@ interface HackathonCardProps {
    * below the topics when this is omitted.
    */
   actions?: ReactNode;
+  /** Optional metadata row used by compact admin cards. */
+  meta?: ReactNode;
+  /** Render the card title as the event's external source link. */
+  titleLink?: boolean;
+  /** Use the tighter spacing needed by the admin review queue. */
+  compact?: boolean;
   className?: string;
 }
 
@@ -60,6 +67,9 @@ interface HackathonCardProps {
 export function HackathonCard({
   hackathon,
   actions,
+  meta,
+  titleLink = false,
+  compact = false,
   className,
 }: HackathonCardProps) {
   const { t, formatDateRange } = useTranslation();
@@ -69,13 +79,30 @@ export function HackathonCard({
     <Card
       className={cn(
         "flex h-full flex-col transition-all duration-200 hover:shadow-lg",
+        compact && "gap-3 py-3",
         className,
       )}
     >
-      <CardHeader>
+      <CardHeader className={cn(compact && "gap-1 px-4")}>
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="line-clamp-2 flex-1 leading-snug">
-            {hackathon.name}
+          <CardTitle
+            className={cn(
+              "line-clamp-2 flex-1 leading-snug",
+              compact && "text-sm",
+            )}
+          >
+            {titleLink && hackathon.url ? (
+              <a
+                href={hackathon.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                {hackathon.name}
+              </a>
+            ) : (
+              hackathon.name
+            )}
           </CardTitle>
           {hackathon.is_new && (
             <Badge
@@ -87,6 +114,7 @@ export function HackathonCard({
             </Badge>
           )}
         </div>
+        {meta}
         {hackathon.notes && hackathon.notes.trim() && (
           <CardDescription className="line-clamp-2">
             {hackathon.notes}
@@ -94,11 +122,23 @@ export function HackathonCard({
         )}
       </CardHeader>
 
-      <CardContent className="flex-1 space-y-4">
+      <CardContent
+        className={cn("flex-1 space-y-4", compact && "space-y-2 px-4")}
+      >
         <div className="space-y-2">
-          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+          <div
+            className={cn(
+              "flex flex-col items-start gap-4 md:flex-row md:items-center",
+              compact && "gap-2",
+            )}
+          >
             {hackathon.date_start && (
-              <div className="flex md:w-1/2 items-center gap-2 text-sm text-muted-foreground">
+              <div
+                className={cn(
+                  "flex items-center gap-2 text-sm text-muted-foreground md:w-1/2",
+                  compact && "text-xs",
+                )}
+              >
                 <CalendarIcon className="h-4 w-4 shrink-0" />
                 <span>
                   {formatDateRange(hackathon.date_start, hackathon.date_end)}
@@ -106,7 +146,12 @@ export function HackathonCard({
               </div>
             )}
             {hackathon.city || hackathon.country_code ? (
-              <div className="flex md:w-1/2 items-center gap-2 text-sm text-muted-foreground">
+              <div
+                className={cn(
+                  "flex items-center gap-2 text-sm text-muted-foreground md:w-1/2",
+                  compact && "text-xs",
+                )}
+              >
                 <MapPin className="h-4 w-4 shrink-0" />
                 <span>
                   {europeanCountries.formatLocation(
@@ -122,7 +167,12 @@ export function HackathonCard({
               // event) - show a badge explaining why instead of leaving
               // blank space where a location would normally be.
               (locationType === "online" || locationType === "hybrid") && (
-                <div className="flex md:w-1/2 items-center gap-2 text-sm text-muted-foreground">
+                <div
+                  className={cn(
+                    "flex items-center gap-2 text-sm text-muted-foreground md:w-1/2",
+                    compact && "text-xs",
+                  )}
+                >
                   <MapPin className="h-4 w-4 shrink-0" />
                   <Badge variant="secondary" className="text-xs">
                     {locationType === "online"
@@ -161,7 +211,14 @@ export function HackathonCard({
       </CardContent>
 
       {actions && (
-        <CardFooter className="flex flex-col gap-2">{actions}</CardFooter>
+        <CardFooter
+          className={cn(
+            "flex flex-col gap-2",
+            compact && "flex-row gap-2 px-4 pt-2",
+          )}
+        >
+          {actions}
+        </CardFooter>
       )}
     </Card>
   );

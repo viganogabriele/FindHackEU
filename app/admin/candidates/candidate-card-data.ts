@@ -25,6 +25,7 @@ export function candidateToHackathonCardData(
   return {
     id: candidate.id,
     name: candidate.name,
+    url: candidate.url,
     date_start: candidate.date_start,
     date_end: candidate.date_end,
     city: candidate.city,

@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Check,
   Clock3,
+  SlidersHorizontal,
   X,
 } from "lucide-react";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -14,6 +15,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { HackathonCard as SharedHackathonCard } from "@/components/hackathon-card";
@@ -247,13 +253,14 @@ export default async function CandidatesAdminPage({
 }
 
 /**
- * Shared chrome (back link, header, dashboard cross-link, sign-out, search
- * form) for all five tabs.
+ * Shared chrome (compact breadcrumb, header, sign-out, search toolbar, and
+ * status navigation) for all five tabs.
  */
 function AdminShell({
   authStatus,
   status,
   query,
+  tabCounts,
   showManualForm = false,
   children,
 }: {
@@ -266,46 +273,45 @@ function AdminShell({
 }) {
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto max-w-4xl px-4 py-8">
-        <Button asChild variant="ghost" size="sm" className="mb-4 -ml-2">
-          <Link href="/">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to site
-          </Link>
-        </Button>
-
-        <div className="mb-6 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="mb-2 text-2xl font-bold">Hackathon candidates</h1>
-            <p className="text-sm text-muted-foreground">
-              Manage hackathons by moderation state. Only Approved and Past are
-              public; Archived is kept separately.
+      <div className="container mx-auto max-w-5xl px-4 py-6">
+        <header className="mb-5 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <Link
+              href="/admin"
+              className="mb-2 inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <ArrowLeft className="h-3 w-3" />
+              Dashboard
+            </Link>
+            <h1 className="text-xl font-bold tracking-tight">
+              Hackathon candidates
+            </h1>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              Review and manage events by moderation state. Only Approved and
+              Past are public.
             </p>
           </div>
           <SignOutButton email={authStatus.email!} />
+        </header>
+
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <form className="flex min-w-0 flex-1 gap-2" method="get">
+            <input type="hidden" name="status" value={status} />
+            <Input
+              type="search"
+              name="q"
+              placeholder="Search name, city, country, or query…"
+              defaultValue={query}
+              className="h-8 min-w-0 flex-1 sm:max-w-sm"
+            />
+            <Button type="submit" variant="outline" size="sm">
+              Search
+            </Button>
+          </form>
+          {showManualForm && <ManualSubmitForm />}
         </div>
 
-        <div className="mb-4 -ml-3 flex flex-wrap items-center gap-1">
-          <Button asChild variant="link" size="sm">
-            <Link href="/admin">← Admin dashboard</Link>
-          </Button>
-        </div>
-
-        {showManualForm && <ManualSubmitForm />}
-
-        <form className="mb-6 flex gap-2" method="get">
-          <input type="hidden" name="status" value={status} />
-          <Input
-            type="search"
-            name="q"
-            placeholder="Search by name, city, country, or query…"
-            defaultValue={query}
-            className="max-w-sm"
-          />
-          <Button type="submit" variant="outline">
-            Search
-          </Button>
-        </form>
+        <StatusNav status={status} query={query} tabCounts={tabCounts} />
 
         {children}
       </div>
@@ -324,22 +330,27 @@ function StatusNav({
   tabCounts: TabCounts;
 }) {
   return (
-    <nav className="mb-6 flex flex-wrap gap-2">
+    <nav
+      aria-label="Moderation status"
+      className="mb-5 flex gap-1 overflow-x-auto border-b pb-2"
+    >
       {STATUSES.map((s) => (
         <Button
           key={s}
           asChild
-          variant={s === status ? "default" : "outline"}
+          variant={s === status ? "default" : "ghost"}
           size="sm"
+          className="shrink-0 px-2.5"
         >
           <Link
             href={`/admin/candidates?status=${s}${query ? `&q=${encodeURIComponent(query)}` : ""}`}
+            aria-current={s === status ? "page" : undefined}
           >
             {s.charAt(0).toUpperCase() + s.slice(1)}
             <Badge
-              variant="secondary"
+              variant={s === status ? "secondary" : "outline"}
               aria-label={`${tabCounts[s] ?? "Unknown"} ${s} items`}
-              className="px-1.5"
+              className="min-w-5 justify-center px-1.5"
             >
               {tabCounts[s] ?? "—"}
             </Badge>
@@ -437,11 +448,10 @@ async function PendingTab({
       tabCounts={tabCounts}
       showManualForm
     >
-      <StatusNav status="pending" query={query} tabCounts={tabCounts} />
-
-      <h2 className="mb-3 text-lg font-semibold">Candidates</h2>
-
-      <PendingReasonFilter query={query} selectedCodes={blockerCodes} />
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">Candidates</h2>
+        <PendingReasonFilter query={query} selectedCodes={blockerCodes} />
+      </div>
 
       {candidatesError && (
         <p className="text-sm text-destructive">
@@ -457,7 +467,7 @@ async function PendingTab({
         </p>
       )}
 
-      <ul className="mb-8 space-y-4">
+      <ul className="mb-6 space-y-3">
         {visibleCandidates?.map((candidate) => (
           <CandidateCard
             key={candidate.id}
@@ -506,52 +516,71 @@ function PendingReasonFilter({
   const clearHref = `/admin/candidates?status=pending${query ? `&q=${encodeURIComponent(query)}` : ""}`;
 
   return (
-    <form
-      method="get"
-      className="mb-4 rounded-md border bg-muted/30 p-3"
-      aria-label="Filter pending candidates"
-    >
-      <input type="hidden" name="status" value="pending" />
-      {query && <input type="hidden" name="q" value={query} />}
-      <fieldset>
-        <legend className="mb-2 text-sm font-medium">
-          Filter by pending reason
-        </legend>
-        <div className="flex flex-wrap gap-2">
-          {AUTO_PUBLISH_BLOCKER_TAGS.map((tag) => (
-            <label
-              key={tag.code}
-              className="flex cursor-pointer items-center gap-1.5"
-            >
-              <input
-                type="checkbox"
-                name="reason"
-                value={tag.code}
-                defaultChecked={selectedCodes.includes(tag.code)}
-                className="h-4 w-4 rounded border-input accent-primary"
-              />
-              <Badge
-                variant={
-                  selectedCodes.includes(tag.code) ? "default" : "outline"
-                }
-              >
-                {tag.label}
-              </Badge>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      <div className="mt-3 flex items-center gap-2">
-        <Button type="submit" size="sm">
-          Apply filters
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant={selectedCodes.length > 0 ? "secondary" : "outline"}
+          size="sm"
+          aria-label="Filter pending candidates by reason"
+        >
+          <SlidersHorizontal aria-hidden="true" />
+          Reasons
+          {selectedCodes.length > 0 && (
+            <Badge variant="outline" className="min-w-5 justify-center px-1">
+              {selectedCodes.length}
+            </Badge>
+          )}
         </Button>
-        {selectedCodes.length > 0 && (
-          <Button asChild type="button" variant="ghost" size="sm">
-            <Link href={clearHref}>Clear filters</Link>
-          </Button>
-        )}
-      </div>
-    </form>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        className="w-[min(20rem,calc(100vw-2rem))] p-3"
+      >
+        <form method="get" aria-label="Filter pending candidates">
+          <input type="hidden" name="status" value="pending" />
+          {query && <input type="hidden" name="q" value={query} />}
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">
+              Filter by pending reason
+            </legend>
+            <div className="grid gap-1">
+              {AUTO_PUBLISH_BLOCKER_TAGS.map((tag) => (
+                <label
+                  key={tag.code}
+                  className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                  <input
+                    type="checkbox"
+                    name="reason"
+                    value={tag.code}
+                    defaultChecked={selectedCodes.includes(tag.code)}
+                    className="h-4 w-4 rounded border-input accent-primary"
+                  />
+                  <Badge
+                    variant={
+                      selectedCodes.includes(tag.code) ? "default" : "outline"
+                    }
+                  >
+                    {tag.label}
+                  </Badge>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <div className="mt-3 flex items-center gap-2">
+            <Button type="submit" size="sm">
+              Apply
+            </Button>
+            {selectedCodes.length > 0 && (
+              <Button asChild variant="ghost" size="sm">
+                <Link href={clearHref}>Clear</Link>
+              </Button>
+            )}
+          </div>
+        </form>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -589,8 +618,6 @@ async function RejectedTab({
       query={query}
       tabCounts={tabCounts}
     >
-      <StatusNav status="rejected" query={query} tabCounts={tabCounts} />
-
       <h2 className="mb-3 text-lg font-semibold">Candidates</h2>
 
       {candidatesError && (
@@ -605,7 +632,7 @@ async function RejectedTab({
         </p>
       )}
 
-      <ul className="mb-8 space-y-4">
+      <ul className="mb-6 space-y-3">
         {candidates?.map((candidate) => (
           <CandidateCard
             key={candidate.id}
@@ -678,8 +705,6 @@ async function ApprovedOrPastTab({
       query={query}
       tabCounts={tabCounts}
     >
-      <StatusNav status={kind} query={query} tabCounts={tabCounts} />
-
       {error && (
         <p className="text-sm text-destructive">
           Failed to load hackathons: {error.message}
@@ -734,8 +759,6 @@ async function ArchivedTab({
       query={query}
       tabCounts={tabCounts}
     >
-      <StatusNav status="archived" query={query} tabCounts={tabCounts} />
-
       {error && (
         <p className="text-sm text-destructive">
           Failed to load archived hackathons: {error.message}
@@ -768,12 +791,11 @@ async function ArchivedTab({
  * (components/hackathon-card.tsx), mapped through
  * `candidateToHackathonCardData` since a `hackathon_candidates` row isn't
  * shaped like a `hackathons` row. The admin-only "how it was found" context
- * (source, search provider, query, and compact reason tags) sits in a
- * second, visually secondary card directly below it rather than being
- * folded into the hackathon card itself - that context is about the
- * candidate row, not about what the event will look like once published.
+ * (source, search provider, query, and compact reason tags) is folded into
+ * one inline metadata row inside the same card, so each candidate takes one
+ * compact vertical slot.
  *
- * The footer is an admin action bar (Approve, Reject-or-Delete, Edit)
+ * The footer is an admin action bar (Approve, Edit, Reject, Delete)
  * instead of the public site's Share/Calendar buttons, passed in via
  * `HackathonCard`'s `actions` slot. Edit (issue #94) opens
  * `EditCandidateDialog`, letting a wrong/incomplete scraped field
@@ -792,15 +814,18 @@ function CandidateCard({
   status: "pending" | "rejected";
 }) {
   return (
-    <li className="space-y-2">
+    <li>
       <SharedHackathonCard
         hackathon={candidateToHackathonCardData(candidate)}
+        compact
+        titleLink
+        meta={<CandidateContext candidate={candidate} status={status} />}
         actions={
-          <div className="flex w-full items-center justify-end gap-1">
+          <div className="flex w-full flex-wrap items-center justify-end gap-1">
             <form action={approveCandidateAction.bind(null, candidate.id)}>
               <Button
                 type="submit"
-                variant="default"
+                variant="success"
                 size="icon"
                 title={status === "rejected" ? "Approve anyway" : "Approve"}
                 aria-label={
@@ -810,6 +835,7 @@ function CandidateCard({
                 <Check aria-hidden="true" />
               </Button>
             </form>
+            <EditCandidateDialog candidate={candidate} />
             {status !== "rejected" && (
               <form
                 action={rejectCandidateAction.bind(
@@ -834,61 +860,62 @@ function CandidateCard({
                 confirmMessage={`Permanently delete "${candidate.name}"? This cannot be undone.`}
               />
             </form>
-            <EditCandidateDialog candidate={candidate} />
           </div>
         }
       />
-
-      <Card className="border-dashed">
-        <CardContent className="space-y-3">
-          <a
-            href={candidate.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block truncate text-xs text-muted-foreground hover:underline"
-          >
-            {candidate.url}
-          </a>
-
-          <div className="space-y-1 text-sm text-foreground">
-            <p>
-              <span className="font-medium">Source:</span> {candidate.source}
-            </p>
-            <p>
-              <span className="font-medium">Search provider:</span>{" "}
-              {candidate.search_provider}
-            </p>
-            <p className="break-words">
-              <span className="font-medium">Query:</span> &ldquo;
-              {candidate.query}&rdquo;
-            </p>
-          </div>
-
-          {status === "rejected" && (
-            <div className="flex flex-wrap gap-1.5 text-xs text-muted-foreground">
-              <Badge
-                variant={
-                  candidate.extraction_method === "jsonld-event"
-                    ? "default"
-                    : candidate.extraction_method === "og-meta"
-                      ? "secondary"
-                      : "outline"
-                }
-              >
-                {candidate.extraction_method}
-              </Badge>
-              {candidate.has_conflict && (
-                <Badge variant="destructive">Conflicting page data</Badge>
-              )}
-            </div>
-          )}
-
-          {status === "pending" && (
-            <AutoPublishBlockers candidate={candidate} />
-          )}
-        </CardContent>
-      </Card>
     </li>
+  );
+}
+
+function CandidateContext({
+  candidate,
+  status,
+}: {
+  candidate: CandidateRow;
+  status: "pending" | "rejected";
+}) {
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground"
+      aria-label="Candidate source details"
+    >
+      <span title={`Source: ${candidate.source}`}>
+        Source: {candidate.source}
+      </span>
+      <span title={`Search provider: ${candidate.search_provider}`}>
+        via {candidate.search_provider}
+      </span>
+      <span
+        className="max-w-full truncate"
+        title={`Search query: ${candidate.query}`}
+      >
+        Query: {candidate.query}
+      </span>
+
+      {status === "rejected" && (
+        <>
+          <Badge
+            variant={
+              candidate.extraction_method === "jsonld-event"
+                ? "default"
+                : candidate.extraction_method === "og-meta"
+                  ? "secondary"
+                  : "outline"
+            }
+            className="h-5 px-1.5 text-[11px]"
+          >
+            {candidate.extraction_method}
+          </Badge>
+          {candidate.has_conflict && (
+            <Badge variant="destructive" className="h-5 px-1.5 text-[11px]">
+              Conflicting page data
+            </Badge>
+          )}
+        </>
+      )}
+
+      {status === "pending" && <AutoPublishBlockers candidate={candidate} />}
+    </div>
   );
 }
 
@@ -909,7 +936,12 @@ function AutoPublishBlockers({ candidate }: { candidate: CandidateRow }) {
   return (
     <div className="flex flex-wrap gap-1.5" aria-label="Auto-publish blockers">
       {blockers.map((blocker) => (
-        <Badge key={blocker.code} variant="outline" title={blocker.label}>
+        <Badge
+          key={blocker.code}
+          variant="outline"
+          title={blocker.label}
+          className="h-5 px-1.5 text-[11px]"
+        >
           {blocker.label}
         </Badge>
       ))}
@@ -932,13 +964,9 @@ type PublishedHackathonTab =
  * "From published hackathons" section (issue #102's new moderation
  * lifecycle for already-published rows), and Archived (issue #72).
  *
- * `tab` drives which action buttons render:
- *   - "pending"            -> Approve / Reject (via `HackathonModerationActions`)
- *   - "approved" / "past"  -> Move to pending / Reject, plus Archive (issue #72)
- *   - "rejected"           -> Approve / Move to pending
- *   - "archived"           -> none (must Unarchive first - archiving doesn't
- *                              touch moderation_state, so unarchiving alone
- *                              restores it to wherever it already was)
+ * `tab` drives which action buttons render. Every row follows the same
+ * severity order: safe moderation action, Edit, reversible archive action,
+ * then destructive Reject/Delete actions. Archived rows start with Unarchive.
  *
  * Archive/Unarchive and hard Delete are unchanged from PR #101/#82 - see
  * their own action doc comments in ../hackathons/actions.ts for the
@@ -954,31 +982,35 @@ function PublishedHackathonCard({
 }) {
   return (
     <li>
-      <Card>
-        <CardContent className="flex items-start justify-between gap-2">
-          <div>
+      <Card className="gap-0 py-0">
+        <CardContent className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <a
               href={hackathon.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium hover:underline"
+              className="line-clamp-2 font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               {hackathon.name}
             </a>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {hackathon.city && (
-                <Badge variant="secondary">{hackathon.city}</Badge>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {(hackathon.city || hackathon.country_code) && (
+                <Badge variant="secondary" className="h-5 px-1.5 text-[11px]">
+                  {[hackathon.city, hackathon.country_code]
+                    .filter(Boolean)
+                    .join(", ")}
+                </Badge>
               )}
-              {hackathon.country_code && (
-                <Badge variant="secondary">{hackathon.country_code}</Badge>
-              )}
-              <Badge variant="outline">{hackathon.source}</Badge>
-              <Badge variant="outline">
+              <Badge variant="outline" className="h-5 px-1.5 text-[11px]">
+                {hackathon.source}
+              </Badge>
+              <Badge variant="outline" className="h-5 px-1.5 text-[11px]">
                 {new Date(hackathon.date_start).toLocaleDateString()}
               </Badge>
               {hackathon.status === "estimated" && (
                 <Badge
                   variant="outline"
+                  className="h-5 px-1.5 text-[11px]"
                   title="No structured date was recoverable when this was approved - date_start is a placeholder used only to sort it into Approved/Past (issue #102)."
                 >
                   Date estimated
@@ -986,7 +1018,7 @@ function PublishedHackathonCard({
               )}
             </div>
             {tab === "archived" && hackathon.archived_at && (
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="mt-1.5 text-xs text-muted-foreground">
                 Archived {new Date(hackathon.archived_at).toLocaleDateString()}
                 {hackathon.archived_reason
                   ? ` - ${hackathon.archived_reason}`
@@ -994,9 +1026,53 @@ function PublishedHackathonCard({
               </p>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-1">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+            {tab === "archived" && (
+              <form action={unarchiveHackathonAction.bind(null, hackathon.id)}>
+                <Button
+                  type="submit"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Unarchive"
+                  title="Unarchive (restore to the public listing)"
+                >
+                  <ArchiveRestore aria-hidden="true" />
+                </Button>
+              </form>
+            )}
+            {tab === "pending" && (
+              <HackathonModerationAction
+                hackathon={hackathon}
+                label="Approve"
+                state="approved"
+                icon={Check}
+              />
+            )}
+            {tab === "rejected" && (
+              <>
+                <HackathonModerationAction
+                  hackathon={hackathon}
+                  label="Approve"
+                  state="approved"
+                  icon={Check}
+                />
+                <HackathonModerationAction
+                  hackathon={hackathon}
+                  label="Move to pending"
+                  state="pending"
+                  icon={Clock3}
+                />
+              </>
+            )}
+            {(tab === "approved" || tab === "past") && (
+              <HackathonModerationAction
+                hackathon={hackathon}
+                label="Move to pending"
+                state="pending"
+                icon={Clock3}
+              />
+            )}
             <EditHackathonDialog hackathon={hackathon} />
-            <HackathonModerationActions hackathon={hackathon} tab={tab} />
             {(tab === "approved" || tab === "past") && (
               <form
                 action={archiveHackathonAction.bind(
@@ -1007,27 +1083,22 @@ function PublishedHackathonCard({
               >
                 <Button
                   type="submit"
-                  variant="ghost"
+                  variant="outline"
                   size="icon"
                   aria-label="Archive"
                   title="Archive (remove from the public listing, reversible)"
                 >
-                  <Archive className="h-4 w-4" />
+                  <Archive aria-hidden="true" />
                 </Button>
               </form>
             )}
-            {tab === "archived" && (
-              <form action={unarchiveHackathonAction.bind(null, hackathon.id)}>
-                <Button
-                  type="submit"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Unarchive"
-                  title="Unarchive (restore to the public listing)"
-                >
-                  <ArchiveRestore className="h-4 w-4" />
-                </Button>
-              </form>
+            {(tab === "pending" || tab === "approved" || tab === "past") && (
+              <HackathonModerationAction
+                hackathon={hackathon}
+                label="Reject"
+                state="rejected"
+                icon={X}
+              />
             )}
             <form action={deleteHackathonAction.bind(null, hackathon.id)}>
               <ConfirmDeleteButton
@@ -1041,74 +1112,36 @@ function PublishedHackathonCard({
   );
 }
 
-/**
- * The moderation-state transition buttons for a `PublishedHackathonCard`
- * (issue #102) - all backed by the single
- * `setHackathonModerationStateAction(hackathonId, state)` server action
- * (../hackathons/actions.ts), just bound to a different target state per
- * tab. No buttons on "archived" - see `PublishedHackathonCard`'s doc
- * comment for why.
- */
-function HackathonModerationActions({
+function HackathonModerationAction({
   hackathon,
-  tab,
+  label,
+  state,
+  icon: Icon,
 }: {
   hackathon: HackathonRow;
-  tab: PublishedHackathonTab;
+  label: string;
+  state: ModerationState;
+  icon: typeof Check;
 }) {
-  if (tab === "archived") {
-    return null;
-  }
-
-  const transitions: Array<{
-    label: string;
-    state: ModerationState;
-    icon: typeof Check;
-  }> =
-    tab === "pending"
-      ? [
-          { label: "Approve", state: "approved", icon: Check },
-          { label: "Reject", state: "rejected", icon: X },
-        ]
-      : tab === "rejected"
-        ? [
-            { label: "Approve", state: "approved", icon: Check },
-            { label: "Move to pending", state: "pending", icon: Clock3 },
-          ]
-        : [
-            // "approved" or "past"
-            { label: "Move to pending", state: "pending", icon: Clock3 },
-            { label: "Reject", state: "rejected", icon: X },
-          ];
-
   return (
-    <>
-      {transitions.map(({ label, state, icon: Icon }) => (
-        <form
-          key={state}
-          action={setHackathonModerationStateAction.bind(
-            null,
-            hackathon.id,
-            state,
-          )}
-        >
-          <Button
-            type="submit"
-            variant={
-              state === "rejected"
-                ? "destructive"
-                : state === "approved"
-                  ? "default"
-                  : "outline"
-            }
-            size="icon"
-            title={label}
-            aria-label={label}
-          >
-            <Icon aria-hidden="true" />
-          </Button>
-        </form>
-      ))}
-    </>
+    <form
+      action={setHackathonModerationStateAction.bind(null, hackathon.id, state)}
+    >
+      <Button
+        type="submit"
+        variant={
+          state === "rejected"
+            ? "destructive"
+            : state === "approved"
+              ? "success"
+              : "outline"
+        }
+        size="icon"
+        title={label}
+        aria-label={label}
+      >
+        <Icon aria-hidden="true" />
+      </Button>
+    </form>
   );
 }

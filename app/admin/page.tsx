@@ -57,46 +57,46 @@ export default async function AdminDashboardPage({
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto max-w-4xl px-4 py-8">
-        <Button asChild variant="ghost" size="sm" className="mb-4 -ml-2">
-          <Link href="/">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to site
-          </Link>
-        </Button>
-
-        <div className="mb-6 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="mb-2 text-2xl font-bold">Admin dashboard</h1>
-            <p className="text-sm text-muted-foreground">
-              Everything that shouldn&apos;t be publicly visible, in one place.
+      <div className="container mx-auto max-w-5xl px-4 py-6">
+        <header className="mb-6 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <Link
+              href="/"
+              className="mb-2 inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <ArrowLeft className="h-3 w-3" />
+              Public site
+            </Link>
+            <h1 className="text-xl font-bold tracking-tight">
+              Admin dashboard
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Internal tools for discovery and review.
             </p>
           </div>
           <SignOutButton email={authStatus.email!} />
-        </div>
+        </header>
 
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Manual pipeline trigger</CardTitle>
-            <CardDescription>
-              Test mode only - no notifications, no README commit. Use{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                npm run trigger-update -- --live
-              </code>{" "}
-              for a real run.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <TriggerUpdateButton />
-          </CardContent>
-        </Card>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Card className="gap-0 py-0">
+            <CardHeader className="gap-1 px-4 py-3">
+              <CardTitle>Manual pipeline trigger</CardTitle>
+              <CardDescription>
+                Test mode only - no notifications, no README commit. Use{" "}
+                <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                  npm run trigger-update -- --live
+                </code>{" "}
+                for a real run.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="border-t px-4 py-3">
+              <TriggerUpdateButton />
+            </CardContent>
+          </Card>
 
-        <Separator className="mb-6" />
-
-        <div>
-          <Link href="/admin/candidates" className="block">
-            <Card className="h-full transition-colors hover:bg-muted/50">
-              <CardHeader>
+          <Link href="/admin/candidates" className="group block">
+            <Card className="h-full gap-0 py-0 transition-colors group-hover:border-primary/60">
+              <CardHeader className="gap-1 px-4 py-3">
                 <CardTitle className="flex items-center gap-2">
                   <ListChecks className="h-4 w-4" />
                   Review &amp; manage hackathons
@@ -106,9 +106,10 @@ export default async function AdminDashboardPage({
                   place.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="border-t px-4 py-3">
                 <span className="inline-flex items-center text-sm font-medium text-primary">
-                  Open <ArrowRight className="ml-1 h-4 w-4" />
+                  Open{" "}
+                  <ArrowRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </span>
               </CardContent>
             </Card>

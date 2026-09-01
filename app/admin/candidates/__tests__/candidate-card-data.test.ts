@@ -38,6 +38,7 @@ describe("candidateToHackathonCardData", () => {
     expect(data).toEqual({
       id: "cand-1",
       name: "Berlin AI Hackathon",
+      url: "https://example.com/event",
       date_start: "2026-11-01T00:00:00.000Z",
       date_end: "2026-11-02T00:00:00.000Z",
       city: "Berlin",
