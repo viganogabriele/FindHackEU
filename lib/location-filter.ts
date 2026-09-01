@@ -69,6 +69,26 @@ export function formatLocationValueLabel(
 }
 
 /**
+ * Get the city-level options for a country-wide marker from the combined
+ * option list. `buildLocationOptions()` formats city entries with the
+ * canonical country name, so matching the suffix keeps this helper independent
+ * of the raw hackathon rows used to build the list.
+ */
+export function getCityLocationOptionsForCountry(
+  locationOptions: string[],
+  countryCode: string,
+): string[] {
+  const countryName =
+    europeanCountries.getCountryName(countryCode) ?? countryCode;
+  const countrySuffix = `, ${countryName}`;
+
+  return locationOptions.filter(
+    (location) =>
+      !isCountryLocationValue(location) && location.endsWith(countrySuffix),
+  );
+}
+
+/**
  * Whether a hackathon matches the selected `locations` filter, honoring
  * both country-wide markers (matches any city in that country) and plain
  * city-level exact matches (existing behavior, preserved as-is).

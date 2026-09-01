@@ -13,6 +13,7 @@
   "locations.searchPlaceholder": "Zoek locatie",
   "locations.noneFound": "Geen locatie gevonden.",
   "locations.allOf": "Heel {country}",
+  "locations.citiesIn": "Steden in {country}",
   "topics": "Onderwerpen",
   "topics.select": "Selecteer onderwerpen",
   "topics.searchPlaceholder": "Zoek onderwerp",

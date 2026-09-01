@@ -11,6 +11,7 @@ import {
   countryCodeFromLocationValue,
   formatCountryLocationLabel,
   formatLocationValueLabel,
+  getCityLocationOptionsForCountry,
   hackathonMatchesLocationFilter,
   isCountryLocationValue,
   toCountryLocationValue,
@@ -164,5 +165,30 @@ describe("buildLocationOptions", () => {
 
   it("returns an empty list for an empty input", () => {
     expect(buildLocationOptions([])).toEqual([]);
+  });
+});
+
+describe("getCityLocationOptionsForCountry", () => {
+  it("returns only city entries belonging to the selected country", () => {
+    const options = [
+      toCountryLocationValue("DE"),
+      toCountryLocationValue("IT"),
+      "Berlin, Germany",
+      "Milan, Italy",
+      "Rome, Italy",
+      "Italy",
+    ];
+
+    expect(getCityLocationOptionsForCountry(options, "IT")).toEqual([
+      "Milan, Italy",
+      "Rome, Italy",
+    ]);
+  });
+
+  it("returns no options for an unknown country or a country without cities", () => {
+    const options = [toCountryLocationValue("IT"), "Milan, Italy"];
+
+    expect(getCityLocationOptionsForCountry(options, "DE")).toEqual([]);
+    expect(getCityLocationOptionsForCountry(options, "ZZ")).toEqual([]);
   });
 });
