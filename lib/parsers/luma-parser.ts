@@ -39,6 +39,17 @@ interface LumaApiResponse {
   next_cursor?: string;
 }
 
+// KNOWN RISK (issue #65, decision recorded 2026-09-01): this parser calls
+// api.luma.com/discover/get-paginated-events, an unauthenticated, undocumented
+// internal endpoint - not Luma's officially supported API
+// (public-api.luma.com, which requires a paid Luma Plus subscription with no
+// free tier). Luma's own Terms of Service (Acceptable Use) require using only
+// "publicly supported interfaces", so this technically conflicts with that
+// clause. Accepted as a conscious, monitored trade-off for now because it is
+// currently this project's only source with meaningful European coverage -
+// see issue #65 for the full reasoning and the conditions for revisiting
+// this. Keep request volume low (LUMA_MAX_PAGES_PER_SLUG) and do not treat
+// this as a stable, guaranteed-free API.
 export class LumaParser extends BaseParser {
   readonly name = "luma";
   readonly enabled = true;

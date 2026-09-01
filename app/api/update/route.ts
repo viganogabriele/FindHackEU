@@ -3,6 +3,7 @@ import { Octokit } from "@octokit/rest";
 import { supabaseAdmin } from "@/lib/supabase";
 import { LumaParser } from "@/lib/parsers/luma-parser";
 import { LablabParser } from "@/lib/parsers/lablab-parser";
+import { DevfolioParser } from "@/lib/parsers/devfolio-parser";
 import { ParsedHackathon } from "@/lib/parsers/base-parser";
 import type { Provider } from "@/lib/providers/provider.interface";
 import {
@@ -79,11 +80,16 @@ export async function POST(request: Request) {
     // adding an instance to this array - no other change to this
     // orchestrator should be required.
     //
-    // LabLab is intentionally disabled for now because its
-    // public web surface is protected by Cloudflare and cannot
-    // currently be queried reliably server-side.
+    // LabLab is intentionally disabled (see lib/parsers/lablab-parser.ts
+    // for the verified reason - it is NOT Cloudflare-blocked; the site's
+    // migration to Next.js App Router removed the JSON endpoint this
+    // parser relies on, and re-enabling it needs an HTML-scraper rewrite).
     // ---------------------------------------------------------
-    const providers: Provider[] = [new LumaParser(), new LablabParser()];
+    const providers: Provider[] = [
+      new LumaParser(),
+      new LablabParser(),
+      new DevfolioParser(),
+    ];
 
     const sourceResults: Record<string, SourceResult> = {};
 
