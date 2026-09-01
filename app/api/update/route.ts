@@ -7,6 +7,7 @@ import { DevfolioParser } from "@/lib/parsers/devfolio-parser";
 import { MlhParser } from "@/lib/parsers/mlh-parser";
 import { EthGlobalParser } from "@/lib/parsers/ethglobal-parser";
 import { EventbriteParser } from "@/lib/parsers/eventbrite-parser";
+import { DevpostParser } from "@/lib/parsers/devpost-parser";
 import { ParsedHackathon } from "@/lib/parsers/base-parser";
 import type { Provider } from "@/lib/providers/provider.interface";
 import {
@@ -177,6 +178,7 @@ export async function POST(request: Request) {
       new MlhParser(),
       new EthGlobalParser(),
       new EventbriteParser(),
+      new DevpostParser(),
     ];
 
     const sourceResults: Record<string, SourceResult> = {};
