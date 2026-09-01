@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import type { Database } from "@/types/database";
@@ -43,7 +44,7 @@ const STATUSES: StatusFilter[] = ["pending", "approved", "rejected"];
 export default async function CandidatesAdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; error?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; error?: string }>;
 }) {
   if (process.env.NODE_ENV === "production") {
     notFound();
@@ -64,16 +65,33 @@ export default async function CandidatesAdminPage({
   const status: StatusFilter = STATUSES.includes(params.status as StatusFilter)
     ? (params.status as StatusFilter)
     : "pending";
+  const query = params.q?.trim() ?? "";
 
-  // Cast, not trusted Supabase inference - see lib/services/promote-candidate.ts's
-  // doc comment for why this repo's current Supabase client setup resolves
-  // a direct `.select()` result to `never`.
-  const { data: candidatesData, error } = await supabaseAdmin
+  let dbQuery = supabaseAdmin
     .from("hackathon_candidates")
     .select("*")
     .eq("status", status)
     .order("created_at", { ascending: false })
     .limit(200);
+
+  // Search by more than just name (issue #83) - the maintainer wants to
+  // narrow a large queue by city/country/the discovery query text too, not
+  // just the candidate's name. Each value is quoted (PostgREST's `.or()`
+  // filter list is comma-separated, and quoting is how it lets a value
+  // itself contain a comma/parenthesis without breaking the filter) with
+  // backslashes/quotes escaped for that quoted form.
+  if (query) {
+    const escaped = query.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    const pattern = `"%${escaped}%"`;
+    dbQuery = dbQuery.or(
+      `name.ilike.${pattern},city.ilike.${pattern},country_code.ilike.${pattern},query.ilike.${pattern}`,
+    );
+  }
+
+  // Cast, not trusted Supabase inference - see lib/services/promote-candidate.ts's
+  // doc comment for why this repo's current Supabase client setup resolves
+  // a direct `.select()` result to `never`.
+  const { data: candidatesData, error } = await dbQuery;
 
   const candidates = candidatesData as CandidateRow[] | null;
 
@@ -104,6 +122,20 @@ export default async function CandidatesAdminPage({
 
         <ManualSubmitForm />
 
+        <form className="mb-6 flex gap-2" method="get">
+          <input type="hidden" name="status" value={status} />
+          <Input
+            type="search"
+            name="q"
+            placeholder="Search by name, city, country, or query…"
+            defaultValue={query}
+            className="max-w-sm"
+          />
+          <Button type="submit" variant="outline">
+            Search
+          </Button>
+        </form>
+
         <nav className="mb-6 flex gap-2">
           {STATUSES.map((s) => (
             <Button
@@ -112,7 +144,9 @@ export default async function CandidatesAdminPage({
               variant={s === status ? "default" : "outline"}
               size="sm"
             >
-              <a href={`/admin/candidates?status=${s}`}>
+              <a
+                href={`/admin/candidates?status=${s}${query ? `&q=${encodeURIComponent(query)}` : ""}`}
+              >
                 {s.charAt(0).toUpperCase() + s.slice(1)}
               </a>
             </Button>
@@ -127,7 +161,7 @@ export default async function CandidatesAdminPage({
 
         {!error && candidates?.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No {status} candidates.
+            No {status} candidates{query ? ` matching "${query}"` : ""}.
           </p>
         )}
 
