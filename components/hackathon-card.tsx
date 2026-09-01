@@ -21,10 +21,7 @@ import {
 import { europeanCountries } from "@/lib/european-countries";
 import { getTopicDisplay } from "@/lib/constants/topics";
 import { cn } from "@/lib/utils";
-import {
-  useBookmarksHydration,
-  useBookmarksStore,
-} from "@/lib/bookmarks-store";
+import { useBookmarksStore } from "@/lib/bookmarks-store";
 
 /**
  * The subset of a `hackathons` row (see `types/hackathon.ts`) this card
@@ -87,7 +84,6 @@ export function HackathonCard({
   className,
 }: HackathonCardProps) {
   const { t, formatDateRange } = useTranslation();
-  useBookmarksHydration();
   const isBookmarked = useBookmarksStore((state) =>
     state.bookmarkedIds.includes(hackathon.id),
   );

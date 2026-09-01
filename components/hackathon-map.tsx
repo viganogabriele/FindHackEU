@@ -5,6 +5,7 @@ import { useEffect, useMemo } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import { useTranslation } from "@/contexts/translation-context";
+import { resolveMapCoordinates } from "@/lib/country-centroids";
 import { europeanCountries } from "@/lib/european-countries";
 import type { Hackathon } from "@/types/hackathon";
 
@@ -18,16 +19,44 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "/leaflet/marker-shadow.png",
 });
 
-function MapViewport({ hackathons }: { hackathons: Hackathon[] }) {
+const APPROXIMATE_MARKER_ICON = L.divIcon({
+  className: "hackathon-map-approximate-marker",
+  html: '<span aria-hidden="true"></span>',
+  iconSize: [24, 36],
+  iconAnchor: [12, 36],
+  popupAnchor: [0, -32],
+});
+
+interface MappedHackathon {
+  hackathon: Hackathon;
+  coordinates: [number, number];
+  approximate: boolean;
+}
+
+function mapHackathons(hackathons: Hackathon[]): MappedHackathon[] {
+  return hackathons.flatMap((hackathon) => {
+    const resolved = resolveMapCoordinates({
+      latitude: hackathon.latitude,
+      longitude: hackathon.longitude,
+      countryCode: hackathon.country_code,
+    });
+
+    return resolved
+      ? [
+          {
+            hackathon,
+            coordinates: [resolved.latitude, resolved.longitude],
+            approximate: resolved.approximate,
+          },
+        ]
+      : [];
+  });
+}
+
+function MapViewport({ hackathons }: { hackathons: MappedHackathon[] }) {
   const map = useMap();
   const bounds = useMemo(
-    () =>
-      hackathons
-        .filter(hasCoordinates)
-        .map(
-          (hackathon) =>
-            [hackathon.latitude!, hackathon.longitude!] as [number, number],
-        ),
+    () => hackathons.map(({ coordinates }) => coordinates),
     [hackathons],
   );
 
@@ -44,24 +73,13 @@ function MapViewport({ hackathons }: { hackathons: Hackathon[] }) {
   return null;
 }
 
-function hasCoordinates(
-  hackathon: Hackathon,
-): hackathon is Hackathon & { latitude: number; longitude: number } {
-  return (
-    typeof hackathon.latitude === "number" &&
-    Number.isFinite(hackathon.latitude) &&
-    typeof hackathon.longitude === "number" &&
-    Number.isFinite(hackathon.longitude)
-  );
-}
-
 export default function HackathonMap({
   hackathons,
 }: {
   hackathons: Hackathon[];
 }) {
   const { t, formatDateRange } = useTranslation();
-  const mappedHackathons = hackathons.filter(hasCoordinates);
+  const mappedHackathons = mapHackathons(hackathons);
 
   return (
     <div className="relative overflow-hidden rounded-lg border bg-muted/20">
@@ -78,15 +96,21 @@ export default function HackathonMap({
         />
         <MapViewport hackathons={mappedHackathons} />
         <MarkerClusterGroup chunkedLoading>
-          {mappedHackathons.map((hackathon) => (
+          {mappedHackathons.map(({ hackathon, coordinates, approximate }) => (
             <Marker
               key={hackathon.id}
-              position={[hackathon.latitude, hackathon.longitude]}
+              position={coordinates}
               title={hackathon.name}
+              icon={approximate ? APPROXIMATE_MARKER_ICON : undefined}
             >
               <Popup>
                 <div className="space-y-1.5 text-sm">
                   <h3 className="font-semibold">{hackathon.name}</h3>
+                  {approximate && (
+                    <p className="font-medium text-amber-700">
+                      {t("map.approximateLocation")}
+                    </p>
+                  )}
                   <p>
                     {europeanCountries.formatLocation(
                       hackathon.city,

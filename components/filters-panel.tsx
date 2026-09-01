@@ -227,7 +227,7 @@ export function FiltersPanel({
             label: t("filters.includeOtherLanguages", {
               language: languageName,
             }),
-            onRemove: () => updateFilter("includeNonEnglish", true),
+            onRemove: () => updateFilter("includeNonEnglish", false),
           },
         ]
       : []),
