@@ -14,30 +14,14 @@ export async function moveCandidateToPending(
   supabaseAdmin: AnySupabaseClient,
   candidateId: string,
 ): Promise<MoveCandidateToPendingResult> {
-  const { data: existing, error: fetchError } = await supabaseAdmin
-    .from("hackathon_candidates")
-    .select("id, status")
-    .eq("id", candidateId)
-    .maybeSingle();
+  const { data: outcome, error } = await supabaseAdmin.rpc(
+    "move_candidate_to_pending",
+    { candidate_id: candidateId },
+  );
 
-  if (fetchError) {
-    return { outcome: "error", message: fetchError.message };
-  }
-
-  if (!existing) {
-    return { outcome: "not_found" };
-  }
-
-  if ((existing as { status: string }).status !== "rejected") {
-    return { outcome: "unchanged" };
-  }
-
-  const { error } = await supabaseAdmin
-    .from("hackathon_candidates")
-    .update({ status: "pending", reviewed_at: null, reviewer_note: null })
-    .eq("id", candidateId);
-
-  return error
-    ? { outcome: "error", message: error.message }
-    : { outcome: "updated" };
+  if (error) return { outcome: "error", message: error.message };
+  if (outcome === "updated") return { outcome: "updated" };
+  if (outcome === "unchanged") return { outcome: "unchanged" };
+  if (outcome === "not_found") return { outcome: "not_found" };
+  return { outcome: "error", message: "Unexpected moderation outcome" };
 }
