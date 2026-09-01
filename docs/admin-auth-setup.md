@@ -58,6 +58,27 @@ npx supabase stop
 npx supabase start
 ```
 
+**Important footgun, found live (2026-09-01):** the Supabase CLI reads
+`env(...)` references from its own process environment - the shell that
+actually runs `supabase start` - not from `.env.local`. `.env.local` is a
+Next.js/dotenv convention that only the Next.js dev server itself loads
+automatically; the Supabase CLI has no idea it exists. If you just edited
+`.env.local` and run `npx supabase start` from a shell that never sourced
+that file, `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` will silently
+resolve to empty strings - Supabase Auth's settings endpoint will still
+report `"google": true` (the provider block exists), but real sign-in
+attempts will fail. Either export the variables into the same shell
+before starting Supabase:
+
+```bash
+set -a; source .env.local; set +a
+npx supabase stop
+npx supabase start
+```
+
+or use a terminal/tool that already sources `.env.local` into its
+environment before invoking the Supabase CLI.
+
 ## 4. Try it
 
 ```bash
