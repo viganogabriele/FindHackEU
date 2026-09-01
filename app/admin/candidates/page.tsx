@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Database } from "@/types/database";
 import { approveCandidateAction, rejectCandidateAction } from "./actions";
+import { ManualSubmitForm } from "./manual-submit-form";
 
 type CandidateRow = Database["public"]["Tables"]["hackathon_candidates"]["Row"];
 
@@ -60,6 +61,8 @@ export default async function CandidatesAdminPage({
           Web-search-discovered events awaiting review. Nothing here is public
           until approved.
         </p>
+
+        <ManualSubmitForm />
 
         <nav className="mb-6 flex gap-2">
           {STATUSES.map((s) => (

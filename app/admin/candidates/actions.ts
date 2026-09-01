@@ -5,6 +5,10 @@ import {
   promoteCandidate,
   rejectCandidate,
 } from "@/lib/services/promote-candidate";
+import {
+  submitManualCandidate,
+  type SubmitManualCandidateResult,
+} from "@/lib/services/submit-manual-candidate";
 
 /**
  * Server actions backing /admin/candidates. Every action re-checks
@@ -42,4 +46,25 @@ export async function rejectCandidateAction(
   await rejectCandidate(candidateId, reviewerNote);
 
   revalidatePath("/admin/candidates");
+}
+
+export async function submitManualCandidateFormAction(
+  _prevState: SubmitManualCandidateResult | null,
+  formData: FormData,
+): Promise<SubmitManualCandidateResult> {
+  assertDevOnly();
+
+  const result = await submitManualCandidate({
+    url: String(formData.get("url") ?? ""),
+    name: String(formData.get("name") ?? ""),
+    city: String(formData.get("city") ?? ""),
+    countryCode: String(formData.get("countryCode") ?? ""),
+    dateStart: String(formData.get("dateStart") ?? ""),
+  });
+
+  if (result.outcome === "created") {
+    revalidatePath("/admin/candidates");
+  }
+
+  return result;
 }
