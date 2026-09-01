@@ -581,16 +581,32 @@ export async function POST(request: Request) {
     // ---------------------------------------------------------
     let statusUpdateError: string | null = null;
     let statusesUpdated = false;
+    // Real transition count from the RPC (issue #27) - e.g. rows that
+    // flipped upcoming -> past with no other field changing, which
+    // wouldn't otherwise show up in newHackathons/updatedHackathons at
+    // all. Kept separate from statusesUpdated (which just means "the RPC
+    // call itself succeeded") so a successful no-op run is distinguishable
+    // from a run that actually changed something.
+    let statusTransitionCount = 0;
 
     try {
-      const { error } = await supabaseAdmin.rpc("update_hackathon_statuses");
+      const { data, error } = await supabaseAdmin.rpc(
+        "update_hackathon_statuses",
+      );
 
       if (error) {
         statusUpdateError = error.message;
         console.error("Error updating hackathon statuses:", error);
       } else {
         statusesUpdated = true;
-        console.log("Hackathon statuses updated successfully");
+        // The RPC now returns an integer (count of rows whose status
+        // actually changed) instead of void - guard defensively in case
+        // an older, unmigrated database still has the void-returning
+        // version (data would be null/undefined there).
+        statusTransitionCount = typeof data === "number" ? data : 0;
+        console.log(
+          `Hackathon statuses updated successfully (${statusTransitionCount} transition(s))`,
+        );
       }
     } catch (error) {
       statusUpdateError =
@@ -605,17 +621,19 @@ export async function POST(request: Request) {
     // A successful RPC execution does NOT automatically mean
     // that the dataset changed.
     //
-    // For now:
     // - inserted OR updated hackathons => data changed (issue #23 made
     //   in-place updates possible, so a changed date/location on an
     //   existing record is a real data change too, not just an insert)
+    // - a real status transition (issue #27) => data changed too, so an
+    //   upcoming -> past flip with no other field touched still triggers
+    //   a README regeneration instead of leaving it showing a stale
+    //   status until some unrelated insert/update happens to occur later
     // - reset errors do not count as data changes
-    //
-    // Status transitions will be handled separately once the
-    // RPC exposes the number of affected rows.
     // ---------------------------------------------------------
     const dataChanged =
-      newHackathons.length > 0 || updatedHackathons.length > 0;
+      newHackathons.length > 0 ||
+      updatedHackathons.length > 0 ||
+      statusTransitionCount > 0;
 
     // ---------------------------------------------------------
     // 5. Notifications
@@ -833,6 +851,7 @@ export async function POST(request: Request) {
 
         statusUpdateError,
         statusesUpdated,
+        statusTransitionCount,
 
         notificationsSent,
 
