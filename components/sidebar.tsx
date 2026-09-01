@@ -621,6 +621,11 @@ function SidebarContent({
               Web candidates (dev)
             </a>
           </Button>
+          <Button asChild variant="outline" size="sm" className="w-full">
+            <a href="/admin/hackathons" className="truncate">
+              Manage hackathons (dev)
+            </a>
+          </Button>
         </>
       )}
 

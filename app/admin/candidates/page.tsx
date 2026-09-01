@@ -6,8 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import type { Database } from "@/types/database";
-import { approveCandidateAction, rejectCandidateAction } from "./actions";
+import {
+  approveCandidateAction,
+  rejectCandidateAction,
+  deleteCandidateAction,
+} from "./actions";
 import { ManualSubmitForm } from "./manual-submit-form";
 import { GoogleSignInButton } from "./google-sign-in-button";
 import { SignOutButton } from "./sign-out-button";
@@ -86,6 +91,10 @@ export default async function CandidatesAdminPage({
           </div>
           <SignOutButton email={authStatus.email!} />
         </div>
+
+        <Button asChild variant="link" size="sm" className="mb-4 -ml-3">
+          <Link href="/admin/hackathons">Manage published hackathons →</Link>
+        </Button>
 
         <ManualSubmitForm />
 
@@ -247,6 +256,11 @@ function CandidateCard({
                 </Button>
               </form>
             )}
+            <form action={deleteCandidateAction.bind(null, candidate.id)}>
+              <ConfirmDeleteButton
+                confirmMessage={`Permanently delete "${candidate.name}"? This cannot be undone.`}
+              />
+            </form>
           </div>
         </CardContent>
       </Card>

@@ -10,6 +10,7 @@ import {
   type SubmitManualCandidateResult,
 } from "@/lib/services/submit-manual-candidate";
 import { requireAdminAuth } from "@/lib/services/require-admin-auth";
+import { supabaseAdmin } from "@/lib/supabase";
 
 /**
  * Server actions backing /admin/candidates. Every action re-checks both
@@ -56,6 +57,32 @@ export async function rejectCandidateAction(
   await assertAuthorized();
 
   await rejectCandidate(candidateId, reviewerNote);
+
+  revalidatePath("/admin/candidates");
+}
+
+/**
+ * Permanently removes a `hackathon_candidates` row - distinct from
+ * `rejectCandidateAction` (which keeps the row, marked `rejected`, so a
+ * false negative can still be approved later). Delete is for genuine
+ * cleanup: junk/duplicate/test candidates that shouldn't linger in any
+ * tab at all. Requested directly by the maintainer while using the
+ * dashboard (2026-09-01), alongside the equivalent for published
+ * hackathons (see app/admin/hackathons/actions.ts).
+ */
+export async function deleteCandidateAction(
+  candidateId: string,
+): Promise<void> {
+  await assertAuthorized();
+
+  const { error } = await supabaseAdmin
+    .from("hackathon_candidates")
+    .delete()
+    .eq("id", candidateId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
 
   revalidatePath("/admin/candidates");
 }
