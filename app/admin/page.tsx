@@ -1,11 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import {
-  ArrowLeft,
-  ArrowRight,
-  ListChecks,
-  CalendarCheck2,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -98,35 +93,17 @@ export default async function AdminDashboardPage({
 
         <Separator className="mb-6" />
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div>
           <Link href="/admin/candidates" className="block">
             <Card className="h-full transition-colors hover:bg-muted/50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <ListChecks className="h-4 w-4" />
-                  Review candidates
+                  Review &amp; manage hackathons
                 </CardTitle>
                 <CardDescription>
-                  Approve, reject, or manually submit a URL.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <span className="inline-flex items-center text-sm font-medium text-primary">
-                  Open <ArrowRight className="ml-1 h-4 w-4" />
-                </span>
-              </CardContent>
-            </Card>
-          </Link>
-
-          <Link href="/admin/candidates?status=approved" className="block">
-            <Card className="h-full transition-colors hover:bg-muted/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CalendarCheck2 className="h-4 w-4" />
-                  Manage hackathons
-                </CardTitle>
-                <CardDescription>
-                  Delete a wrong or unwanted published hackathon.
+                  Review candidates and manage published hackathons in one
+                  place.
                 </CardDescription>
               </CardHeader>
               <CardContent>
