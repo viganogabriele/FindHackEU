@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { europeanCountries } from "@/lib/european-countries";
+import { HACKATHON_TOPICS, type HackathonTopic } from "@/lib/constants/topics";
 import { assertPublicHttpUrl } from "@/lib/http/fetch-public-url";
 
 export interface ManualCandidateInput {
@@ -8,6 +9,13 @@ export interface ManualCandidateInput {
   city?: string;
   countryCode?: string;
   dateStart?: string;
+  /**
+   * Explicitly chosen by the submitter - a human who already knows the
+   * event is a much better source of truth than auto-extracting from a
+   * short title, which `promoteCandidate()` only falls back to when this
+   * is empty/omitted.
+   */
+  topics?: string[];
 }
 
 export type SubmitManualCandidateResult =
@@ -72,6 +80,12 @@ export async function submitManualCandidate(
     date_start = parsed.toISOString();
   }
 
+  const validTopics = new Set<string>(HACKATHON_TOPICS);
+  const topics =
+    input.topics
+      ?.filter((t): t is HackathonTopic => validTopics.has(t))
+      .filter((t, i, arr) => arr.indexOf(t) === i) ?? [];
+
   const { error } = await supabaseAdmin.from("hackathon_candidates").upsert(
     [
       // @ts-expect-error - Supabase generated types may not include insert shape
@@ -86,6 +100,7 @@ export async function submitManualCandidate(
         extraction_method: "text-fallback",
         raw_snippet: name,
         source: "manual",
+        topics: topics.length > 0 ? topics : null,
       },
     ],
     { onConflict: "url,query", ignoreDuplicates: true },

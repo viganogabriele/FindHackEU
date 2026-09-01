@@ -123,7 +123,15 @@ export async function promoteCandidate(
         location_type: "tbd",
         date_start: dateStart,
         date_end: candidate.date_end,
-        topics: defaultTopicExtractor.extractTopics(candidate.name),
+        // Prefer topics the submitter explicitly chose (manual submission
+        // form) over auto-extraction - a human who already knows the event
+        // is a much better source of truth than a regex over a short
+        // title, which is only a fallback for a web-search-discovered
+        // candidate that never had a chance to specify any.
+        topics:
+          candidate.topics && candidate.topics.length > 0
+            ? candidate.topics
+            : defaultTopicExtractor.extractTopics(candidate.name),
         url: candidate.url,
         source: "websearch",
         status,

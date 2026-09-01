@@ -9,13 +9,14 @@ import {
   submitManualCandidate,
   type SubmitManualCandidateResult,
 } from "@/lib/services/submit-manual-candidate";
+import { requireAdminAuth } from "@/lib/services/require-admin-auth";
+import { supabaseAdmin } from "@/lib/supabase";
 
 /**
- * Server actions backing /admin/candidates. Every action re-checks
- * NODE_ENV itself (not just relying on the page being unreachable) since
- * a server action is its own callable endpoint once the client has the
- * page loaded - see app/admin/candidates/page.tsx's doc comment for why
- * this whole area is dev-only until issue #67 (Google-auth-gated access) lands.
+ * Server actions backing /admin/candidates. Every action re-checks both
+ * NODE_ENV and admin auth itself (not just relying on the page being
+ * unreachable/hiding its buttons) since a server action is its own callable
+ * endpoint once the client has the page loaded.
  */
 function assertDevOnly() {
   if (process.env.NODE_ENV === "production") {
@@ -23,10 +24,22 @@ function assertDevOnly() {
   }
 }
 
+/**
+ * Real server-side authorization check (issue #67) - requires a Supabase
+ * Auth session whose email matches `ADMIN_ALLOWED_EMAIL`. Hiding the
+ * Approve/Reject buttons in the UI when signed out is not security on its
+ * own; this is what actually stops an unauthenticated caller from invoking
+ * these actions directly.
+ */
+async function assertAuthorized() {
+  assertDevOnly();
+  await requireAdminAuth();
+}
+
 export async function approveCandidateAction(
   candidateId: string,
 ): Promise<void> {
-  assertDevOnly();
+  await assertAuthorized();
 
   const result = await promoteCandidate(candidateId);
 
@@ -41,9 +54,35 @@ export async function rejectCandidateAction(
   candidateId: string,
   reviewerNote?: string,
 ): Promise<void> {
-  assertDevOnly();
+  await assertAuthorized();
 
   await rejectCandidate(candidateId, reviewerNote);
+
+  revalidatePath("/admin/candidates");
+}
+
+/**
+ * Permanently removes a `hackathon_candidates` row - distinct from
+ * `rejectCandidateAction` (which keeps the row, marked `rejected`, so a
+ * false negative can still be approved later). Delete is for genuine
+ * cleanup: junk/duplicate/test candidates that shouldn't linger in any
+ * tab at all. Requested directly by the maintainer while using the
+ * dashboard (2026-09-01), alongside the equivalent for published
+ * hackathons (see app/admin/hackathons/actions.ts).
+ */
+export async function deleteCandidateAction(
+  candidateId: string,
+): Promise<void> {
+  await assertAuthorized();
+
+  const { error } = await supabaseAdmin
+    .from("hackathon_candidates")
+    .delete()
+    .eq("id", candidateId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
 
   revalidatePath("/admin/candidates");
 }
@@ -52,7 +91,7 @@ export async function submitManualCandidateFormAction(
   _prevState: SubmitManualCandidateResult | null,
   formData: FormData,
 ): Promise<SubmitManualCandidateResult> {
-  assertDevOnly();
+  await assertAuthorized();
 
   const result = await submitManualCandidate({
     url: String(formData.get("url") ?? ""),
@@ -60,6 +99,7 @@ export async function submitManualCandidateFormAction(
     city: String(formData.get("city") ?? ""),
     countryCode: String(formData.get("countryCode") ?? ""),
     dateStart: String(formData.get("dateStart") ?? ""),
+    topics: formData.getAll("topics").map(String),
   });
 
   if (result.outcome === "created") {

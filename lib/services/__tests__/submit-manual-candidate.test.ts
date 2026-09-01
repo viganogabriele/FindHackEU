@@ -104,6 +104,51 @@ describe("submitManualCandidate", () => {
     expect(result).toEqual({ outcome: "created" });
   });
 
+  it("stores explicitly chosen topics, deduplicated", async () => {
+    const upsert = mockUpsert({ error: null });
+
+    await submitManualCandidate({
+      url: "https://example.org/event",
+      name: "Some Hackathon",
+      topics: ["AI", "Web3", "AI"],
+    });
+
+    expect(upsert).toHaveBeenCalledWith(
+      [expect.objectContaining({ topics: ["AI", "Web3"] })],
+      { onConflict: "url,query", ignoreDuplicates: true },
+    );
+  });
+
+  it("silently drops an invalid topic value rather than rejecting the submission", async () => {
+    const upsert = mockUpsert({ error: null });
+
+    await submitManualCandidate({
+      url: "https://example.org/event",
+      name: "Some Hackathon",
+      topics: ["AI", "NotARealTopic"],
+    });
+
+    expect(upsert).toHaveBeenCalledWith(
+      [expect.objectContaining({ topics: ["AI"] })],
+      { onConflict: "url,query", ignoreDuplicates: true },
+    );
+  });
+
+  it("stores null topics when none are selected", async () => {
+    const upsert = mockUpsert({ error: null });
+
+    await submitManualCandidate({
+      url: "https://example.org/event",
+      name: "Some Hackathon",
+      topics: [],
+    });
+
+    expect(upsert).toHaveBeenCalledWith(
+      [expect.objectContaining({ topics: null })],
+      { onConflict: "url,query", ignoreDuplicates: true },
+    );
+  });
+
   it("surfaces a database error", async () => {
     mockUpsert({ error: { message: "db down" } });
 
