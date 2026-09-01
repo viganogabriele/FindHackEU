@@ -18,6 +18,24 @@ export type EditHackathonResult =
   | { outcome: "invalid"; message: string }
   | { outcome: "error"; message: string };
 
+function hasValidCalendarDate(dateInput: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateInput);
+  if (!match) {
+    return false;
+  }
+
+  const [, year, month, day] = match.map(Number);
+  const roundTrip = new Date(0);
+  roundTrip.setUTCFullYear(year, month - 1, day);
+  roundTrip.setUTCHours(0, 0, 0, 0);
+
+  return (
+    roundTrip.getUTCFullYear() === year &&
+    roundTrip.getUTCMonth() === month - 1 &&
+    roundTrip.getUTCDate() === day
+  );
+}
+
 /**
  * Issue #103 - lets the maintainer correct an already-published hackathon's
  * URL, name/date/location, and topics in place. This deliberately targets the
@@ -74,6 +92,10 @@ export async function editHackathon(
     return { outcome: "invalid", message: "Start date is required." };
   }
 
+  if (!hasValidCalendarDate(dateInput)) {
+    return { outcome: "invalid", message: "Invalid date." };
+  }
+
   const parsedDate = new Date(dateInput);
   if (Number.isNaN(parsedDate.getTime())) {
     return { outcome: "invalid", message: "Invalid date." };
@@ -96,11 +118,20 @@ export async function editHackathon(
       country_code,
       date_start,
       topics: topics.length > 0 ? topics : null,
+      manually_edited_at: new Date().toISOString(),
     })
     .eq("id", input.hackathonId);
 
   if (error) {
     return { outcome: "error", message: error.message };
+  }
+
+  const { error: statusError } = await supabaseAdmin.rpc(
+    "update_hackathon_statuses",
+  );
+
+  if (statusError) {
+    return { outcome: "error", message: statusError.message };
   }
 
   return { outcome: "updated" };

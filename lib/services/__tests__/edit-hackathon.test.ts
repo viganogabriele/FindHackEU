@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
     from: vi.fn(),
+    rpc: vi.fn(),
   },
 }));
 
@@ -13,6 +14,10 @@ function mockUpdate(result: { error: unknown }) {
   const eq = vi.fn().mockResolvedValue(result);
   const update = vi.fn().mockReturnValue({ eq });
   vi.mocked(supabaseAdmin.from).mockReturnValue({ update } as never);
+  vi.mocked(supabaseAdmin.rpc).mockResolvedValue({
+    data: null,
+    error: null,
+  } as never);
   return { update, eq };
 }
 
@@ -93,6 +98,18 @@ describe("editHackathon", () => {
     expect(supabaseAdmin.from).not.toHaveBeenCalled();
   });
 
+  it("rejects a calendar date that JavaScript would normalize", async () => {
+    const result = await editHackathon({
+      hackathonId: "abc",
+      url: "https://example.org/event",
+      name: "Some Hackathon",
+      dateStart: "2026-02-30",
+    });
+
+    expect(result).toEqual({ outcome: "invalid", message: "Invalid date." });
+    expect(supabaseAdmin.from).not.toHaveBeenCalled();
+  });
+
   it("updates the row with normalized country, trimmed fields, and an editable URL", async () => {
     const { update, eq } = mockUpdate({ error: null });
 
@@ -114,8 +131,10 @@ describe("editHackathon", () => {
       country_code: "IT",
       date_start: "2026-11-15T00:00:00.000Z",
       topics: ["AI", "Web3"],
+      manually_edited_at: expect.any(String),
     });
     expect(eq).toHaveBeenCalledWith("id", "abc-123");
+    expect(supabaseAdmin.rpc).toHaveBeenCalledWith("update_hackathon_statuses");
   });
 
   it("allows clearing the optional city and country fields", async () => {

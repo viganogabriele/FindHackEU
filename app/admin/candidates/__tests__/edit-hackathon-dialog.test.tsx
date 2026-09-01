@@ -38,6 +38,7 @@ const hackathon: HackathonRow = {
   archived_at: null,
   archived_reason: null,
   moderation_state: "approved",
+  manually_edited_at: null,
 };
 
 describe("EditHackathonDialog", () => {

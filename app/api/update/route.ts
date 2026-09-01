@@ -22,6 +22,7 @@ import { ReadmeUpdater } from "@/lib/services/readme-updater";
 import { LocationEnhancementService } from "@/lib/services/location-enhancement-service";
 import { MemoryOptimizer } from "@/lib/utils/memory-optimizer";
 import { checkUpdateCooldown } from "@/lib/services/update-cooldown";
+import { getSourceUpdateFields } from "@/lib/services/hackathon-source-sync";
 import { Hackathon } from "@/types/hackathon";
 import type {
   ParseStatus,
@@ -388,13 +389,14 @@ export async function POST(request: Request) {
           date_end: string | null;
           topics: string[] | null;
           notes: string | null;
+          manually_edited_at: string | null;
         };
 
         const existingRowList = await fetchAllRows<ExistingRow>((from, to) =>
           supabaseAdmin
             .from("hackathons")
             .select(
-              "id, url, name, city, country_code, location_type, venue, date_start, date_end, topics, notes",
+              "id, url, name, city, country_code, location_type, venue, date_start, date_end, topics, notes, manually_edited_at",
             )
             // Stable order (see lib/services/fetch-all-rows.ts) so a
             // concurrent insert during pagination can't shift row
@@ -516,6 +518,19 @@ export async function POST(request: Request) {
             continue;
           }
 
+          const sourceUpdateFields = getSourceUpdateFields(
+            existing.manually_edited_at,
+            incoming,
+            new Date().toISOString(),
+          );
+
+          if (!sourceUpdateFields) {
+            console.log(
+              `Skipping source update for manually edited hackathon ${existing.id}`,
+            );
+            continue;
+          }
+
           const dateChanged =
             incoming.date_start !== toFullTimestamp(existing.date_start) ||
             incoming.date_end !== toFullTimestamp(existing.date_end);
@@ -561,7 +576,7 @@ export async function POST(request: Request) {
               locationChanged ||
               locationTypeChanged ||
               venueChanged,
-            fields: { ...incoming, updated_at: new Date().toISOString() },
+            fields: sourceUpdateFields,
           });
         }
 
