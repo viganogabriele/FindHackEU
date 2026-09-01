@@ -42,17 +42,17 @@ const hackathon: HackathonRow = {
 };
 
 describe("EditHackathonDialog", () => {
-  it("renders an enabled Edit trigger button", () => {
+  it("renders an accessible icon Edit trigger button", () => {
     render(<EditHackathonDialog hackathon={hackathon} />);
 
-    const trigger = screen.getByRole("button", { name: "Edit" });
+    const trigger = screen.getByRole("button", { name: "Edit hackathon" });
     expect(trigger).toBeTruthy();
     expect(trigger.hasAttribute("disabled")).toBe(false);
   });
 
   it("opens pre-filled with the published hackathon's editable values", () => {
     render(<EditHackathonDialog hackathon={hackathon} />);
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit hackathon" }));
 
     expect(screen.getByDisplayValue("Hack The Peak")).toBeTruthy();
     expect(screen.getByDisplayValue("Bolzano")).toBeTruthy();
@@ -67,7 +67,7 @@ describe("EditHackathonDialog", () => {
 
   it("submits through the bound server action on Save", () => {
     render(<EditHackathonDialog hackathon={hackathon} />);
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit hackathon" }));
 
     const nameInput = screen.getByDisplayValue(
       "Hack The Peak",
@@ -83,7 +83,7 @@ describe("EditHackathonDialog", () => {
 
   it("submits selected topics as hidden form fields and supports clearing them", () => {
     render(<EditHackathonDialog hackathon={hackathon} />);
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit hackathon" }));
 
     expect(
       document.querySelector('input[name="topics"][value="AI"]'),

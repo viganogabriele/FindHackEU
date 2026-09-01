@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useActionState } from "react";
+import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -98,8 +99,14 @@ export function EditCandidateDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button type="button" variant="ghost">
-          Edit
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          title="Edit candidate"
+          aria-label="Edit candidate"
+        >
+          <Pencil aria-hidden="true" />
         </Button>
       </DialogTrigger>
       <DialogContent>

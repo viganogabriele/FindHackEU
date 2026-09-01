@@ -1,7 +1,14 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Archive, ArchiveRestore } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  ArrowLeft,
+  Check,
+  Clock3,
+  X,
+} from "lucide-react";
 import { supabaseAdmin } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,9 +32,13 @@ import {
 import type { ModerationState } from "@/lib/services/hackathon-moderation";
 import {
   candidatesByStatusQuery,
+  candidatesByStatusCountQuery,
   hackathonsByModerationStateQuery,
+  hackathonsByModerationStateCountQuery,
   approvedOrPastHackathonsQuery,
+  approvedOrPastHackathonsCountQuery,
   archivedHackathonsQuery,
+  archivedHackathonsCountQuery,
 } from "./queries";
 import { ManualSubmitForm } from "./manual-submit-form";
 import { EditCandidateDialog } from "./edit-candidate-dialog";
@@ -95,6 +106,46 @@ const STATUSES: StatusFilter[] = [
   "archived",
 ];
 
+type TabCounts = Record<StatusFilter, number | null>;
+
+function sumCounts(
+  results: Array<{ count: number | null; error: unknown }>,
+): number | null {
+  if (results.some((result) => result.error)) {
+    return null;
+  }
+
+  return results.reduce((total, result) => total + (result.count ?? 0), 0);
+}
+
+async function getTabCounts(query: string): Promise<TabCounts> {
+  const [
+    pendingCandidates,
+    pendingHackathons,
+    approved,
+    rejectedCandidates,
+    rejectedHackathons,
+    past,
+    archived,
+  ] = await Promise.all([
+    candidatesByStatusCountQuery(supabaseAdmin, "pending", query),
+    hackathonsByModerationStateCountQuery(supabaseAdmin, "pending", query),
+    approvedOrPastHackathonsCountQuery(supabaseAdmin, "approved", query),
+    candidatesByStatusCountQuery(supabaseAdmin, "rejected", query),
+    hackathonsByModerationStateCountQuery(supabaseAdmin, "rejected", query),
+    approvedOrPastHackathonsCountQuery(supabaseAdmin, "past", query),
+    archivedHackathonsCountQuery(supabaseAdmin, query),
+  ]);
+
+  return {
+    pending: sumCounts([pendingCandidates, pendingHackathons]),
+    approved: sumCounts([approved]),
+    rejected: sumCounts([rejectedCandidates, rejectedHackathons]),
+    past: sumCounts([past]),
+    archived: sumCounts([archived]),
+  };
+}
+
 /**
  * Review queue for web-search-discovered event candidates (issue #12,
  * #13/#14/#17 - see docs/discovery-research.md and the
@@ -152,19 +203,37 @@ export default async function CandidatesAdminPage({
     : "pending";
   const query = params.q?.trim() ?? "";
   const blockerCodes = parseAutoPublishBlockerCodes(params.reason);
+  const tabCounts = await getTabCounts(query);
 
   if (status === "approved" || status === "past") {
     return (
-      <ApprovedOrPastTab kind={status} authStatus={authStatus} query={query} />
+      <ApprovedOrPastTab
+        kind={status}
+        authStatus={authStatus}
+        query={query}
+        tabCounts={tabCounts}
+      />
     );
   }
 
   if (status === "archived") {
-    return <ArchivedTab authStatus={authStatus} query={query} />;
+    return (
+      <ArchivedTab
+        authStatus={authStatus}
+        query={query}
+        tabCounts={tabCounts}
+      />
+    );
   }
 
   if (status === "rejected") {
-    return <RejectedTab authStatus={authStatus} query={query} />;
+    return (
+      <RejectedTab
+        authStatus={authStatus}
+        query={query}
+        tabCounts={tabCounts}
+      />
+    );
   }
 
   return (
@@ -172,6 +241,7 @@ export default async function CandidatesAdminPage({
       authStatus={authStatus}
       query={query}
       blockerCodes={blockerCodes}
+      tabCounts={tabCounts}
     />
   );
 }
@@ -190,6 +260,7 @@ function AdminShell({
   authStatus: AuthStatus;
   status: StatusFilter;
   query: string;
+  tabCounts: TabCounts;
   showManualForm?: boolean;
   children: ReactNode;
 }) {
@@ -207,11 +278,8 @@ function AdminShell({
           <div>
             <h1 className="mb-2 text-2xl font-bold">Hackathon candidates</h1>
             <p className="text-sm text-muted-foreground">
-              Every hackathon - web-search candidate or published, regardless of
-              origin - is in exactly one of Pending/Approved/Rejected/
-              Past/Archived, and can be moved between Pending/Approved/ Rejected
-              here. Only Approved and Past are public; Archived is purely 1-year
-              retention, separate from an editorial Rejected.
+              Manage hackathons by moderation state. Only Approved and Past are
+              public; Archived is kept separately.
             </p>
           </div>
           <SignOutButton email={authStatus.email!} />
@@ -246,7 +314,15 @@ function AdminShell({
 }
 
 /** The five-tab selector shared by every tab render branch. */
-function StatusNav({ status, query }: { status: StatusFilter; query: string }) {
+function StatusNav({
+  status,
+  query,
+  tabCounts,
+}: {
+  status: StatusFilter;
+  query: string;
+  tabCounts: TabCounts;
+}) {
   return (
     <nav className="mb-6 flex flex-wrap gap-2">
       {STATUSES.map((s) => (
@@ -260,6 +336,12 @@ function StatusNav({ status, query }: { status: StatusFilter; query: string }) {
             href={`/admin/candidates?status=${s}${query ? `&q=${encodeURIComponent(query)}` : ""}`}
           >
             {s.charAt(0).toUpperCase() + s.slice(1)}
+            <span
+              aria-label={`${tabCounts[s] ?? "Unknown"} ${s} items`}
+              className="rounded-full bg-background/20 px-1.5 py-0.5 text-xs"
+            >
+              {tabCounts[s] ?? "—"}
+            </span>
           </a>
         </Button>
       ))}
@@ -325,10 +407,12 @@ async function PendingTab({
   authStatus,
   query,
   blockerCodes,
+  tabCounts,
 }: {
   authStatus: AuthStatus;
   query: string;
   blockerCodes: AutoPublishBlockerCode[];
+  tabCounts: TabCounts;
 }) {
   const [
     { data: candidatesData, error: candidatesError },
@@ -349,11 +433,12 @@ async function PendingTab({
       authStatus={authStatus}
       status="pending"
       query={query}
+      tabCounts={tabCounts}
       showManualForm
     >
-      <StatusNav status="pending" query={query} />
+      <StatusNav status="pending" query={query} tabCounts={tabCounts} />
 
-      <h2 className="mb-3 text-lg font-semibold">From candidate review</h2>
+      <h2 className="mb-3 text-lg font-semibold">Candidates</h2>
 
       <PendingReasonFilter query={query} selectedCodes={blockerCodes} />
 
@@ -383,12 +468,7 @@ async function PendingTab({
 
       <Separator className="mb-6" />
 
-      <h2 className="mb-1 text-lg font-semibold">From published hackathons</h2>
-      <p className="mb-3 text-sm text-muted-foreground">
-        Already-published hackathons moved back to pending for re-review - never
-        auto-populated, only reachable via &quot;Move to pending&quot; on an
-        Approved/Past/Rejected card.
-      </p>
+      <h2 className="mb-3 text-lg font-semibold">Published hackathons</h2>
 
       {hackathonsError && (
         <p className="text-sm text-destructive">
@@ -484,9 +564,11 @@ function PendingReasonFilter({
 async function RejectedTab({
   authStatus,
   query,
+  tabCounts,
 }: {
   authStatus: AuthStatus;
   query: string;
+  tabCounts: TabCounts;
 }) {
   const [
     { data: candidatesData, error: candidatesError },
@@ -500,10 +582,15 @@ async function RejectedTab({
   const hackathons = hackathonsData as HackathonRow[] | null;
 
   return (
-    <AdminShell authStatus={authStatus} status="rejected" query={query}>
-      <StatusNav status="rejected" query={query} />
+    <AdminShell
+      authStatus={authStatus}
+      status="rejected"
+      query={query}
+      tabCounts={tabCounts}
+    >
+      <StatusNav status="rejected" query={query} tabCounts={tabCounts} />
 
-      <h2 className="mb-3 text-lg font-semibold">From candidate review</h2>
+      <h2 className="mb-3 text-lg font-semibold">Candidates</h2>
 
       {candidatesError && (
         <p className="text-sm text-destructive">
@@ -529,12 +616,7 @@ async function RejectedTab({
 
       <Separator className="mb-6" />
 
-      <h2 className="mb-1 text-lg font-semibold">From published hackathons</h2>
-      <p className="mb-3 text-sm text-muted-foreground">
-        Published hackathons rejected after the fact - an editorial &quot;no
-        longer belongs on the site&quot; call, distinct from Archived (1-year
-        retention) below.
-      </p>
+      <h2 className="mb-3 text-lg font-semibold">Published hackathons</h2>
 
       {hackathonsError && (
         <p className="text-sm text-destructive">
@@ -573,10 +655,12 @@ async function ApprovedOrPastTab({
   kind,
   authStatus,
   query,
+  tabCounts,
 }: {
   kind: "approved" | "past";
   authStatus: AuthStatus;
   query: string;
+  tabCounts: TabCounts;
 }) {
   const { data, error } = await approvedOrPastHackathonsQuery(
     supabaseAdmin,
@@ -587,8 +671,13 @@ async function ApprovedOrPastTab({
   const hackathons = data as HackathonRow[] | null;
 
   return (
-    <AdminShell authStatus={authStatus} status={kind} query={query}>
-      <StatusNav status={kind} query={query} />
+    <AdminShell
+      authStatus={authStatus}
+      status={kind}
+      query={query}
+      tabCounts={tabCounts}
+    >
+      <StatusNav status={kind} query={query} tabCounts={tabCounts} />
 
       {error && (
         <p className="text-sm text-destructive">
@@ -628,16 +717,23 @@ async function ApprovedOrPastTab({
 async function ArchivedTab({
   authStatus,
   query,
+  tabCounts,
 }: {
   authStatus: AuthStatus;
   query: string;
+  tabCounts: TabCounts;
 }) {
   const { data, error } = await archivedHackathonsQuery(supabaseAdmin, query);
   const hackathons = data as HackathonRow[] | null;
 
   return (
-    <AdminShell authStatus={authStatus} status="archived" query={query}>
-      <StatusNav status="archived" query={query} />
+    <AdminShell
+      authStatus={authStatus}
+      status="archived"
+      query={query}
+      tabCounts={tabCounts}
+    >
+      <StatusNav status="archived" query={query} tabCounts={tabCounts} />
 
       {error && (
         <p className="text-sm text-destructive">
@@ -699,10 +795,18 @@ function CandidateCard({
       <SharedHackathonCard
         hackathon={candidateToHackathonCardData(candidate)}
         actions={
-          <div className="flex w-full flex-wrap items-center gap-2">
+          <div className="flex w-full items-center justify-end gap-1">
             <form action={approveCandidateAction.bind(null, candidate.id)}>
-              <Button type="submit" variant="default">
-                {status === "rejected" ? "Approve anyway" : "Approve"}
+              <Button
+                type="submit"
+                variant="default"
+                size="icon"
+                title={status === "rejected" ? "Approve anyway" : "Approve"}
+                aria-label={
+                  status === "rejected" ? "Approve anyway" : "Approve"
+                }
+              >
+                <Check aria-hidden="true" />
               </Button>
             </form>
             {status !== "rejected" && (
@@ -713,8 +817,14 @@ function CandidateCard({
                   undefined,
                 )}
               >
-                <Button type="submit" variant="outline">
-                  Reject
+                <Button
+                  type="submit"
+                  variant="destructive"
+                  size="icon"
+                  title="Reject"
+                  aria-label="Reject"
+                >
+                  <X aria-hidden="true" />
                 </Button>
               </form>
             )}
@@ -898,6 +1008,7 @@ function PublishedHackathonCard({
                   type="submit"
                   variant="ghost"
                   size="icon"
+                  aria-label="Archive"
                   title="Archive (remove from the public listing, reversible)"
                 >
                   <Archive className="h-4 w-4" />
@@ -910,6 +1021,7 @@ function PublishedHackathonCard({
                   type="submit"
                   variant="ghost"
                   size="icon"
+                  aria-label="Unarchive"
                   title="Unarchive (restore to the public listing)"
                 >
                   <ArchiveRestore className="h-4 w-4" />
@@ -947,26 +1059,30 @@ function HackathonModerationActions({
     return null;
   }
 
-  const transitions: Array<{ label: string; state: ModerationState }> =
+  const transitions: Array<{
+    label: string;
+    state: ModerationState;
+    icon: typeof Check;
+  }> =
     tab === "pending"
       ? [
-          { label: "Approve", state: "approved" },
-          { label: "Reject", state: "rejected" },
+          { label: "Approve", state: "approved", icon: Check },
+          { label: "Reject", state: "rejected", icon: X },
         ]
       : tab === "rejected"
         ? [
-            { label: "Approve", state: "approved" },
-            { label: "Move to pending", state: "pending" },
+            { label: "Approve", state: "approved", icon: Check },
+            { label: "Move to pending", state: "pending", icon: Clock3 },
           ]
         : [
             // "approved" or "past"
-            { label: "Move to pending", state: "pending" },
-            { label: "Reject", state: "rejected" },
+            { label: "Move to pending", state: "pending", icon: Clock3 },
+            { label: "Reject", state: "rejected", icon: X },
           ];
 
   return (
     <>
-      {transitions.map(({ label, state }, index) => (
+      {transitions.map(({ label, state, icon: Icon }) => (
         <form
           key={state}
           action={setHackathonModerationStateAction.bind(
@@ -977,10 +1093,18 @@ function HackathonModerationActions({
         >
           <Button
             type="submit"
-            variant={index === 0 ? "default" : "outline"}
-            size="sm"
+            variant={
+              state === "rejected"
+                ? "destructive"
+                : state === "approved"
+                  ? "default"
+                  : "outline"
+            }
+            size="icon"
+            title={label}
+            aria-label={label}
           >
-            {label}
+            <Icon aria-hidden="true" />
           </Button>
         </form>
       ))}
