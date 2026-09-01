@@ -56,12 +56,8 @@ function fieldsFromCandidate(candidate: CandidateRow) {
  */
 export function EditCandidateDialog({
   candidate,
-  disabled = false,
-  disabledReason,
 }: {
   candidate: CandidateRow;
-  disabled?: boolean;
-  disabledReason?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [fields, setFields] = useState(() => fieldsFromCandidate(candidate));
@@ -86,9 +82,8 @@ export function EditCandidateDialog({
           type="button"
           variant="outline"
           size="icon"
-          title={disabledReason ?? "Edit candidate"}
-          aria-label={disabledReason ?? "Edit candidate"}
-          disabled={disabled}
+          title="Edit candidate"
+          aria-label="Edit candidate"
         >
           <Pencil aria-hidden="true" />
         </Button>

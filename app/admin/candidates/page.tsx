@@ -963,7 +963,12 @@ function PublishedHackathonCard({
                   variant="outline"
                   size="icon"
                   aria-label="Archive"
-                  title="Archive (remove from the public listing, reversible)"
+                  title={
+                    hackathon.moderation_state === "approved"
+                      ? "Archive (remove from the public listing, reversible)"
+                      : "Approve or reject this hackathon before archiving it"
+                  }
+                  disabled={hackathon.moderation_state !== "approved"}
                 >
                   <Archive aria-hidden="true" />
                 </Button>
