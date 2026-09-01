@@ -12,10 +12,19 @@ import {
   CardDescription,
   CardFooter,
 } from "@/components/ui/card";
-import { MapPin, Calendar as CalendarIcon, Sparkles } from "lucide-react";
+import {
+  MapPin,
+  Calendar as CalendarIcon,
+  Heart,
+  Sparkles,
+} from "lucide-react";
 import { europeanCountries } from "@/lib/european-countries";
 import { getTopicDisplay } from "@/lib/constants/topics";
 import { cn } from "@/lib/utils";
+import {
+  useBookmarksHydration,
+  useBookmarksStore,
+} from "@/lib/bookmarks-store";
 
 /**
  * The subset of a `hackathons` row (see `types/hackathon.ts`) this card
@@ -78,6 +87,11 @@ export function HackathonCard({
   className,
 }: HackathonCardProps) {
   const { t, formatDateRange } = useTranslation();
+  useBookmarksHydration();
+  const isBookmarked = useBookmarksStore((state) =>
+    state.bookmarkedIds.includes(hackathon.id),
+  );
+  const toggleBookmark = useBookmarksStore((state) => state.toggleBookmark);
   const locationType = hackathon.location_type ?? "tbd";
 
   return (
@@ -121,19 +135,44 @@ export function HackathonCard({
               hackathon.name
             )}
           </CardTitle>
-          {hackathon.is_new && (
-            <Badge
-              variant="default"
-              className={cn(
-                "shrink-0",
-                !adminTheme &&
-                  "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm hover:from-emerald-600 hover:to-teal-700",
-              )}
-            >
-              <Sparkles className="mr-1 h-3 w-3" />
-              {t("badge.new")}
-            </Badge>
-          )}
+          <div className="flex shrink-0 items-center gap-2">
+            {!adminTheme && !compact && (
+              <button
+                type="button"
+                onClick={() => toggleBookmark(hackathon.id)}
+                aria-label={t(
+                  isBookmarked ? "bookmark.remove" : "bookmark.add",
+                  { name: hackathon.name },
+                )}
+                aria-pressed={isBookmarked}
+                title={t(isBookmarked ? "bookmark.remove" : "bookmark.add", {
+                  name: hackathon.name,
+                })}
+                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Heart
+                  className={cn(
+                    "size-5",
+                    isBookmarked && "fill-current text-red-500",
+                  )}
+                  aria-hidden="true"
+                />
+              </button>
+            )}
+            {hackathon.is_new && (
+              <Badge
+                variant="default"
+                className={cn(
+                  "shrink-0",
+                  !adminTheme &&
+                    "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm hover:from-emerald-600 hover:to-teal-700",
+                )}
+              >
+                <Sparkles className="mr-1 h-3 w-3" />
+                {t("badge.new")}
+              </Badge>
+            )}
+          </div>
         </div>
         {meta}
         {hackathon.notes && hackathon.notes.trim() && (

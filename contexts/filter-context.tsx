@@ -17,6 +17,7 @@ export interface FilterState {
   // than English or the active site locale (see lib/detect-non-english.ts).
   // Defaults to false so the active locale and English are the default set.
   includeNonEnglish: boolean;
+  showBookmarked: boolean;
 }
 
 export interface FilterContextType {
@@ -40,6 +41,7 @@ const initialFilters: FilterState = {
   status: "upcoming",
   sort: "asc",
   includeNonEnglish: false,
+  showBookmarked: false,
 };
 
 export function retainAvailableLocations(

@@ -22,12 +22,19 @@ import {
   hackathonMatchesRadiusFilter,
 } from "@/lib/location-filter";
 import { looksLikeForeignLanguage } from "@/lib/detect-non-english";
+import {
+  filterBookmarkedHackathons,
+  useBookmarksHydration,
+  useBookmarksStore,
+} from "@/lib/bookmarks-store";
 
 interface HackathonListProps {
   upcoming: Hackathon[];
   past: Hackathon[];
   loading: boolean;
 }
+
+const NO_BOOKMARKS: readonly string[] = [];
 
 export default function HackathonList({
   upcoming,
@@ -36,10 +43,16 @@ export default function HackathonList({
 }: HackathonListProps) {
   const { locale, t } = useTranslation();
   const { filters } = useFilters();
+  useBookmarksHydration();
+  const bookmarkedIds = useBookmarksStore((state) => state.bookmarkedIds);
+  // Bookmark changes cannot affect the list while this filter is disabled.
+  const effectiveBookmarkedIds = filters.showBookmarked
+    ? bookmarkedIds
+    : NO_BOOKMARKS;
 
   const filterHackathons = useCallback(
     (hackathons: Hackathon[]) => {
-      return hackathons.filter((hackathon) => {
+      const filtered = hackathons.filter((hackathon) => {
         if (
           filters.search &&
           !hackathon.name.toLowerCase().includes(filters.search.toLowerCase())
@@ -101,8 +114,11 @@ export default function HackathonList({
 
         return true;
       });
+      return filters.showBookmarked
+        ? filterBookmarkedHackathons(filtered, effectiveBookmarkedIds)
+        : filtered;
     },
-    [filters, locale],
+    [filters, locale, effectiveBookmarkedIds],
   );
 
   const currentHackathons = useMemo(() => {

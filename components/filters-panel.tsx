@@ -9,6 +9,7 @@ import {
   ChevronsUpDown,
   Filter,
   FilterX,
+  Heart,
   Search,
 } from "lucide-react";
 import type { HackathonTopic } from "@/lib/constants/topics";
@@ -117,7 +118,8 @@ export function FiltersPanel({
     Number(Boolean(filters.radius)) +
     filters.topics.length +
     Number(Boolean(filters.dateRange?.from || filters.dateRange?.to)) +
-    Number(filters.includeNonEnglish);
+    Number(filters.includeNonEnglish) +
+    Number(filters.showBookmarked);
 
   const toggleLocation = (location: string) => {
     updateFilter(
@@ -229,6 +231,15 @@ export function FiltersPanel({
           },
         ]
       : []),
+    ...(filters.showBookmarked
+      ? [
+          {
+            id: "bookmarked",
+            label: t("bookmark.only"),
+            onRemove: () => updateFilter("showBookmarked", false),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -247,48 +258,61 @@ export function FiltersPanel({
             className="h-10 pl-9"
           />
         </div>
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild>
-            <Button
-              variant="outline"
-              className="h-10 gap-2 self-start sm:self-auto"
-            >
-              <Filter className="size-4" aria-hidden="true" />
-              {t("filters")}
-              {activeCount > 0 && (
-                <span className="grid size-5 place-items-center rounded-full bg-primary text-xs text-primary-foreground">
-                  {activeCount}
-                </span>
-              )}
-            </Button>
-          </SheetTrigger>
-          <SheetContent
-            side="right"
-            className="w-full overflow-y-auto p-0 sm:max-w-md"
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={filters.showBookmarked ? "default" : "outline"}
+            className="h-10 gap-2"
+            aria-pressed={filters.showBookmarked}
+            onClick={() =>
+              updateFilter("showBookmarked", !filters.showBookmarked)
+            }
           >
-            <SheetHeader className="border-b p-6 text-left">
-              <SheetTitle>{t("filters")}</SheetTitle>
-              <SheetDescription>{t("subtitle")}</SheetDescription>
-            </SheetHeader>
-            <div className="space-y-6 p-6">
-              <FilterControls />
-              <Separator />
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-sm text-muted-foreground">
-                  {activeCount > 0
-                    ? `${activeCount} ${t("locations.selected")}`
-                    : t("filters")}
-                </span>
+            <Heart className="size-4" aria-hidden="true" />
+            {t("bookmark.only")}
+          </Button>
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-10 gap-2 self-start sm:self-auto"
+              >
+                <Filter className="size-4" aria-hidden="true" />
+                {t("filters")}
                 {activeCount > 0 && (
-                  <Button variant="ghost" size="sm" onClick={clearFilters}>
-                    <FilterX className="size-4" aria-hidden="true" />{" "}
-                    {t("filters.clearAll")}
-                  </Button>
+                  <span className="grid size-5 place-items-center rounded-full bg-primary text-xs text-primary-foreground">
+                    {activeCount}
+                  </span>
                 )}
+              </Button>
+            </SheetTrigger>
+            <SheetContent
+              side="right"
+              className="w-full overflow-y-auto p-0 sm:max-w-md"
+            >
+              <SheetHeader className="border-b p-6 text-left">
+                <SheetTitle>{t("filters")}</SheetTitle>
+                <SheetDescription>{t("subtitle")}</SheetDescription>
+              </SheetHeader>
+              <div className="space-y-6 p-6">
+                <FilterControls />
+                <Separator />
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-sm text-muted-foreground">
+                    {activeCount > 0
+                      ? `${activeCount} ${t("locations.selected")}`
+                      : t("filters")}
+                  </span>
+                  {activeCount > 0 && (
+                    <Button variant="ghost" size="sm" onClick={clearFilters}>
+                      <FilterX className="size-4" aria-hidden="true" />{" "}
+                      {t("filters.clearAll")}
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
-          </SheetContent>
-        </Sheet>
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
       <ActiveFilterChips chips={chips} />
     </section>
