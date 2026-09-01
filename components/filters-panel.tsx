@@ -231,6 +231,15 @@ export function FiltersPanel({
           },
         ]
       : []),
+    ...(filters.showBookmarked
+      ? [
+          {
+            id: "bookmarked",
+            label: t("bookmark.only"),
+            onRemove: () => updateFilter("showBookmarked", false),
+          },
+        ]
+      : []),
   ];
 
   return (

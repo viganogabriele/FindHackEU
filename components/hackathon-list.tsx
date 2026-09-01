@@ -34,6 +34,8 @@ interface HackathonListProps {
   loading: boolean;
 }
 
+const NO_BOOKMARKS: readonly string[] = [];
+
 export default function HackathonList({
   upcoming,
   past,
@@ -43,6 +45,10 @@ export default function HackathonList({
   const { filters } = useFilters();
   useBookmarksHydration();
   const bookmarkedIds = useBookmarksStore((state) => state.bookmarkedIds);
+  // Bookmark changes cannot affect the list while this filter is disabled.
+  const effectiveBookmarkedIds = filters.showBookmarked
+    ? bookmarkedIds
+    : NO_BOOKMARKS;
 
   const filterHackathons = useCallback(
     (hackathons: Hackathon[]) => {
@@ -109,10 +115,10 @@ export default function HackathonList({
         return true;
       });
       return filters.showBookmarked
-        ? filterBookmarkedHackathons(filtered, bookmarkedIds)
+        ? filterBookmarkedHackathons(filtered, effectiveBookmarkedIds)
         : filtered;
     },
-    [filters, locale, bookmarkedIds],
+    [filters, locale, effectiveBookmarkedIds],
   );
 
   const currentHackathons = useMemo(() => {
