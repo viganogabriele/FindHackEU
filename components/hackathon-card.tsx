@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Image from "next/image";
 import { useTranslation } from "@/contexts/translation-context";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -38,6 +39,7 @@ export interface HackathonCardData {
   topics?: string[] | null;
   notes?: string | null;
   is_new?: boolean;
+  preview_image_url?: string | null;
 }
 
 interface HackathonCardProps {
@@ -87,6 +89,18 @@ export function HackathonCard({
       )}
     >
       <CardHeader className={cn(compact && "gap-1 px-4 py-2")}>
+        {hackathon.preview_image_url && (
+          <div className="relative aspect-[16/9] overflow-hidden rounded-md">
+            <Image
+              src={hackathon.preview_image_url}
+              alt={hackathon.name}
+              fill
+              className="h-full w-full object-cover"
+              loading="lazy"
+              sizes="(max-width: 768px) 100vw, 50vw"
+            />
+          </div>
+        )}
         <div className="flex items-start justify-between gap-2">
           <CardTitle
             className={cn(

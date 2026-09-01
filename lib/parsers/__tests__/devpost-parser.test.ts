@@ -9,6 +9,7 @@ interface MockHackathon {
   open_state: "open" | "upcoming";
   displayed_location: string | { icon?: string; location: string };
   themes: Array<string | { name: string }>;
+  thumbnail_url?: string | null;
 }
 
 function responseFor(
@@ -72,6 +73,8 @@ describe("DevpostParser", () => {
             location: "Berlin, Germany",
           },
           themes: [{ name: "Machine Learning/AI" }, "Open Ended"],
+          thumbnail_url:
+            "//d112y698adiu2z.cloudfront.net/photos/production/challenge_thumbnails/004/595/623/datas/medium_square.jpg",
         },
       ],
     ]);
@@ -95,6 +98,56 @@ describe("DevpostParser", () => {
       }),
     ]);
     expect(result.hackathons[0].topics).toContain("AI");
+  });
+
+  it("captures Devpost's source thumbnail URL and makes it absolute", async () => {
+    mockFetch([
+      [
+        {
+          id: 129,
+          title: "Berlin Image Hack",
+          url: "https://image.devpost.com/",
+          submission_period_dates: "Oct 10 - Oct 12, 2026",
+          open_state: "upcoming",
+          displayed_location: "Berlin, Germany",
+          themes: [],
+          thumbnail_url: "//cdn.example.com/thumb.jpg",
+        },
+      ],
+    ]);
+
+    const pendingParse = new DevpostParser().parse();
+    await vi.runAllTimersAsync();
+    const [hackathon] = (await pendingParse).hackathons;
+
+    expect(hackathon.preview_image_url).toBe(
+      "https://cdn.example.com/thumb.jpg",
+    );
+  });
+
+  it("preserves an already absolute Devpost thumbnail URL", async () => {
+    mockFetch([
+      [
+        {
+          id: 130,
+          title: "Berlin Absolute Image Hack",
+          url: "https://absolute-image.devpost.com/",
+          submission_period_dates: "Oct 10 - Oct 12, 2026",
+          open_state: "upcoming",
+          displayed_location: "Berlin, Germany",
+          themes: [],
+          thumbnail_url: "https://cdn.example.com/thumb.jpg",
+        },
+      ],
+    ]);
+
+    const pendingParse = new DevpostParser().parse();
+    await vi.runAllTimersAsync();
+    const [hackathon] = (await pendingParse).hackathons;
+
+    expect(hackathon.preview_image_url).toBe(
+      "https://cdn.example.com/thumb.jpg",
+    );
   });
 
   it("keeps online worldwide listings without inventing a country", async () => {

@@ -50,6 +50,18 @@ describe("HackathonCard", () => {
     expect(document.querySelector(".lucide-calendar")).toBeTruthy();
   });
 
+  it("renders a fixed-ratio preview image when one is available", () => {
+    renderCard({
+      ...base,
+      preview_image_url: "https://cdn.example.com/image.jpg",
+    });
+    const image = screen.getByRole("img", { name: "Test Hackathon" });
+    expect(image.getAttribute("src")).toContain(
+      encodeURIComponent("https://cdn.example.com/image.jpg"),
+    );
+    expect(image.parentElement?.classList.contains("aspect-[16/9]")).toBe(true);
+  });
+
   it("omits the date row entirely when date_start is null (candidate with no recoverable date)", () => {
     renderCard({ ...base, date_start: null });
     expect(document.querySelector(".lucide-calendar")).toBeNull();

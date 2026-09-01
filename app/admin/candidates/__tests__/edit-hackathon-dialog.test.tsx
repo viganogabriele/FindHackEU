@@ -46,6 +46,7 @@ const hackathon: HackathonRow = {
   date_end: "2026-11-16T00:00:00.000Z",
   topics: ["AI"],
   notes: null,
+  preview_image_url: null,
   url: "https://example.org/hack-the-peak",
   source: "luma",
   status: "upcoming",
