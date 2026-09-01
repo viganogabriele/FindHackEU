@@ -4,6 +4,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { LumaParser } from "@/lib/parsers/luma-parser";
 import { LablabParser } from "@/lib/parsers/lablab-parser";
 import { DevfolioParser } from "@/lib/parsers/devfolio-parser";
+import { MlhParser } from "@/lib/parsers/mlh-parser";
+import { EthGlobalParser } from "@/lib/parsers/ethglobal-parser";
 import { ParsedHackathon } from "@/lib/parsers/base-parser";
 import type { Provider } from "@/lib/providers/provider.interface";
 import {
@@ -89,6 +91,8 @@ export async function POST(request: Request) {
       new LumaParser(),
       new LablabParser(),
       new DevfolioParser(),
+      new MlhParser(),
+      new EthGlobalParser(),
     ];
 
     const sourceResults: Record<string, SourceResult> = {};
