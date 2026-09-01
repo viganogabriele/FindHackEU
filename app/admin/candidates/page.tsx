@@ -256,8 +256,8 @@ function AdminShell({
           <div>
             <h1 className="mb-2 text-2xl font-bold">Hackathon candidates</h1>
             <p className="text-sm text-muted-foreground">
-              Web-search-discovered events awaiting review, plus every published
-              hackathon under Approved. Nothing outside Approved is public.
+              Web-search candidates for review, plus published hackathons under
+              Approved. Only Approved is public.
             </p>
           </div>
           <SignOutButton email={authStatus.email!} />
