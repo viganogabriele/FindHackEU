@@ -21,7 +21,7 @@ import { useThemeStore, AVAILABLE_THEMES } from "@/lib/theme-store";
 import { getThemePreviewColors } from "@/lib/theme-utils";
 import { useTranslation } from "@/contexts/translation-context";
 
-export function ThemeSwitcher() {
+export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
   const [open, setOpen] = useState(false);
   const { styles, currentMode, setThemeById, toggleMode } = useThemeStore();
 
@@ -45,6 +45,120 @@ export function ThemeSwitcher() {
       ? getThemePreviewColors(currentTheme.styles[currentMode])
       : { primary: "transparent", accent: "transparent" };
   const { t } = useTranslation();
+
+  const themePicker = (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant={compact ? "ghost" : "outline"}
+          size={compact ? "icon" : "default"}
+          role="combobox"
+          aria-expanded={open}
+          aria-label={compact ? t("theme") : undefined}
+          title={compact ? t("theme") : undefined}
+          className={compact ? "size-9" : "w-full justify-between"}
+        >
+          {compact ? (
+            <Palette className="size-4" aria-hidden="true" />
+          ) : (
+            <>
+              <span className="flex items-center gap-2">
+                <span className="flex gap-1" aria-hidden="true">
+                  <span
+                    className="size-4 rounded border"
+                    style={{ backgroundColor: previewColors.primary }}
+                  />
+                  <span
+                    className="size-4 rounded border"
+                    style={{ backgroundColor: previewColors.accent }}
+                  />
+                </span>
+                {hydrated
+                  ? (currentTheme?.name ?? t("theme.selectPlaceholder"))
+                  : t("theme.loading")}
+              </span>
+              <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+            </>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[300px] p-0" align="end">
+        <Command>
+          <CommandInput placeholder={t("theme.searchPlaceholder")} />
+          <CommandList>
+            <CommandEmpty>{t("theme.noThemeFound")}</CommandEmpty>
+            <CommandGroup>
+              {AVAILABLE_THEMES.map((theme) => {
+                const isSelected = currentTheme?.id === theme.id;
+                const colors = getThemePreviewColors(theme.styles[currentMode]);
+
+                return (
+                  <CommandItem
+                    key={theme.id}
+                    value={theme.id}
+                    onSelect={() => {
+                      setThemeById(theme.id);
+                      setOpen(false);
+                    }}
+                  >
+                    <div className="flex flex-1 items-center gap-3">
+                      <Check
+                        className={cn(
+                          "size-4",
+                          isSelected ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                      <div className="flex gap-1" aria-hidden="true">
+                        <div
+                          className="size-4 rounded border"
+                          style={{ backgroundColor: colors.primary }}
+                        />
+                        <div
+                          className="size-4 rounded border"
+                          style={{ backgroundColor: colors.accent }}
+                        />
+                      </div>
+                      <span className="font-medium">{theme.name}</span>
+                    </div>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-9"
+          onClick={toggleMode}
+          aria-label={
+            currentMode === "light"
+              ? t("theme.switchToDark")
+              : t("theme.switchToLight")
+          }
+          title={
+            currentMode === "light"
+              ? t("theme.switchToDark")
+              : t("theme.switchToLight")
+          }
+        >
+          {currentMode === "light" ? (
+            <Sun className="size-4" />
+          ) : (
+            <Moon className="size-4" />
+          )}
+        </Button>
+        {themePicker}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -78,85 +192,7 @@ export function ThemeSwitcher() {
         </Button>
       </div>
 
-      {/* Selettore Tema */}
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className="w-full justify-between"
-          >
-            <span className="flex items-center gap-2">
-              {/* Preview colori tema corrente nel trigger */}
-              <div className="flex gap-1">
-                <div
-                  className="h-4 w-4 rounded border"
-                  style={{ backgroundColor: previewColors.primary }}
-                />
-                <div
-                  className="h-4 w-4 rounded border"
-                  style={{ backgroundColor: previewColors.accent }}
-                />
-              </div>
-              {hydrated
-                ? (currentTheme?.name ?? t("theme.selectPlaceholder"))
-                : t("theme.loading")}
-            </span>
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[300px] p-0" align="start">
-          <Command>
-            <CommandInput placeholder={t("theme.searchPlaceholder")} />
-            <CommandList>
-              <CommandEmpty>{t("theme.noThemeFound")}</CommandEmpty>
-              <CommandGroup>
-                {AVAILABLE_THEMES.map((theme) => {
-                  const isSelected = currentTheme?.id === theme.id;
-                  const colors = getThemePreviewColors(
-                    theme.styles[currentMode],
-                  );
-
-                  return (
-                    <CommandItem
-                      key={theme.id}
-                      value={theme.id}
-                      onSelect={() => {
-                        setThemeById(theme.id);
-                        setOpen(false);
-                      }}
-                    >
-                      <div className="flex items-center gap-3 flex-1">
-                        <Check
-                          className={cn(
-                            "h-4 w-4",
-                            isSelected ? "opacity-100" : "opacity-0",
-                          )}
-                        />
-                        {/* Preview colori nel dropdown */}
-                        <div className="flex gap-1">
-                          <div
-                            className="h-4 w-4 rounded border"
-                            style={{ backgroundColor: colors.primary }}
-                            title="Primary"
-                          />
-                          <div
-                            className="h-4 w-4 rounded border"
-                            style={{ backgroundColor: colors.accent }}
-                            title="Accent"
-                          />
-                        </div>
-                        <span className="font-medium">{theme.name}</span>
-                      </div>
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+      {themePicker}
     </div>
   );
 }
