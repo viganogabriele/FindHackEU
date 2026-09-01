@@ -277,13 +277,6 @@ function AdminShell({
       <div className="container mx-auto max-w-5xl px-4 py-6">
         <header className="mb-5 flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <Link
-              href="/admin"
-              className="mb-2 inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              <ArrowLeft className="h-3 w-3" />
-              Dashboard
-            </Link>
             <h1 className="text-xl font-bold tracking-tight">
               Hackathon candidates
             </h1>
