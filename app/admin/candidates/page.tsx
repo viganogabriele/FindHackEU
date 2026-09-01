@@ -285,7 +285,15 @@ function AdminShell({
               Past are public.
             </p>
           </div>
-          <SignOutButton email={authStatus.email!} />
+          <div className="flex shrink-0 items-center gap-2">
+            <Button asChild variant="link" size="sm">
+              <Link href="/">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to site
+              </Link>
+            </Button>
+            <SignOutButton email={authStatus.email!} />
+          </div>
         </header>
 
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
