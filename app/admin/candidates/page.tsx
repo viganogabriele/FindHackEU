@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Archive, ArchiveRestore } from "lucide-react";
 import { supabaseAdmin } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,11 @@ import {
   rejectCandidateAction,
   deleteCandidateAction,
 } from "./actions";
-import { deleteHackathonAction } from "../hackathons/actions";
+import {
+  deleteHackathonAction,
+  archiveHackathonAction,
+  unarchiveHackathonAction,
+} from "../hackathons/actions";
 import { ManualSubmitForm } from "./manual-submit-form";
 import { EditCandidateDialog } from "./edit-candidate-dialog";
 import { GoogleSignInButton } from "./google-sign-in-button";
@@ -29,10 +33,19 @@ import { candidateToHackathonCardData } from "./candidate-card-data";
 type CandidateRow = Database["public"]["Tables"]["hackathon_candidates"]["Row"];
 type HackathonRow = Database["public"]["Tables"]["hackathons"]["Row"];
 
-type StatusFilter = "pending" | "approved" | "rejected";
+// "archived" is a fourth tab (issue #72), distinct from the candidate
+// pending/approved/rejected workflow above it - see the Archived-tab render
+// branch below for why it also surfaces rejected candidates rather than
+// being hackathons-only.
+type StatusFilter = "pending" | "approved" | "rejected" | "archived";
 type HackathonStatusFilter = "upcoming" | "past" | "estimated";
 
-const STATUSES: StatusFilter[] = ["pending", "approved", "rejected"];
+const STATUSES: StatusFilter[] = [
+  "pending",
+  "approved",
+  "rejected",
+  "archived",
+];
 const HACKATHON_STATUSES: HackathonStatusFilter[] = [
   "upcoming",
   "past",
@@ -58,6 +71,11 @@ const HACKATHON_STATUSES: HackathonStatusFilter[] = [
  * regardless of source, is manageable from one page. This makes the
  * standalone /admin/hackathons route redundant - it now just redirects
  * here (see app/admin/hackathons/page.tsx).
+ *
+ * The "Archived" tab (issue #72) is the fourth: it merges rejected
+ * candidates and archived (soft-deleted) hackathons into one "what did I
+ * turn away, and why" view - see `ArchivedTab` below for the full design
+ * rationale.
  *
  * Dev-only (`notFound()` outside development, same pattern as
  * app/api/dev/trigger-update/route.ts) AND gated behind Google sign-in via
@@ -109,6 +127,9 @@ export default async function CandidatesAdminPage({
       .from("hackathons")
       .select("*")
       .eq("status", hackathonStatus)
+      // Issue #72: an archived hackathon moves to the Archived tab below,
+      // not this one - without this filter it would show up in both.
+      .is("archived_at", null)
       .order("date_start", { ascending: hackathonStatus !== "past" })
       .limit(200);
 
@@ -161,6 +182,10 @@ export default async function CandidatesAdminPage({
         </ul>
       </AdminShell>
     );
+  }
+
+  if (status === "archived") {
+    return <ArchivedTab authStatus={authStatus} query={query} />;
   }
 
   let dbQuery = supabaseAdmin
@@ -260,7 +285,8 @@ function AdminShell({
             <h1 className="mb-2 text-2xl font-bold">Hackathon candidates</h1>
             <p className="text-sm text-muted-foreground">
               Web-search candidates for review, plus published hackathons under
-              Approved. Only Approved is public.
+              Approved. Only Approved is public - Archived covers rejected
+              candidates and archived (soft-deleted) hackathons.
             </p>
           </div>
           <SignOutButton email={authStatus.email!} />
@@ -502,8 +528,15 @@ function AutoPublishBlockers({ candidate }: { candidate: CandidateRow }) {
  * A published `hackathons` row, shown on the Approved tab (issue #82) -
  * ported from the now-retired /admin/hackathons page, same shape and same
  * `deleteHackathonAction`. Deliberately a different card than
- * `CandidateCard`: a published hackathon has no approve/reject workflow,
- * only delete.
+ * `CandidateCard`: a published hackathon has no approve/reject workflow.
+ *
+ * Two removal actions (issue #72), on purpose: Archive is the softer,
+ * reversible default for "no longer wanted but not wrong" (e.g. the "Social
+ * Hackathon Umbria" case from the issue - a real hackathon by its own
+ * title, just not the kind of event this project wants listed); hard
+ * Delete stays for genuine junk/mistakes that shouldn't be kept around at
+ * all. No confirmation dialog on Archive (unlike Delete) - it's reversible
+ * from the Archived tab, so a misclick isn't destructive.
  */
 function HackathonCard({ hackathon }: { hackathon: HackathonRow }) {
   return (
@@ -532,11 +565,216 @@ function HackathonCard({ hackathon }: { hackathon: HackathonRow }) {
               </Badge>
             </div>
           </div>
-          <form action={deleteHackathonAction.bind(null, hackathon.id)}>
-            <ConfirmDeleteButton
-              confirmMessage={`Permanently delete "${hackathon.name}" from the live site? This cannot be undone.`}
-            />
-          </form>
+          <div className="flex items-center gap-1">
+            <form
+              action={archiveHackathonAction.bind(
+                null,
+                hackathon.id,
+                undefined,
+              )}
+            >
+              <Button
+                type="submit"
+                variant="ghost"
+                size="icon"
+                title="Archive (remove from the public listing, reversible)"
+              >
+                <Archive className="h-4 w-4" />
+              </Button>
+            </form>
+            <form action={deleteHackathonAction.bind(null, hackathon.id)}>
+              <ConfirmDeleteButton
+                confirmMessage={`Permanently delete "${hackathon.name}" from the live site? This cannot be undone.`}
+              />
+            </form>
+          </div>
+        </CardContent>
+      </Card>
+    </li>
+  );
+}
+
+/**
+ * The fourth tab (issue #72): "what did I reject or archive, and why".
+ *
+ * Design decision, documented per the issue's request: this literally
+ * merges both kinds of "not currently live" rows into one page load, rather
+ * than just linking to the existing Rejected tab -
+ *
+ *   - **Archived hackathons** (`hackathons.archived_at is not null`) are the
+ *     primary content: a hackathon that was published and later archived
+ *     (manually, or by the retention sweep), each with the reason shown and
+ *     an Unarchive action to restore it to the public listing.
+ *   - **Rejected candidates** (`hackathon_candidates.status = 'rejected'`)
+ *     are shown directly below in a second, clearly-labeled section, reusing
+ *     the exact same interactive `CandidateCard` (Approve anyway/Delete/Edit)
+ *     the standalone Rejected tab uses - not a stripped-down read-only
+ *     summary - so this tab is a genuinely complete "everything I turned
+ *     away" view on its own, not just a teaser pointing elsewhere. The
+ *     standalone Rejected tab (`?status=rejected`) is kept too, since
+ *     reviewing pending candidates alongside just the rejected ones (without
+ *     archived hackathons mixed in) is still a useful narrower view.
+ */
+async function ArchivedTab({
+  authStatus,
+  query,
+}: {
+  authStatus: Awaited<ReturnType<typeof getAdminAuthStatus>>;
+  query: string;
+}) {
+  let archivedHackathonsQuery = supabaseAdmin
+    .from("hackathons")
+    .select("*")
+    .not("archived_at", "is", null)
+    .order("archived_at", { ascending: false })
+    .limit(200);
+
+  if (query) {
+    archivedHackathonsQuery = archivedHackathonsQuery.ilike(
+      "name",
+      `%${query}%`,
+    );
+  }
+
+  let rejectedCandidatesQuery = supabaseAdmin
+    .from("hackathon_candidates")
+    .select("*")
+    .eq("status", "rejected")
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (query) {
+    const escaped = query.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    const pattern = `"%${escaped}%"`;
+    rejectedCandidatesQuery = rejectedCandidatesQuery.or(
+      `name.ilike.${pattern},city.ilike.${pattern},country_code.ilike.${pattern},query.ilike.${pattern}`,
+    );
+  }
+
+  const [
+    { data: archivedHackathonsData, error: archivedHackathonsError },
+    { data: rejectedCandidatesData, error: rejectedCandidatesError },
+  ] = await Promise.all([archivedHackathonsQuery, rejectedCandidatesQuery]);
+
+  const archivedHackathons = archivedHackathonsData as HackathonRow[] | null;
+  const rejectedCandidates = rejectedCandidatesData as CandidateRow[] | null;
+
+  return (
+    <AdminShell authStatus={authStatus} status="archived" query={query}>
+      <StatusNav status="archived" query={query} />
+
+      <h2 className="mb-3 text-lg font-semibold">Archived hackathons</h2>
+
+      {archivedHackathonsError && (
+        <p className="text-sm text-destructive">
+          Failed to load archived hackathons: {archivedHackathonsError.message}
+        </p>
+      )}
+
+      {!archivedHackathonsError && archivedHackathons?.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No archived hackathons{query ? ` matching "${query}"` : ""}.
+        </p>
+      )}
+
+      <ul className="mb-8 space-y-3">
+        {archivedHackathons?.map((hackathon) => (
+          <ArchivedHackathonCard key={hackathon.id} hackathon={hackathon} />
+        ))}
+      </ul>
+
+      <Separator className="mb-6" />
+
+      <h2 className="mb-1 text-lg font-semibold">Rejected candidates</h2>
+      <p className="mb-3 text-sm text-muted-foreground">
+        Candidates never published - shown here alongside archived hackathons so
+        &quot;what did I turn away, and why&quot; is one page, not two.
+      </p>
+
+      {rejectedCandidatesError && (
+        <p className="text-sm text-destructive">
+          Failed to load rejected candidates: {rejectedCandidatesError.message}
+        </p>
+      )}
+
+      {!rejectedCandidatesError && rejectedCandidates?.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No rejected candidates{query ? ` matching "${query}"` : ""}.
+        </p>
+      )}
+
+      <ul className="space-y-4">
+        {rejectedCandidates?.map((candidate) => (
+          <CandidateCard
+            key={candidate.id}
+            candidate={candidate}
+            status="rejected"
+          />
+        ))}
+      </ul>
+    </AdminShell>
+  );
+}
+
+/**
+ * An archived `hackathons` row (issue #72) - shows the reason and when it
+ * was archived, with Unarchive (restores it to the public listing) as the
+ * primary action. Hard Delete stays available too, for an archived row the
+ * maintainer decides should be purged entirely rather than kept around
+ * indefinitely as archived.
+ */
+function ArchivedHackathonCard({ hackathon }: { hackathon: HackathonRow }) {
+  return (
+    <li>
+      <Card>
+        <CardContent className="flex items-start justify-between gap-2">
+          <div>
+            <a
+              href={hackathon.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium hover:underline"
+            >
+              {hackathon.name}
+            </a>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {hackathon.city && (
+                <Badge variant="secondary">{hackathon.city}</Badge>
+              )}
+              {hackathon.country_code && (
+                <Badge variant="secondary">{hackathon.country_code}</Badge>
+              )}
+              <Badge variant="outline">{hackathon.source}</Badge>
+              <Badge variant="outline">
+                {new Date(hackathon.date_start).toLocaleDateString()}
+              </Badge>
+            </div>
+            {hackathon.archived_at && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Archived {new Date(hackathon.archived_at).toLocaleDateString()}
+                {hackathon.archived_reason
+                  ? ` - ${hackathon.archived_reason}`
+                  : ""}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <form action={unarchiveHackathonAction.bind(null, hackathon.id)}>
+              <Button
+                type="submit"
+                variant="ghost"
+                size="icon"
+                title="Unarchive (restore to the public listing)"
+              >
+                <ArchiveRestore className="h-4 w-4" />
+              </Button>
+            </form>
+            <form action={deleteHackathonAction.bind(null, hackathon.id)}>
+              <ConfirmDeleteButton
+                confirmMessage={`Permanently delete "${hackathon.name}"? This cannot be undone.`}
+              />
+            </form>
+          </div>
         </CardContent>
       </Card>
     </li>

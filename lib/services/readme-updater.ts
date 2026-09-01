@@ -122,6 +122,10 @@ ${pastTableContent}
         .from("hackathons")
         .select("*")
         .eq("status", "upcoming")
+        // Issue #72: the README is a public-facing listing, same as
+        // /api/hackathons - an archived row must not appear here either, or
+        // archiving it would have no visible effect.
+        .is("archived_at", null)
         // `id` as a secondary, always-unique tie-breaker: `date_start`
         // alone isn't unique, so rows sharing a date could otherwise land
         // on either side of a page boundary inconsistently across
@@ -141,6 +145,7 @@ ${pastTableContent}
       .from("hackathons")
       .select("*")
       .eq("status", "past")
+      .is("archived_at", null)
       .order("date_start", { ascending: false })
       .limit(50);
 
