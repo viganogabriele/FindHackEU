@@ -229,6 +229,19 @@ export class EthGlobalParser extends BaseParser {
         city,
         country_code,
         location_confidence,
+        // ETHGlobal's own `medium` field is an explicit structured signal
+        // (issue #21). Only "physical"/"virtual" have been observed live
+        // (2026-09-01, both in a raw fetch of the events page and browsing
+        // ethglobal.com/events directly) - no "hybrid" value was found, so
+        // any other non-empty value is still treated as "online" rather
+        // than guessed as "hybrid". A genuinely missing `medium` (no
+        // signal at all) is left "tbd" rather than assumed online.
+        location_type:
+          event.medium === "physical"
+            ? "physical"
+            : event.medium
+              ? "online"
+              : "tbd",
         date_start: dates.start,
         date_end: dates.end,
         topics: this.extractTopics(event.name),

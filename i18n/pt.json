@@ -60,13 +60,15 @@
   "calendar.option.MicrosoftTeams": "Microsoft Teams",
   "calendar.option.Microsoft365": "Microsoft 365",
   "share.button": "Compartilhar",
-  "share.prefix": "\ud83d\ude80 Confira este hackathon:",
-  "share.date": "\ud83d\udcc5",
-  "share.location": "\ud83d\udccd",
+  "share.prefix": "🚀 Confira este hackathon:",
+  "share.date": "📅",
+  "share.location": "📍",
   "share.in": "em",
   "share.option.twitter": "Twitter",
   "share.option.linkedin": "LinkedIn",
   "share.option.reddit": "Reddit",
   "share.option.copy": "Copiar link",
-  "badge.new": "Novo"
+  "badge.new": "Novo",
+  "location.online": "Online",
+  "location.hybrid": "Híbrido"
 }

@@ -21,6 +21,16 @@ export interface ParsedHackathon {
    * Undefined = no country could be determined at all.
    */
   location_confidence?: "high" | "low";
+  /**
+   * Physical/online/hybrid/unannounced (issue #21). Optional here because
+   * not every parser has a reliable source signal for it - `route.ts`
+   * defaults a missing value to `"tbd"` at write time, same as the DB
+   * column's own default, rather than each parser having to repeat that
+   * fallback.
+   */
+  location_type?: "physical" | "online" | "hybrid" | "tbd";
+  /** Optional free-text campus/building detail (issue #21). */
+  venue?: string;
   date_start: Date;
   date_end?: Date;
   topics?: HackathonTopic[];

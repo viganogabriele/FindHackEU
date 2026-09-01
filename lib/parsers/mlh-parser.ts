@@ -151,6 +151,22 @@ export class MlhParser extends BaseParser {
     return data.props?.upcomingEvents ?? [];
   }
 
+  /** Maps MLH's own `formatType` field to this project's location_type enum (issue #21). */
+  private mapLocationType(
+    formatType: MlhEvent["formatType"],
+  ): ParsedHackathon["location_type"] {
+    switch (formatType) {
+      case "physical":
+        return "physical";
+      case "digital":
+        return "online";
+      case "hybrid_physical":
+        return "hybrid";
+      default:
+        return "tbd";
+    }
+  }
+
   private mapEventToHackathon(
     event: MlhEvent,
     stats: { excludedPastFutureWindow: number },
@@ -201,6 +217,10 @@ export class MlhParser extends BaseParser {
         city,
         country_code,
         location_confidence,
+        // MLH's own `formatType` is an explicit structured signal
+        // (issue #21) - map it directly rather than guessing from
+        // city/country resolution.
+        location_type: this.mapLocationType(event.formatType),
         date_start: dates.start,
         date_end: dates.end,
         topics: this.extractTopics(event.name),

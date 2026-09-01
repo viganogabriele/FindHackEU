@@ -90,6 +90,7 @@ describe("EthGlobalParser", () => {
     expect(results[0].country_code).toBe("DE");
     expect(results[0].city).toBe("Berlin");
     expect(results[0].url).toBe("https://ethglobal.com/events/berlin2026");
+    expect(results[0].location_type).toBe("physical");
   });
 
   it("drops an event whose explicit city country code is not European", async () => {
@@ -131,6 +132,8 @@ describe("EthGlobalParser", () => {
 
     expect(results).toHaveLength(1);
     expect(results[0].country_code).toBeUndefined();
+    // medium "virtual" -> location_type "online" (issue #21).
+    expect(results[0].location_type).toBe("online");
   });
 
   it("filters out an event whose start date is already in the past", async () => {

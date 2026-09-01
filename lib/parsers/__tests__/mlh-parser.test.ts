@@ -92,6 +92,7 @@ describe("MlhParser", () => {
     expect(results[0].city).toBe("Durham");
     expect(results[0].location_confidence).toBe("high");
     expect(results[0].url).toBe("https://durhack.com");
+    expect(results[0].location_type).toBe("physical");
   });
 
   it("drops an event whose explicit venue country code is not European", async () => {
@@ -134,6 +135,29 @@ describe("MlhParser", () => {
     expect(results).toHaveLength(1);
     expect(results[0].country_code).toBeUndefined();
     expect(results[0].city).toBeUndefined();
+    // formatType "digital" -> location_type "online" (issue #21).
+    expect(results[0].location_type).toBe("online");
+  });
+
+  it("maps formatType 'hybrid_physical' to location_type 'hybrid'", async () => {
+    mockFetchPerSeason({
+      [NEXT_SEASON]: [
+        {
+          id: "hybrid-event",
+          slug: "hybrid-event",
+          name: "Hybrid Hack Week",
+          startsAt: FUTURE,
+          url: "/events/hybrid-event/prizes",
+          formatType: "hybrid_physical",
+          venueAddress: { city: "Berlin", country: "DE" },
+        },
+      ],
+    });
+
+    const results = (await new MlhParser().parse()).hackathons;
+
+    expect(results).toHaveLength(1);
+    expect(results[0].location_type).toBe("hybrid");
   });
 
   it("merges and deduplicates events across the current and next season by id", async () => {

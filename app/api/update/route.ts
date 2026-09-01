@@ -290,6 +290,8 @@ export async function POST(request: Request) {
           name: string;
           city: string | null;
           country_code: string | null;
+          location_type: string;
+          venue: string | null;
           date_start: string;
           date_end: string | null;
           topics: string[] | null;
@@ -300,7 +302,7 @@ export async function POST(request: Request) {
           supabaseAdmin
             .from("hackathons")
             .select(
-              "id, url, name, city, country_code, date_start, date_end, topics, notes",
+              "id, url, name, city, country_code, location_type, venue, date_start, date_end, topics, notes",
             )
             // Stable order (see lib/services/fetch-all-rows.ts) so a
             // concurrent insert during pagination can't shift row
@@ -400,6 +402,11 @@ export async function POST(request: Request) {
             name: hackathon.name,
             city: hackathon.city || null,
             country_code: hackathon.country_code || null,
+            // Issue #21: default to the DB column's own default ('tbd')
+            // when a parser has no signal, rather than each parser having
+            // to repeat that fallback itself.
+            location_type: hackathon.location_type || "tbd",
+            venue: hackathon.venue || null,
             date_start: toFullTimestamp(hackathon.date_start),
             date_end: toFullTimestamp(hackathon.date_end),
             topics: hackathon.topics || null,
@@ -423,6 +430,13 @@ export async function POST(request: Request) {
           const locationChanged =
             incoming.city !== existing.city ||
             incoming.country_code !== existing.country_code;
+          // Tracked separately from `locationChanged` (city/country) since
+          // it's a distinct signal (issue #21): a hackathon flipping
+          // physical -> online/hybrid, or an organizer adding/changing a
+          // venue, doesn't necessarily come with a city/country change too.
+          const locationTypeChanged =
+            incoming.location_type !== existing.location_type;
+          const venueChanged = incoming.venue !== existing.venue;
           const nameChanged = incoming.name !== existing.name;
           const notesChanged = incoming.notes !== existing.notes;
           const topicsChanged =
@@ -431,6 +445,8 @@ export async function POST(request: Request) {
           if (
             !dateChanged &&
             !locationChanged &&
+            !locationTypeChanged &&
+            !venueChanged &&
             !nameChanged &&
             !notesChanged &&
             !topicsChanged
@@ -442,8 +458,17 @@ export async function POST(request: Request) {
             id: existing.id,
             // Only a date or location change is notification-worthy (per
             // issue #23's own recommendation) - a title/notes/topics edit
-            // updates the stored record silently.
-            notable: dateChanged || locationChanged,
+            // updates the stored record silently. A location_type/venue
+            // change is bundled into the same "notable" bucket as
+            // locationChanged (issue #21): a hackathon switching to
+            // online/hybrid, or gaining venue detail, is exactly the kind
+            // of change a subscriber would want to know about, same as a
+            // city/country change.
+            notable:
+              dateChanged ||
+              locationChanged ||
+              locationTypeChanged ||
+              venueChanged,
             fields: { ...incoming, updated_at: new Date().toISOString() },
           });
         }

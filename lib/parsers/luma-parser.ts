@@ -27,6 +27,13 @@ interface LumaEvent {
   url: string;
   description?: string;
   geo_address_info?: LumaGeoInfo;
+  // Explicit top-level signal (NOT inside geo_address_info, and observed
+  // directly on live API responses, 2026-09-01 — see issue #21): only
+  // "offline" has ever been observed in practice (this endpoint's bounding
+  // box appears to only surface in-person events), but "online"/"hybrid"
+  // are mapped defensively in case Luma's discover endpoint ever returns
+  // them.
+  location_type?: "offline" | "online" | "hybrid" | string;
 }
 
 interface LumaEventEntry {
@@ -439,6 +446,11 @@ export class LumaParser extends BaseParser {
         city,
         country_code,
         location_confidence,
+        location_type: this.mapLocationType(
+          event.location_type,
+          city,
+          country_code,
+        ),
         date_start: dates.start,
         date_end: dates.end,
         topics: this.extractTopics(event.name, event.description),
@@ -449,6 +461,29 @@ export class LumaParser extends BaseParser {
       console.error("Error mapping Luma event:", error);
       return null;
     }
+  }
+
+  /**
+   * Maps Luma's own explicit `event.location_type` field to this project's
+   * `physical | online | hybrid | tbd` enum (issue #21). "offline" is the
+   * only value observed live so far, but "online"/"hybrid" are handled in
+   * case Luma's discover endpoint ever surfaces them. When the field is
+   * absent entirely, fall back to whether this run's own geo resolution
+   * (city/country_code, populated above from geo_address_info and possibly
+   * later by LocationEnhancementService's geocoding) ever resolved a real
+   * place - "tbd" otherwise. Never inferred as "online" without an
+   * explicit signal, per issue #21's own instruction not to guess.
+   */
+  private mapLocationType(
+    rawLocationType: string | undefined,
+    city: string | undefined,
+    country_code: string | undefined,
+  ): ParsedHackathon["location_type"] {
+    if (rawLocationType === "online") return "online";
+    if (rawLocationType === "hybrid") return "hybrid";
+    if (rawLocationType === "offline") return "physical";
+
+    return city || country_code ? "physical" : "tbd";
   }
 
   /**

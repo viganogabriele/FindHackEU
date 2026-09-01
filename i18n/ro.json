@@ -68,5 +68,7 @@
   "share.option.linkedin": "LinkedIn",
   "share.option.reddit": "Reddit",
   "share.option.copy": "Copiază linkul",
-  "badge.new": "Nou"
+  "badge.new": "Nou",
+  "location.online": "Online",
+  "location.hybrid": "Hibrid"
 }

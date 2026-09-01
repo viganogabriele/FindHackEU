@@ -203,6 +203,12 @@ export class DevfolioParser extends BaseParser {
         city,
         country_code,
         location_confidence,
+        // Devfolio's `is_online` boolean is the only structured
+        // online/physical signal in its API response (issue #21) - a live
+        // fetch of the raw payload found no `hackathon_setting` field
+        // distinguishing "hybrid" (it's a branding/UI-customization object,
+        // not a location descriptor), so only these two values are mapped.
+        location_type: item.is_online ? "online" : "physical",
         date_start: dates.start,
         date_end: dates.end,
         topics: this.extractTopics(item.name, item.desc, item.tagline),

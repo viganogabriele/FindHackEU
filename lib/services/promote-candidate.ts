@@ -117,6 +117,10 @@ export async function promoteCandidate(
         name: candidate.name,
         city: candidate.city,
         country_code: candidate.country_code,
+        // A human-submitted or web-search candidate has no reliable
+        // location-type signal (issue #21) - explicit "tbd" rather than
+        // relying on the DB column default, so this is visible here too.
+        location_type: "tbd",
         date_start: dateStart,
         date_end: candidate.date_end,
         topics: defaultTopicExtractor.extractTopics(candidate.name),

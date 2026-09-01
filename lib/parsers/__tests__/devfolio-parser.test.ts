@@ -84,6 +84,8 @@ describe("DevfolioParser", () => {
     expect(results[0].location_confidence).toBe("high");
     expect(results[0].url).toBe("https://tum.devfolio.co/");
     expect(results[0].source).toBe("devfolio");
+    // is_online defaults to falsy in the fixture -> physical (issue #21).
+    expect(results[0].location_type).toBe("physical");
   });
 
   it("drops an event whose explicit full country name is not European", async () => {
@@ -125,6 +127,8 @@ describe("DevfolioParser", () => {
     expect(results).toHaveLength(1);
     expect(results[0].country_code).toBeUndefined();
     expect(results[0].location_confidence).toBeUndefined();
+    // is_online: true -> location_type "online" (issue #21).
+    expect(results[0].location_type).toBe("online");
   });
 
   it("deduplicates the same event returned by more than one filter", async () => {

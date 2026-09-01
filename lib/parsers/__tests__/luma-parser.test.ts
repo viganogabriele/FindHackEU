@@ -29,6 +29,7 @@ interface MockLumaEvent {
     city_state?: string;
     region?: string;
   };
+  location_type?: string;
 }
 
 function buildLumaResponse(
@@ -105,6 +106,74 @@ describe("LumaParser", () => {
     expect(results).toHaveLength(1);
     expect(results[0].city).toBe("Zurich");
     expect(results[0].country_code).toBe("CH");
+    expect(results[0].location_type).toBe("physical");
+  });
+
+  // Issue #21: Luma's own explicit `location_type` field (a real,
+  // top-level field observed live on 2026-09-01, only ever "offline" in
+  // practice) maps directly to this project's enum rather than being
+  // inferred from resolved city/country.
+  it("maps Luma's explicit location_type 'offline' to 'physical'", async () => {
+    mockFetchPerSlug({
+      tech: [
+        {
+          name: "Explicit Offline Hackathon",
+          start_at: FUTURE,
+          url: "explicit-offline-hackathon",
+          geo_address_info: { city: "Zurich", country_code: "ch" },
+          location_type: "offline",
+        },
+      ],
+    });
+
+    const results = (await new LumaParser().parse()).hackathons;
+
+    expect(results).toHaveLength(1);
+    expect(results[0].location_type).toBe("physical");
+  });
+
+  // Issue #21: an explicit "online" location_type is mapped directly, even
+  // though it has never been observed live on this endpoint (see
+  // luma-parser.ts's mapLocationType doc comment) - a defensive mapping,
+  // not a guess.
+  it("maps Luma's explicit location_type 'online' to 'online'", async () => {
+    mockFetchPerSlug({
+      tech: [
+        {
+          name: "Explicit Online Hackathon",
+          start_at: FUTURE,
+          url: "explicit-online-hackathon",
+          location_type: "online",
+        },
+      ],
+    });
+
+    const results = (await new LumaParser().parse()).hackathons;
+
+    expect(results).toHaveLength(1);
+    expect(results[0].location_type).toBe("online");
+  });
+
+  // Issue #21: no location_type field AND no resolved city/country must
+  // fall back to "tbd" - never guessed as "online" without an explicit
+  // signal.
+  it("defaults location_type to 'tbd' when Luma gives no location signal at all", async () => {
+    mockFetchPerSlug({
+      tech: [
+        {
+          name: "No Location Signal Hackathon",
+          start_at: FUTURE,
+          url: "no-location-signal-hackathon",
+        },
+      ],
+    });
+
+    const results = (await new LumaParser().parse()).hackathons;
+
+    expect(results).toHaveLength(1);
+    expect(results[0].city).toBeUndefined();
+    expect(results[0].country_code).toBeUndefined();
+    expect(results[0].location_type).toBe("tbd");
   });
 
   // Case 2: a genuinely non-English-titled hackathon.

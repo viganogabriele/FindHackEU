@@ -68,5 +68,7 @@
   "share.option.linkedin": "LinkedIn",
   "share.option.reddit": "Reddit",
   "share.option.copy": "Kopiuj link",
-  "badge.new": "Nowy"
+  "badge.new": "Nowy",
+  "location.online": "Online",
+  "location.hybrid": "Hybrydowy"
 }

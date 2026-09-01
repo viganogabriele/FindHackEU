@@ -10,6 +10,12 @@ export interface Database {
           // location: REMOVED - Use city + country_code instead
           city: string | null;
           country_code: string | null;
+          // Added for issue #21 (extend the location model beyond
+          // city/country): distinguishes physical/online/hybrid/unannounced
+          // events so the frontend can render something more useful than a
+          // blank location for a non-physical or not-yet-announced event.
+          location_type: "physical" | "online" | "hybrid" | "tbd";
+          venue: string | null;
           date_start: string;
           date_end: string | null;
           topics: HackathonTopic[] | null;
@@ -28,6 +34,10 @@ export interface Database {
           // location: REMOVED - Use city + country_code instead
           city?: string | null;
           country_code?: string | null;
+          // Optional on insert: the DB default ('tbd') covers callers that
+          // don't have a signal yet.
+          location_type?: "physical" | "online" | "hybrid" | "tbd";
+          venue?: string | null;
           date_start: string;
           date_end?: string | null;
           topics?: HackathonTopic[] | null;
@@ -46,6 +56,8 @@ export interface Database {
           // location: REMOVED - Use city + country_code instead
           city?: string | null;
           country_code?: string | null;
+          location_type?: "physical" | "online" | "hybrid" | "tbd";
+          venue?: string | null;
           date_start?: string;
           date_end?: string | null;
           topics?: HackathonTopic[] | null;

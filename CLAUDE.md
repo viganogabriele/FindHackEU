@@ -114,6 +114,13 @@ See `docs/discovery-research.md` for the fuller research behind the "moderation 
 - Several Supabase calls in `route.ts` carry `@ts-expect-error` because the generated types don't cover `update`/`insert` shapes precisely — this is expected, not a bug to silently "fix" by loosening types elsewhere.
 - `lib/supabase.ts` exports two clients: `supabase` (anon key, safe for client-exposed reads) and `supabaseAdmin` (service role key, server-only — used in API routes and scripts).
 - Any query that could return more than 1000 rows must go through `lib/services/fetch-all-rows.ts`'s `fetchAllRows<T>()` helper, which pages via `.range()` until a short page — PostgREST silently truncates at `max_rows` (1000) otherwise. `readme-updater.ts`, `location-enhancement-service.ts`, `scripts/backfill-topics.ts`, and `app/api/update/route.ts`'s existing-row diff all use it; use it for any new bulk read too.
+- `location_type` (`"physical" | "online" | "hybrid" | "tbd"`, not null, default `'tbd'`) and `venue` (nullable free text, campus/building detail) were added by issue #21's migration (`supabase/migrations/20260901020000_location_type.sql`) so an online/hybrid/unannounced event doesn't render as blank city/country with no explanation. Each active parser sets `location_type` only from its own source's own explicit signal — never guessed from resolved city/country alone:
+  - **Luma**: the raw event payload has an explicit top-level `location_type` field (`"offline"` in every case observed live, 2026-09-01) mapped to `physical`/`online`/`hybrid`; when that field is absent, falls back to `physical` if city/country resolved, else `tbd`. `venue` is not populated (Luma's structured data doesn't carry a distinct campus/building field).
+  - **Devfolio**: `is_online: boolean` → `online`/`physical` (no `hybrid` — its `hackathon_setting` field, checked live, is branding/UI config, not a location descriptor).
+  - **MLH**: `formatType` (`"physical" | "digital" | "hybrid_physical"`) maps directly to `physical`/`online`/`hybrid`.
+  - **ETHGlobal**: `medium` (`"physical" | "virtual"` observed live) maps `physical`→`physical`, anything else present→`online`, missing→`tbd`.
+  - **LabLab**: disabled (see its own doc comment), sets `tbd` for consistency only — no live effect.
+  - A human-approved `hackathon_candidates` promotion (`lib/services/promote-candidate.ts`) always sets `tbd` explicitly — a web-search/manual candidate has no reliable location-type signal.
 
 ### Parsers
 

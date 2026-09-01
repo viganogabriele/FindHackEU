@@ -196,6 +196,10 @@ export class LablabParser extends BaseParser {
         name: event.name.replace(/\|/g, "-").trim(),
         city: locationData.city,
         country_code: locationData.country_code,
+        // This parser is disabled (see class doc comment) so this has no
+        // live effect; kept "tbd" for consistency since LabLab provides no
+        // structured online/physical signal to map here (issue #21).
+        location_type: "tbd",
         date_start: dates.start,
         date_end: dates.end,
         topics: this.extractTopics(event.name, event.description),
