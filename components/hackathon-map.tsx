@@ -110,7 +110,7 @@ export default function HackathonMap({
           ))}
         </MarkerClusterGroup>
       </MapContainer>
-      <p className="sr-only">
+      <p className="sr-only" aria-live="polite">
         {t("map.markers", { count: mappedHackathons.length })}
       </p>
     </div>

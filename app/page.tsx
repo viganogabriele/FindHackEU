@@ -27,6 +27,8 @@ const HackathonMap = dynamic(() => import("@/components/hackathon-map"), {
   ssr: false,
 });
 
+const NO_BOOKMARKS: readonly string[] = [];
+
 export default function Home() {
   const [upcoming, setUpcoming] = useState<Hackathon[]>([]);
   const [past, setPast] = useState<Hackathon[]>([]);
@@ -160,6 +162,10 @@ function HomeContent({
   const { locale, t } = useTranslation();
   useBookmarksHydration();
   const bookmarkedIds = useBookmarksStore((state) => state.bookmarkedIds);
+  // Bookmark changes cannot affect the list while this filter is disabled.
+  const effectiveBookmarkedIds = filters.showBookmarked
+    ? bookmarkedIds
+    : NO_BOOKMARKS;
   const [view, setView] = useState<"list" | "map">("list");
   const filteredHackathons = useMemo(
     () =>
@@ -167,9 +173,9 @@ function HomeContent({
         filters.status === "upcoming" ? upcoming : past,
         filters,
         locale,
-        bookmarkedIds,
+        effectiveBookmarkedIds,
       ),
-    [filters, locale, upcoming, past, bookmarkedIds],
+    [filters, locale, upcoming, past, effectiveBookmarkedIds],
   );
 
   return (
