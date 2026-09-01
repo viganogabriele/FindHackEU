@@ -58,6 +58,40 @@ function createQueryBuilderMock(rows: unknown[] = [], error: unknown = null) {
   return { builder, calls };
 }
 
+function createFilteringQueryBuilderMock(rows: Array<Record<string, unknown>>) {
+  const calls: RecordedCall[] = [];
+  let matchingRows = rows;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const builder: any = {};
+
+  const chainable =
+    (method: string) =>
+    (...args: unknown[]) => {
+      calls.push({ method, args });
+
+      if (method === "eq" || method === "is") {
+        const [column, value] = args;
+        matchingRows = matchingRows.filter(
+          (row) => row[column as string] === value,
+        );
+      }
+
+      return builder;
+    };
+
+  for (const method of ["select", "eq", "is", "order", "limit"]) {
+    builder[method] = chainable(method);
+  }
+
+  builder.then = (
+    resolve: (value: { data: unknown; error: unknown }) => unknown,
+    reject?: (reason: unknown) => unknown,
+  ) =>
+    Promise.resolve({ data: matchingRows, error: null }).then(resolve, reject);
+
+  return { builder, calls };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function fakeClient(builder: unknown): any {
   return { from: vi.fn().mockReturnValue(builder) };
@@ -125,6 +159,43 @@ describe("hackathonsByModerationStateQuery", () => {
     await hackathonsByModerationStateQuery(client, "pending", "");
 
     expect(calls.some((c) => c.method === "ilike")).toBe(false);
+  });
+
+  it("excludes an archived hackathon from the pending moderation query", async () => {
+    const { builder, calls } = createFilteringQueryBuilderMock([
+      {
+        id: "archived-pending",
+        moderation_state: "pending",
+        archived_at: "2026-09-01T00:00:00.000Z",
+      },
+      {
+        id: "active-pending",
+        moderation_state: "pending",
+        archived_at: null,
+      },
+    ]);
+    const client = fakeClient(builder);
+
+    const result = await hackathonsByModerationStateQuery(
+      client,
+      "pending",
+      "",
+    );
+
+    expect(calls).toContainEqual({
+      method: "is",
+      args: ["archived_at", null],
+    });
+    expect(result).toEqual({
+      data: [
+        {
+          id: "active-pending",
+          moderation_state: "pending",
+          archived_at: null,
+        },
+      ],
+      error: null,
+    });
   });
 });
 

@@ -74,6 +74,9 @@ export function hackathonsByModerationStateQuery(
     .from("hackathons")
     .select("*")
     .eq("moderation_state", moderationState)
+    // An automatically archived row belongs only in the Archived tab, even
+    // if its moderation state is still pending or rejected.
+    .is("archived_at", null)
     .order("created_at", { ascending: false })
     .limit(200);
 

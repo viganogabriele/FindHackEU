@@ -122,6 +122,7 @@ ${pastTableContent}
         .from("hackathons")
         .select("*")
         .eq("status", "upcoming")
+        .eq("moderation_state", "approved")
         // Issue #72: the README is a public-facing listing, same as
         // /api/hackathons - an archived row must not appear here either, or
         // archiving it would have no visible effect.
@@ -145,6 +146,7 @@ ${pastTableContent}
       .from("hackathons")
       .select("*")
       .eq("status", "past")
+      .eq("moderation_state", "approved")
       .is("archived_at", null)
       .order("date_start", { ascending: false })
       .limit(50);
