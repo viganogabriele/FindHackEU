@@ -155,6 +155,21 @@ export class EventbriteParser extends BaseParser {
     "finland",
   ];
 
+  // Small delay between successive country-directory requests, same
+  // reasoning as LumaParser's pageDelayMs: this parser fetches 15 pages
+  // from the same host in one run - a short, polite gap between requests
+  // costs a few seconds of wall-clock time in exchange for being a much
+  // better citizen against a host we have no formal API agreement with
+  // (unlike Luma's own inter-page delay, robots.txt/live checks earlier
+  // today didn't surface any documented per-request rate limit for these
+  // directory pages, so this value is a conservative default, not a
+  // measured one).
+  private readonly countryDelayMs = 500;
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   /**
    * Extraction regex validated against a real, freshly fetched directory
    * page (2026-09-01): the relevant anchor is the second of two
@@ -185,7 +200,11 @@ export class EventbriteParser extends BaseParser {
     };
     let droppedByUnparseableDate = 0;
 
-    for (const slug of this.countrySlugs) {
+    for (const [index, slug] of this.countrySlugs.entries()) {
+      if (index > 0) {
+        await this.sleep(this.countryDelayMs);
+      }
+
       try {
         const rawEvents = await this.fetchCountryDirectory(slug);
         const country_code = europeanCountries.normalizeCountry(

@@ -80,7 +80,9 @@ describe("EventbriteParser", () => {
       ],
     });
 
-    const result = await new EventbriteParser().parse();
+    const pendingParse = new EventbriteParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const result = await pendingParse;
 
     expect(result.status).toBe("ok");
     expect(result.hackathons).toHaveLength(1);
@@ -105,7 +107,9 @@ describe("EventbriteParser", () => {
       ],
     });
 
-    const result = await new EventbriteParser().parse();
+    const pendingParse = new EventbriteParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const result = await pendingParse;
 
     expect(result.hackathons).toHaveLength(0);
     expect(result.dropped?.byClassifier).toBeGreaterThan(0);
@@ -124,7 +128,9 @@ describe("EventbriteParser", () => {
       ],
     });
 
-    const result = await new EventbriteParser().parse();
+    const pendingParse = new EventbriteParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const result = await pendingParse;
 
     expect(result.hackathons).toHaveLength(1);
     const start = result.hackathons[0].date_start;
@@ -148,7 +154,9 @@ describe("EventbriteParser", () => {
       ],
     });
 
-    const result = await new EventbriteParser().parse();
+    const pendingParse = new EventbriteParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const result = await pendingParse;
 
     expect(result.hackathons).toHaveLength(1);
     const start = result.hackathons[0].date_start;
@@ -170,7 +178,9 @@ describe("EventbriteParser", () => {
       ],
     });
 
-    const result = await new EventbriteParser().parse();
+    const pendingParse = new EventbriteParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const result = await pendingParse;
 
     expect(result.hackathons).toHaveLength(1);
     const start = result.hackathons[0].date_start;
@@ -195,7 +205,9 @@ describe("EventbriteParser", () => {
       ],
     });
 
-    const result = await new EventbriteParser().parse();
+    const pendingParse = new EventbriteParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const result = await pendingParse;
 
     expect(result.hackathons).toHaveLength(1);
     const start = result.hackathons[0].date_start;
@@ -218,7 +230,9 @@ describe("EventbriteParser", () => {
       ],
     });
 
-    const result = await new EventbriteParser().parse();
+    const pendingParse = new EventbriteParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const result = await pendingParse;
 
     expect(result.hackathons).toHaveLength(0);
     expect(result.status).toBe("ok");
@@ -237,7 +251,9 @@ describe("EventbriteParser", () => {
       ],
     });
 
-    const result = await new EventbriteParser().parse();
+    const pendingParse = new EventbriteParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const result = await pendingParse;
 
     expect(result.hackathons).toHaveLength(1);
     expect(result.hackathons[0].name).toBe(
@@ -259,7 +275,9 @@ describe("EventbriteParser", () => {
       ],
     });
 
-    const result = await new EventbriteParser().parse();
+    const pendingParse = new EventbriteParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const result = await pendingParse;
 
     expect(result.hackathons).toHaveLength(0);
   });
