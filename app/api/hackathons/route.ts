@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { fetchAllRows } from "@/lib/services/fetch-all-rows";
+import { parseHackathonsQuery } from "@/lib/api/hackathons-query";
 
 // Rate limiting storage (in production, use Redis or similar)
 const rateLimitMap = new Map<
@@ -85,32 +86,69 @@ export async function GET(request: Request) {
     );
   }
 
-  const { searchParams } = new URL(request.url);
-  const status = searchParams.get("status") || "upcoming";
+  const parsedQuery = parseHackathonsQuery(request);
+  if (!parsedQuery.ok) {
+    return NextResponse.json({ error: parsedQuery.message }, { status: 400 });
+  }
+
+  const { status, ascending, limit, cursor } = parsedQuery.value;
 
   try {
-    // Paginated (see lib/services/fetch-all-rows.ts): a plain, unpaginated
-    // select silently truncates once the table exceeds PostgREST's
-    // max_rows, which would make this endpoint quietly drop hackathons
-    // from its response with no error (found in code review).
-    const data = await fetchAllRows((from, to) =>
-      supabase
-        .from("hackathons")
-        .select(
-          "id, name, city, country_code, date_start, date_end, topics, notes, url, status, is_new, source",
-        )
-        .eq("status", status)
-        // `id` as a secondary, always-unique tie-breaker so rows sharing
-        // a `date_start` can't land inconsistently across a page boundary
-        // (found in code review).
-        .order("date_start", { ascending: status === "upcoming" })
-        .order("id", { ascending: true })
-        .range(from, to),
-    );
+    let query = supabase
+      .from("hackathons")
+      .select(
+        "id, name, city, country_code, location_type, venue, date_start, date_end, topics, notes, url, status, is_new, source",
+      )
+      .eq("status", status)
+      // `id` as a secondary, always-unique tie-breaker so rows sharing
+      // a `date_start` can't land inconsistently across a page boundary
+      // (found in code review).
+      .order("date_start", { ascending })
+      .order("id", { ascending: true });
+
+    if (cursor) {
+      // Row-value comparison "(date_start, id) > (cursor.dateStart, cursor.id)"
+      // (or "<" when sorting descending) expressed as the equivalent
+      // `.or()` filter PostgREST supports: strictly past the cursor's
+      // date_start, OR tied on date_start and past its id.
+      const op = ascending ? "gt" : "lt";
+      query = query.or(
+        `date_start.${op}.${cursor.dateStart},and(date_start.eq.${cursor.dateStart},id.gt.${cursor.id})`,
+      );
+    }
+
+    let data;
+    let nextCursor: string | null = null;
+
+    if (limit !== null) {
+      const { data: page, error } = await query.limit(limit + 1);
+      if (error) throw error;
+
+      // Cast, not trusted Supabase inference - a direct `.select()` result
+      // resolves to `never` in this project's current client setup (same
+      // rough edge documented in lib/services/promote-candidate.ts).
+      const rows = (page ?? []) as Array<{ date_start: string; id: string }>;
+      const hasMore = rows.length > limit;
+      data = hasMore ? rows.slice(0, limit) : rows;
+
+      const last = data[data.length - 1];
+      if (hasMore && last) {
+        nextCursor = Buffer.from(
+          `${last.date_start}|${last.id}`,
+          "utf-8",
+        ).toString("base64url");
+      }
+    } else {
+      // No `limit` - preserve the exact previous behavior (full dataset
+      // via fetchAllRows, see lib/services/fetch-all-rows.ts) rather than
+      // silently truncating existing consumers that don't pass `limit`.
+      data = await fetchAllRows((from, to) => query.range(from, to));
+    }
 
     return NextResponse.json(
       {
         data,
+        ...(limit !== null ? { nextCursor } : {}),
       },
       {
         headers: {

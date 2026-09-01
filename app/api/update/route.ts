@@ -3,6 +3,10 @@ import { Octokit } from "@octokit/rest";
 import { supabaseAdmin } from "@/lib/supabase";
 import { LumaParser } from "@/lib/parsers/luma-parser";
 import { LablabParser } from "@/lib/parsers/lablab-parser";
+import { DevfolioParser } from "@/lib/parsers/devfolio-parser";
+import { MlhParser } from "@/lib/parsers/mlh-parser";
+import { EthGlobalParser } from "@/lib/parsers/ethglobal-parser";
+import { EventbriteParser } from "@/lib/parsers/eventbrite-parser";
 import { ParsedHackathon } from "@/lib/parsers/base-parser";
 import type { Provider } from "@/lib/providers/provider.interface";
 import {
@@ -18,7 +22,10 @@ import { ReadmeUpdater } from "@/lib/services/readme-updater";
 import { LocationEnhancementService } from "@/lib/services/location-enhancement-service";
 import { MemoryOptimizer } from "@/lib/utils/memory-optimizer";
 import { Hackathon } from "@/types/hackathon";
-import type { ParseStatus } from "@/lib/providers/provider.interface";
+import type {
+  ParseStatus,
+  DroppedCounts,
+} from "@/lib/providers/provider.interface";
 
 interface SourceResult {
   enabled: boolean;
@@ -30,9 +37,19 @@ interface SourceResult {
   status?: ParseStatus;
   parsed: number;
   error: string | null;
+  // Per-stage rejection counts for this source's own run (issue #31) -
+  // absent/undefined for a disabled source or one that hasn't run yet.
+  dropped?: DroppedCounts;
 }
 
 export async function POST(request: Request) {
+  // Id of this run's `update_runs` row (issue #32), set once auth succeeds
+  // and a row is actually created. Declared outside the try below so the
+  // outer catch (an unhandled exception anywhere in the handler) can still
+  // find it and record the run as failed rather than leaving it stuck at
+  // status 'running' forever.
+  let runId: string | null = null;
+
   try {
     // ---------------------------------------------------------
     // Initial diagnostics
@@ -72,6 +89,33 @@ export async function POST(request: Request) {
     );
 
     // ---------------------------------------------------------
+    // Run history (issue #32)
+    //
+    // Insert a 'running' row now that auth has actually passed - a rejected
+    // request (missing CRON_SECRET, wrong bearer token) never reaches here,
+    // so it never creates a run record. Mirrors the existing `resetError`
+    // pattern just below: a failure to write this bookkeeping row must only
+    // be logged, never thrown, since it must not mask the pipeline's real
+    // result.
+    // ---------------------------------------------------------
+    try {
+      const { data: runRow, error: runInsertError } = await supabaseAdmin
+        .from("update_runs")
+        // @ts-expect-error - Supabase generated types may not include insert shape
+        .insert({ status: "running", test_mode: testMode })
+        .select("id")
+        .single();
+
+      if (runInsertError) {
+        console.error("Error creating update_runs row:", runInsertError);
+      } else {
+        runId = (runRow as { id: string } | null)?.id ?? null;
+      }
+    } catch (error) {
+      console.error("Error creating update_runs row:", error);
+    }
+
+    // ---------------------------------------------------------
     // Source configuration
     //
     // Adding a new source means creating a class that implements
@@ -79,11 +123,19 @@ export async function POST(request: Request) {
     // adding an instance to this array - no other change to this
     // orchestrator should be required.
     //
-    // LabLab is intentionally disabled for now because its
-    // public web surface is protected by Cloudflare and cannot
-    // currently be queried reliably server-side.
+    // LabLab is intentionally disabled (see lib/parsers/lablab-parser.ts
+    // for the verified reason - it is NOT Cloudflare-blocked; the site's
+    // migration to Next.js App Router removed the JSON endpoint this
+    // parser relies on, and re-enabling it needs an HTML-scraper rewrite).
     // ---------------------------------------------------------
-    const providers: Provider[] = [new LumaParser(), new LablabParser()];
+    const providers: Provider[] = [
+      new LumaParser(),
+      new LablabParser(),
+      new DevfolioParser(),
+      new MlhParser(),
+      new EthGlobalParser(),
+      new EventbriteParser(),
+    ];
 
     const sourceResults: Record<string, SourceResult> = {};
 
@@ -148,6 +200,7 @@ export async function POST(request: Request) {
         sourceResults[provider.name].success = result.success;
         sourceResults[provider.name].status = result.status;
         sourceResults[provider.name].parsed = result.count;
+        sourceResults[provider.name].dropped = result.dropped;
 
         if (result.errors.length > 0) {
           sourceResults[provider.name].error = result.errors.join("; ");
@@ -203,8 +256,16 @@ export async function POST(request: Request) {
     // below); persisting cross-source provenance is deferred to issue #24.
     const deduplicatedHackathons = mergeHackathonDuplicates(parsedHackathons);
 
+    // Cross-source duplicate count (issue #31): this pass runs once, after
+    // every provider's output has already been combined, so it isn't
+    // attributable to any single source's `dropped` counts - tracked here
+    // as a single aggregate instead.
+    const duplicatesRemoved =
+      parsedHackathons.length - deduplicatedHackathons.length;
+
     console.log(
-      `After deduplication: ${deduplicatedHackathons.length} hackathons`,
+      `After deduplication: ${deduplicatedHackathons.length} hackathons ` +
+        `(${duplicatesRemoved} duplicate(s) removed)`,
     );
 
     await MemoryOptimizer.allowGarbageCollection();
@@ -280,6 +341,8 @@ export async function POST(request: Request) {
           name: string;
           city: string | null;
           country_code: string | null;
+          location_type: string;
+          venue: string | null;
           date_start: string;
           date_end: string | null;
           topics: string[] | null;
@@ -290,7 +353,7 @@ export async function POST(request: Request) {
           supabaseAdmin
             .from("hackathons")
             .select(
-              "id, url, name, city, country_code, date_start, date_end, topics, notes",
+              "id, url, name, city, country_code, location_type, venue, date_start, date_end, topics, notes",
             )
             // Stable order (see lib/services/fetch-all-rows.ts) so a
             // concurrent insert during pagination can't shift row
@@ -361,12 +424,23 @@ export async function POST(request: Request) {
         }> = [];
 
         // Normalizes either a `Date` (from a freshly-parsed hackathon) or a
-        // stored Postgres timestamptz string (e.g. "2026-09-02T00:00:00+00:00")
-        // to the same "YYYY-MM-DD" shape, so comparing an incoming value
-        // against what's already in the database doesn't flag every row as
-        // changed just because of a string-format mismatch.
-        const toDateOnly = (date?: Date | string | null) =>
-          date ? new Date(date).toISOString().split("T")[0] : null;
+        // stored Postgres timestamptz string to the same full-precision ISO
+        // shape, so comparing an incoming value against what's already in
+        // the database doesn't flag every row as changed just because of a
+        // string-format mismatch (e.g. millisecond precision differences).
+        //
+        // This used to truncate to "YYYY-MM-DD" (issue #20) and, critically,
+        // that truncated value was what actually got inserted/updated into
+        // `date_start`/`date_end` - even though those columns are
+        // `timestamptz` and the parsers already produce full timestamps.
+        // Every event's real start/end time was silently discarded at
+        // write time, regardless of source. Full timestamp precision is now
+        // preserved in storage; only the fuzzy-match day-bucketing below
+        // (`existingRowsByDay`/`findFuzzyMatch`) still deliberately reasons
+        // in day-only terms, since that's a "same calendar day" heuristic,
+        // not a storage concern.
+        const toFullTimestamp = (date?: Date | string | null) =>
+          date ? new Date(date).toISOString() : null;
         const sortedTopics = (topics?: string[] | null) =>
           JSON.stringify([...(topics || [])].sort());
 
@@ -379,8 +453,13 @@ export async function POST(request: Request) {
             name: hackathon.name,
             city: hackathon.city || null,
             country_code: hackathon.country_code || null,
-            date_start: toDateOnly(hackathon.date_start),
-            date_end: toDateOnly(hackathon.date_end),
+            // Issue #21: default to the DB column's own default ('tbd')
+            // when a parser has no signal, rather than each parser having
+            // to repeat that fallback itself.
+            location_type: hackathon.location_type || "tbd",
+            venue: hackathon.venue || null,
+            date_start: toFullTimestamp(hackathon.date_start),
+            date_end: toFullTimestamp(hackathon.date_end),
             topics: hackathon.topics || null,
             notes: hackathon.notes || null,
           };
@@ -397,11 +476,18 @@ export async function POST(request: Request) {
           }
 
           const dateChanged =
-            incoming.date_start !== toDateOnly(existing.date_start) ||
-            incoming.date_end !== toDateOnly(existing.date_end);
+            incoming.date_start !== toFullTimestamp(existing.date_start) ||
+            incoming.date_end !== toFullTimestamp(existing.date_end);
           const locationChanged =
             incoming.city !== existing.city ||
             incoming.country_code !== existing.country_code;
+          // Tracked separately from `locationChanged` (city/country) since
+          // it's a distinct signal (issue #21): a hackathon flipping
+          // physical -> online/hybrid, or an organizer adding/changing a
+          // venue, doesn't necessarily come with a city/country change too.
+          const locationTypeChanged =
+            incoming.location_type !== existing.location_type;
+          const venueChanged = incoming.venue !== existing.venue;
           const nameChanged = incoming.name !== existing.name;
           const notesChanged = incoming.notes !== existing.notes;
           const topicsChanged =
@@ -410,6 +496,8 @@ export async function POST(request: Request) {
           if (
             !dateChanged &&
             !locationChanged &&
+            !locationTypeChanged &&
+            !venueChanged &&
             !nameChanged &&
             !notesChanged &&
             !topicsChanged
@@ -421,8 +509,17 @@ export async function POST(request: Request) {
             id: existing.id,
             // Only a date or location change is notification-worthy (per
             // issue #23's own recommendation) - a title/notes/topics edit
-            // updates the stored record silently.
-            notable: dateChanged || locationChanged,
+            // updates the stored record silently. A location_type/venue
+            // change is bundled into the same "notable" bucket as
+            // locationChanged (issue #21): a hackathon switching to
+            // online/hybrid, or gaining venue detail, is exactly the kind
+            // of change a subscriber would want to know about, same as a
+            // city/country change.
+            notable:
+              dateChanged ||
+              locationChanged ||
+              locationTypeChanged ||
+              venueChanged,
             fields: { ...incoming, updated_at: new Date().toISOString() },
           });
         }
@@ -501,16 +598,32 @@ export async function POST(request: Request) {
     // ---------------------------------------------------------
     let statusUpdateError: string | null = null;
     let statusesUpdated = false;
+    // Real transition count from the RPC (issue #27) - e.g. rows that
+    // flipped upcoming -> past with no other field changing, which
+    // wouldn't otherwise show up in newHackathons/updatedHackathons at
+    // all. Kept separate from statusesUpdated (which just means "the RPC
+    // call itself succeeded") so a successful no-op run is distinguishable
+    // from a run that actually changed something.
+    let statusTransitionCount = 0;
 
     try {
-      const { error } = await supabaseAdmin.rpc("update_hackathon_statuses");
+      const { data, error } = await supabaseAdmin.rpc(
+        "update_hackathon_statuses",
+      );
 
       if (error) {
         statusUpdateError = error.message;
         console.error("Error updating hackathon statuses:", error);
       } else {
         statusesUpdated = true;
-        console.log("Hackathon statuses updated successfully");
+        // The RPC now returns an integer (count of rows whose status
+        // actually changed) instead of void - guard defensively in case
+        // an older, unmigrated database still has the void-returning
+        // version (data would be null/undefined there).
+        statusTransitionCount = typeof data === "number" ? data : 0;
+        console.log(
+          `Hackathon statuses updated successfully (${statusTransitionCount} transition(s))`,
+        );
       }
     } catch (error) {
       statusUpdateError =
@@ -525,17 +638,19 @@ export async function POST(request: Request) {
     // A successful RPC execution does NOT automatically mean
     // that the dataset changed.
     //
-    // For now:
     // - inserted OR updated hackathons => data changed (issue #23 made
     //   in-place updates possible, so a changed date/location on an
     //   existing record is a real data change too, not just an insert)
+    // - a real status transition (issue #27) => data changed too, so an
+    //   upcoming -> past flip with no other field touched still triggers
+    //   a README regeneration instead of leaving it showing a stale
+    //   status until some unrelated insert/update happens to occur later
     // - reset errors do not count as data changes
-    //
-    // Status transitions will be handled separately once the
-    // RPC exposes the number of affected rows.
     // ---------------------------------------------------------
     const dataChanged =
-      newHackathons.length > 0 || updatedHackathons.length > 0;
+      newHackathons.length > 0 ||
+      updatedHackathons.length > 0 ||
+      statusTransitionCount > 0;
 
     // ---------------------------------------------------------
     // 5. Notifications
@@ -700,6 +815,37 @@ export async function POST(request: Request) {
 
     MemoryOptimizer.logMemoryUsage("Final memory usage");
 
+    // ---------------------------------------------------------
+    // Run history (issue #32): record the final state of this run using
+    // exactly the fields the JSON response below also reports, so the two
+    // never drift. Same "log, don't throw" pattern as the insert above -
+    // a failure here must never replace the pipeline's real response.
+    // ---------------------------------------------------------
+    if (runId) {
+      try {
+        const { error: runUpdateError } = await supabaseAdmin
+          .from("update_runs")
+          // @ts-expect-error - Supabase generated types may not include update shape
+          .update({
+            finished_at: new Date().toISOString(),
+            status: success ? "success" : "failed",
+            sources: sourceResults,
+            parsed_count: parsedHackathons.length,
+            inserted_count: newHackathons.length,
+            updated_count: updatedHackathons.length,
+            duplicates_removed: duplicatesRemoved,
+            degraded,
+          })
+          .eq("id", runId);
+
+        if (runUpdateError) {
+          console.error("Error finalizing update_runs row:", runUpdateError);
+        }
+      } catch (error) {
+        console.error("Error finalizing update_runs row:", error);
+      }
+    }
+
     return NextResponse.json(
       {
         success,
@@ -709,6 +855,7 @@ export async function POST(request: Request) {
         parsed: parsedHackathons.length,
         inserted: newHackathons.length,
         updated: updatedHackathons.length,
+        duplicatesRemoved,
         notableUpdates: notableUpdates.length,
         updateErrors: updateErrors.length > 0 ? updateErrors : undefined,
 
@@ -723,6 +870,7 @@ export async function POST(request: Request) {
 
         statusUpdateError,
         statusesUpdated,
+        statusTransitionCount,
 
         notificationsSent,
 
@@ -743,11 +891,38 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Update error:", error);
 
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+
+    // Run history (issue #32): an unhandled exception anywhere above still
+    // needs its run row closed out as 'failed' rather than left stuck at
+    // 'running' forever. Same "log, don't throw" pattern as elsewhere in
+    // this file - never let this write mask the real 500 response below.
+    if (runId) {
+      try {
+        const { error: runUpdateError } = await supabaseAdmin
+          .from("update_runs")
+          // @ts-expect-error - Supabase generated types may not include update shape
+          .update({
+            finished_at: new Date().toISOString(),
+            status: "failed",
+            error: errorMessage,
+          })
+          .eq("id", runId);
+
+        if (runUpdateError) {
+          console.error("Error finalizing update_runs row:", runUpdateError);
+        }
+      } catch (finalizeError) {
+        console.error("Error finalizing update_runs row:", finalizeError);
+      }
+    }
+
     return NextResponse.json(
       {
         success: false,
         error: "Internal server error",
-        details: error instanceof Error ? error.message : "Unknown error",
+        details: errorMessage,
       },
       { status: 500 },
     );

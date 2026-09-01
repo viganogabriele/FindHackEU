@@ -4,9 +4,13 @@ import type {
   Provider,
   ProviderResult,
   ParseStatus,
+  DroppedCounts,
 } from "@/lib/providers/provider.interface";
 
-export type { ParseStatus } from "@/lib/providers/provider.interface";
+export type {
+  ParseStatus,
+  DroppedCounts,
+} from "@/lib/providers/provider.interface";
 
 export interface ParsedHackathon {
   name: string;
@@ -21,6 +25,16 @@ export interface ParsedHackathon {
    * Undefined = no country could be determined at all.
    */
   location_confidence?: "high" | "low";
+  /**
+   * Physical/online/hybrid/unannounced (issue #21). Optional here because
+   * not every parser has a reliable source signal for it - `route.ts`
+   * defaults a missing value to `"tbd"` at write time, same as the DB
+   * column's own default, rather than each parser having to repeat that
+   * fallback.
+   */
+  location_type?: "physical" | "online" | "hybrid" | "tbd";
+  /** Optional free-text campus/building detail (issue #21). */
+  venue?: string;
   date_start: Date;
   date_end?: Date;
   topics?: HackathonTopic[];
@@ -50,6 +64,8 @@ export interface DiscoverResult {
   hackathons: ParsedHackathon[];
   errors: string[];
   status: ParseStatus;
+  /** Per-stage rejection counts observed while discovering this run (issue #31). */
+  dropped?: DroppedCounts;
 }
 
 /**
@@ -73,7 +89,7 @@ export abstract class BaseParser implements Provider {
 
   async parse(): Promise<ProviderResult> {
     try {
-      const { hackathons, errors, status } = await this.discover();
+      const { hackathons, errors, status, dropped } = await this.discover();
 
       return {
         hackathons,
@@ -81,6 +97,7 @@ export abstract class BaseParser implements Provider {
         status,
         count: hackathons.length,
         errors,
+        dropped,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -102,7 +119,20 @@ export abstract class BaseParser implements Provider {
     try {
       if (start_date_str === "N/A") throw new Error("Invalid start date");
 
-      const start = new Date(start_date_str.replace("Z", "+00:00"));
+      const parseDateWithTimezone = (value: string, label: string): Date => {
+        if (!/(?:Z|[+-]\d{2}:\d{2})$/.test(value)) {
+          throw new Error(`${label} requires an explicit timezone`);
+        }
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+          throw new Error(`Invalid ${label.toLowerCase()}: ${value}`);
+        }
+
+        return date;
+      };
+
+      const start = parseDateWithTimezone(start_date_str, "Start date");
 
       // `new Date("garbage")` does NOT throw - it silently produces an
       // "Invalid Date" whose comparisons/`.toISOString()` calls fail (or
@@ -113,18 +143,10 @@ export abstract class BaseParser implements Provider {
       // event instead of an Invalid Date reaching route.ts's batch insert
       // and throwing there, which would fail the ENTIRE batch, not just
       // the one bad row (found in code review).
-      if (Number.isNaN(start.getTime())) {
-        throw new Error(`Invalid start date: ${start_date_str}`);
-      }
-
       const end =
         end_date_str && end_date_str !== "N/A"
-          ? new Date(end_date_str.replace("Z", "+00:00"))
+          ? parseDateWithTimezone(end_date_str, "End date")
           : undefined;
-
-      if (end && Number.isNaN(end.getTime())) {
-        throw new Error(`Invalid end date: ${end_date_str}`);
-      }
 
       return { start, end };
     } catch (error) {
@@ -132,8 +154,9 @@ export abstract class BaseParser implements Provider {
         `Error parsing dates: ${start_date_str}, ${end_date_str}`,
         error,
       );
+      const reason = error instanceof Error ? `: ${error.message}` : "";
       throw new Error(
-        `Error parsing dates: ${start_date_str}, ${end_date_str}`,
+        `Error parsing dates: ${start_date_str}, ${end_date_str}${reason}`,
       );
     }
   }

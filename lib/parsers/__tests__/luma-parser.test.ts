@@ -29,6 +29,7 @@ interface MockLumaEvent {
     city_state?: string;
     region?: string;
   };
+  location_type?: string;
 }
 
 function buildLumaResponse(
@@ -105,6 +106,93 @@ describe("LumaParser", () => {
     expect(results).toHaveLength(1);
     expect(results[0].city).toBe("Zurich");
     expect(results[0].country_code).toBe("CH");
+    expect(results[0].location_type).toBe("physical");
+  });
+
+  // Issue #21: Luma's own explicit `location_type` field (a real,
+  // top-level field observed live on 2026-09-01, only ever "offline" in
+  // practice) maps directly to this project's enum rather than being
+  // inferred from resolved city/country.
+  it("maps Luma's explicit location_type 'offline' to 'physical'", async () => {
+    mockFetchPerSlug({
+      tech: [
+        {
+          name: "Explicit Offline Hackathon",
+          start_at: FUTURE,
+          url: "explicit-offline-hackathon",
+          geo_address_info: { city: "Zurich", country_code: "ch" },
+          location_type: "offline",
+        },
+      ],
+    });
+
+    const results = (await new LumaParser().parse()).hackathons;
+
+    expect(results).toHaveLength(1);
+    expect(results[0].location_type).toBe("physical");
+  });
+
+  // Issue #21: an explicit "online" location_type is mapped directly, even
+  // though it has never been observed live on this endpoint (see
+  // luma-parser.ts's mapLocationType doc comment) - a defensive mapping,
+  // not a guess.
+  it("maps Luma's explicit location_type 'online' to 'online'", async () => {
+    mockFetchPerSlug({
+      tech: [
+        {
+          name: "Explicit Online Hackathon",
+          start_at: FUTURE,
+          url: "explicit-online-hackathon",
+          location_type: "online",
+        },
+      ],
+    });
+
+    const results = (await new LumaParser().parse()).hackathons;
+
+    expect(results).toHaveLength(1);
+    expect(results[0].location_type).toBe("online");
+  });
+
+  it("does not infer physical location from an unknown location_type", async () => {
+    mockFetchPerSlug({
+      tech: [
+        {
+          name: "Future Location Hackathon",
+          start_at: FUTURE,
+          url: "future-location-hackathon",
+          location_type: "remote",
+          geo_address_info: { city: "Berlin", country_code: "DE" },
+        },
+      ],
+    });
+
+    const results = (await new LumaParser().parse()).hackathons;
+
+    expect(results).toHaveLength(1);
+    expect(results[0].location_type).toBe("tbd");
+  });
+
+  // Issue #21: no location_type field AND no resolved city/country must
+  // fall back to "tbd" - never guessed as "online" without an explicit
+  // signal.
+  it("defaults location_type to 'tbd' when Luma gives no location signal at all", async () => {
+    mockFetchPerSlug({
+      tech: [
+        {
+          name: "No Location Signal Hackathon",
+          start_at: FUTURE,
+          url: "no-location-signal-hackathon",
+        },
+      ],
+    });
+
+    const results = (await new LumaParser().parse()).hackathons;
+
+    expect(results).toHaveLength(1);
+    expect(results[0].city).toBeUndefined();
+    expect(results[0].country_code).toBeUndefined();
+    expect(results[0].location_type).toBe("tbd");
   });
 
   // Case 2: a genuinely non-English-titled hackathon.
@@ -387,6 +475,49 @@ describe("LumaParser", () => {
     expect(results).toHaveLength(0);
   });
 
+  // Issue #31: structured per-stage drop counts, wired into the existing
+  // reject points (classifier, date window, country) rather than only
+  // console.log/warn.
+  it("reports structured dropped counts for classifier, date-window, and country rejections", async () => {
+    mockFetchPerSlug({
+      tech: [
+        // Rejected by the classifier (no hackathon-y keywords at all).
+        {
+          name: "Just A Regular Meetup",
+          start_at: FUTURE,
+          url: "regular-meetup",
+        },
+        // Rejected for being outside the configured future-date window.
+        {
+          name: "Far Future Hackathon",
+          start_at: "2030-01-01T00:00:00.000Z",
+          url: "far-future-hackathon",
+        },
+        // Rejected as an explicit non-European country.
+        {
+          name: "San Francisco AI Hackathon",
+          start_at: FUTURE,
+          url: "sf-hackathon-2",
+          geo_address_info: { city: "San Francisco", country_code: "US" },
+        },
+        // Accepted, so the counts above aren't just "everything dropped".
+        {
+          name: "Zurich Builders Hackathon",
+          start_at: FUTURE,
+          url: "zurich-builders-hackathon-2",
+          geo_address_info: { city: "Zurich", country_code: "ch" },
+        },
+      ],
+    });
+
+    const result = await new LumaParser().parse();
+
+    expect(result.hackathons).toHaveLength(1);
+    expect(result.dropped?.byClassifier).toBe(1);
+    expect(result.dropped?.byDateWindow).toBe(1);
+    expect(result.dropped?.byCountry).toBe(1);
+  });
+
   // Regression test for a real bug found in a second round of code review:
   // the non-European check only ran `if (!country_code)`, AFTER the
   // region/city_state fallbacks - so an explicit non-European
@@ -469,5 +600,29 @@ describe("LumaParser", () => {
     } finally {
       process.env.LUMA_MAX_PAGES_PER_SLUG = originalEnv;
     }
+  });
+
+  it("degrades status to 'partial' when has_more is true but no next cursor is supplied", async () => {
+    mockFetchPerSlug(
+      {
+        tech: [
+          {
+            name: "Cursorless Pagination Hackathon",
+            start_at: FUTURE,
+            url: "cursorless-pagination",
+          },
+        ],
+      },
+      { has_more: true },
+    );
+
+    const result = await new LumaParser().parse();
+
+    expect(result.hackathons).toHaveLength(1);
+    expect(result.status).toBe("partial");
+    expect(result.success).toBe(true);
+    expect(result.errors).toContainEqual(
+      expect.stringContaining("has_more: true but no next_cursor"),
+    );
   });
 });

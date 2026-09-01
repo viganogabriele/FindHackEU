@@ -68,5 +68,7 @@
   "share.option.linkedin": "LinkedIn",
   "share.option.reddit": "Reddit",
   "share.option.copy": "Kopiera länk",
-  "badge.new": "Ny"
+  "badge.new": "Ny",
+  "location.online": "Online",
+  "location.hybrid": "Hybrid"
 }

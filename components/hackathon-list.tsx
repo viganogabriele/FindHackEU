@@ -155,7 +155,7 @@ export default function HackathonList({
                   {formatDateRange(hackathon.date_start, hackathon.date_end)}
                 </span>
               </div>
-              {(hackathon.city || hackathon.country_code) && (
+              {hackathon.city || hackathon.country_code ? (
                 <div className="flex md:w-1/2 items-center gap-2 text-sm text-muted-foreground">
                   <MapPin className="h-4 w-4 shrink-0" />
                   <span>
@@ -167,6 +167,21 @@ export default function HackathonList({
                       europeanCountries.getCountryEmoji(hackathon.country_code)}
                   </span>
                 </div>
+              ) : (
+                // Issue #21: no city/country resolved (online/hybrid/tbd
+                // event) - show a badge explaining why instead of leaving
+                // blank space where a location would normally be.
+                (hackathon.location_type === "online" ||
+                  hackathon.location_type === "hybrid") && (
+                  <div className="flex md:w-1/2 items-center gap-2 text-sm text-muted-foreground">
+                    <MapPin className="h-4 w-4 shrink-0" />
+                    <Badge variant="secondary" className="text-xs">
+                      {hackathon.location_type === "online"
+                        ? t("location.online")
+                        : t("location.hybrid")}
+                    </Badge>
+                  </div>
+                )
               )}
             </div>
           </div>

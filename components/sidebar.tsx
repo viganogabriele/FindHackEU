@@ -614,6 +614,9 @@ function SidebarContent({
         <>
           <Separator />
           <DevTriggerUpdateButton />
+          <Button asChild variant="outline" className="w-full">
+            <a href="/admin/candidates">Review web candidates (dev)</a>
+          </Button>
         </>
       )}
 

@@ -3,6 +3,7 @@ import {
   ParsedHackathon,
   DiscoverResult,
   ParseStatus,
+  DroppedCounts,
 } from "@/lib/parsers/base-parser";
 import { europeanCountries } from "@/lib/european-countries";
 import {
@@ -27,6 +28,13 @@ interface LumaEvent {
   url: string;
   description?: string;
   geo_address_info?: LumaGeoInfo;
+  // Explicit top-level signal (NOT inside geo_address_info, and observed
+  // directly on live API responses, 2026-09-01 — see issue #21): only
+  // "offline" has ever been observed in practice (this endpoint's bounding
+  // box appears to only surface in-person events), but "online"/"hybrid"
+  // are mapped defensively in case Luma's discover endpoint ever returns
+  // them.
+  location_type?: "offline" | "online" | "hybrid" | string;
 }
 
 interface LumaEventEntry {
@@ -39,6 +47,29 @@ interface LumaApiResponse {
   next_cursor?: string;
 }
 
+/**
+ * Per-slug counters for the existing reject points this file already had
+ * (classifier, date window, non-European country) - just surfaced through
+ * the return value instead of only console.log/warn (issue #31). No new
+ * rejection logic; only counting around what already exists.
+ */
+interface LumaDropStats {
+  excludedPastFutureWindow: number;
+  droppedByClassifier: number;
+  droppedByCountry: number;
+}
+
+// KNOWN RISK (issue #65, decision recorded 2026-09-01): this parser calls
+// api.luma.com/discover/get-paginated-events, an unauthenticated, undocumented
+// internal endpoint - not Luma's officially supported API
+// (public-api.luma.com, which requires a paid Luma Plus subscription with no
+// free tier). Luma's own Terms of Service (Acceptable Use) require using only
+// "publicly supported interfaces", so this technically conflicts with that
+// clause. Accepted as a conscious, monitored trade-off for now because it is
+// currently this project's only source with meaningful European coverage -
+// see issue #65 for the full reasoning and the conditions for revisiting
+// this. Keep request volume low (LUMA_MAX_PAGES_PER_SLUG) and do not treat
+// this as a stable, guaranteed-free API.
 export class LumaParser extends BaseParser {
   readonly name = "luma";
   readonly enabled = true;
@@ -90,26 +121,46 @@ export class LumaParser extends BaseParser {
     // "failed" if every slug happened to truncate but none actually
     // errored (found in code review).
     let hardFailures = 0;
+    // Aggregated per-stage drop counts across every slug (issue #31) -
+    // surfaced through the return value (previously only visible via
+    // scattered console.log/warn calls, with no structured accounting).
+    const dropped: Required<DroppedCounts> = {
+      byClassifier: 0,
+      byDateWindow: 0,
+      byCountry: 0,
+    };
 
     for (const slug of this.slugs) {
       try {
-        const { events, pagesFetched, truncated } =
+        const { events, pagesFetched, truncated, truncationReason } =
           await this.fetchEventsForSlug(slug);
-        const stats = { excludedPastFutureWindow: 0 };
+        const stats: LumaDropStats = {
+          excludedPastFutureWindow: 0,
+          droppedByClassifier: 0,
+          droppedByCountry: 0,
+        };
         const hackathons = this.filterHackathons(events, stats);
+
+        dropped.byClassifier += stats.droppedByClassifier;
+        dropped.byDateWindow += stats.excludedPastFutureWindow;
+        dropped.byCountry += stats.droppedByCountry;
 
         console.log(
           `Luma [${slug}]: fetched ${pagesFetched} page(s), ` +
             `${events.length} raw events, matched ${hackathons.length} hackathons, ` +
-            `excluded ${stats.excludedPastFutureWindow} beyond the ` +
-            `${MAX_FUTURE_DAYS}-day future window`,
+            `dropped ${stats.droppedByClassifier} by classifier, ` +
+            `${stats.excludedPastFutureWindow} beyond the ${MAX_FUTURE_DAYS}-day ` +
+            `future window, ${stats.droppedByCountry} as non-European`,
         );
 
-        if (truncated) {
+        if (truncated && truncationReason) {
           const truncationMessage =
-            `stopped at the ${this.maxPagesPerSlug}-page limit while Luma ` +
-            `still reported more results (has_more: true) - some events ` +
-            `for this category were not fetched this run`;
+            truncationReason === "missing-cursor"
+              ? "Luma reported has_more: true but no next_cursor - some " +
+                "events for this category may not have been fetched this run"
+              : `stopped at the ${this.maxPagesPerSlug}-page limit while Luma ` +
+                `still reported more results (has_more: true) - some events ` +
+                `for this category were not fetched this run`;
 
           console.warn(`Luma [${slug}]: ${truncationMessage}.`);
 
@@ -149,7 +200,16 @@ export class LumaParser extends BaseParser {
       status = "partial";
     }
 
-    return { hackathons, errors, status };
+    const totalDropped =
+      dropped.byClassifier + dropped.byDateWindow + dropped.byCountry;
+
+    console.log(
+      `luma: ${hackathons.length} found, ${totalDropped} dropped ` +
+        `(classifier: ${dropped.byClassifier}, date: ${dropped.byDateWindow}, ` +
+        `country: ${dropped.byCountry})`,
+    );
+
+    return { hackathons, errors, status, dropped };
   }
 
   private async fetchEventsForSlug(slug: string): Promise<{
@@ -162,6 +222,7 @@ export class LumaParser extends BaseParser {
     // (found in code review): silently truncating without any signal that
     // real events beyond the page cap were left unfetched.
     truncated: boolean;
+    truncationReason?: "page-limit" | "missing-cursor";
   }> {
     const allEvents: LumaEventEntry[] = [];
     let cursor: string | null = null;
@@ -221,8 +282,17 @@ export class LumaParser extends BaseParser {
         `Luma [${slug}]: fetched page ${page} with ${events.length} events`,
       );
 
-      if (!data.has_more || !data.next_cursor) {
+      if (!data.has_more) {
         return { events: allEvents, pagesFetched: page, truncated: false };
+      }
+
+      if (!data.next_cursor) {
+        return {
+          events: allEvents,
+          pagesFetched: page,
+          truncated: true,
+          truncationReason: "missing-cursor",
+        };
       }
 
       if (page >= this.maxPagesPerSlug) {
@@ -232,7 +302,12 @@ export class LumaParser extends BaseParser {
       cursor = data.next_cursor;
     }
 
-    return { events: allEvents, pagesFetched: page, truncated: true };
+    return {
+      events: allEvents,
+      pagesFetched: page,
+      truncated: true,
+      truncationReason: "page-limit",
+    };
   }
 
   /**
@@ -244,10 +319,18 @@ export class LumaParser extends BaseParser {
    */
   private filterHackathons(
     events: LumaEventEntry[],
-    stats: { excludedPastFutureWindow: number },
+    stats: LumaDropStats,
   ): ParsedHackathon[] {
     const hackathons = events
-      .filter((entry) => this.isHackathon(entry.event))
+      .filter((entry) => {
+        const isHack = this.isHackathon(entry.event);
+
+        if (!isHack) {
+          stats.droppedByClassifier++;
+        }
+
+        return isHack;
+      })
       .map((entry) => this.mapEventToHackathon(entry, stats))
       .filter((hackathon): hackathon is ParsedHackathon => hackathon !== null);
 
@@ -305,7 +388,7 @@ export class LumaParser extends BaseParser {
 
   private mapEventToHackathon(
     entry: LumaEventEntry,
-    stats: { excludedPastFutureWindow: number },
+    stats: LumaDropStats,
   ): ParsedHackathon | null {
     try {
       const event = entry.event;
@@ -358,6 +441,7 @@ export class LumaParser extends BaseParser {
         europeanCountries.classifyCountryCode(geo.country_code) ===
         "non_european"
       ) {
+        stats.droppedByCountry++;
         console.log(
           `Dropping Luma event "${event.name}": explicit country_code ${geo.country_code} is not European.`,
         );
@@ -398,6 +482,7 @@ export class LumaParser extends BaseParser {
         country_code &&
         !europeanCountries.isValidEuropeanCountry(country_code)
       ) {
+        stats.droppedByCountry++;
         console.log(
           `Dropping Luma event "${event.name}": explicit country_code ${country_code} is not European.`,
         );
@@ -428,6 +513,11 @@ export class LumaParser extends BaseParser {
         city,
         country_code,
         location_confidence,
+        location_type: this.mapLocationType(
+          event.location_type,
+          city,
+          country_code,
+        ),
         date_start: dates.start,
         date_end: dates.end,
         topics: this.extractTopics(event.name, event.description),
@@ -437,6 +527,41 @@ export class LumaParser extends BaseParser {
     } catch (error) {
       console.error("Error mapping Luma event:", error);
       return null;
+    }
+  }
+
+  /**
+   * Maps Luma's own explicit `event.location_type` field to this project's
+   * `physical | online | hybrid | tbd` enum (issue #21). "offline" is the
+   * only value observed live so far, but "online"/"hybrid" are handled in
+   * case Luma's discover endpoint ever surfaces them. When the field is
+   * absent entirely, fall back to whether this run's own geo resolution
+   * (city/country_code, populated above from geo_address_info and possibly
+   * later by LocationEnhancementService's geocoding) ever resolved a real
+   * place - "tbd" otherwise. Never inferred as "online" without an
+   * explicit signal, per issue #21's own instruction not to guess.
+   */
+  private mapLocationType(
+    rawLocationType: string | undefined,
+    city: string | undefined,
+    country_code: string | undefined,
+  ): ParsedHackathon["location_type"] {
+    if (rawLocationType === undefined) {
+      return city || country_code ? "physical" : "tbd";
+    }
+
+    switch (rawLocationType?.toLowerCase()) {
+      case "online":
+        return "online";
+      case "hybrid":
+        return "hybrid";
+      case "offline":
+        return "physical";
+      default:
+        // City/country metadata alone cannot override an explicit unknown
+        // value. Keep it reviewable rather than silently promoting it to
+        // "physical" or "online".
+        return "tbd";
     }
   }
 

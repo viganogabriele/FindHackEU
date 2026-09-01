@@ -27,6 +27,16 @@ interface LablabApiResponse {
   };
 }
 
+// Confirmed disabled as of 2026-09-01 (issue #11): lablab.ai is NOT
+// Cloudflare-blocked (plain server-side fetch returns 200 with real
+// content). The actual problem is that the site migrated from Next.js
+// Pages Router to App Router - the homepage no longer embeds a `buildId`,
+// so the `/_next/data/{buildId}/event.json` JSON endpoint this parser
+// relies on no longer exists. Event data is still present, but only
+// server-rendered directly into the HTML of /ai-hackathons - re-enabling
+// this source would require rewriting it as an HTML scraper against that
+// page instead of this JSON-endpoint approach, which is new work, not a
+// simple re-enable. Left disabled until someone picks that up.
 export class LablabParser extends BaseParser {
   readonly name = "lablab";
   readonly enabled = false;
@@ -186,6 +196,10 @@ export class LablabParser extends BaseParser {
         name: event.name.replace(/\|/g, "-").trim(),
         city: locationData.city,
         country_code: locationData.country_code,
+        // This parser is disabled (see class doc comment) so this has no
+        // live effect; kept "tbd" for consistency since LabLab provides no
+        // structured online/physical signal to map here (issue #21).
+        location_type: "tbd",
         date_start: dates.start,
         date_end: dates.end,
         topics: this.extractTopics(event.name, event.description),
