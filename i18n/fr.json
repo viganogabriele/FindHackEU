@@ -70,5 +70,8 @@
   "share.option.copy": "Copier le lien",
   "badge.new": "Nouveau",
   "location.online": "En ligne",
-  "location.hybrid": "Hybride"
+  "location.hybrid": "Hybride",
+  "location.tbd": "À définir",
+  "location.physical": "En présentiel",
+  "location.venue": "Lieu"
 }

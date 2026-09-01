@@ -1,9 +1,27 @@
 import { supabaseAdmin } from "@/lib/supabase";
-import { normalizeUrl } from "@/lib/dedup/url-normalizer";
 import { defaultTopicExtractor } from "@/lib/topic-extractor";
 import type { Database } from "@/types/database";
 
 type CandidateRow = Database["public"]["Tables"]["hackathon_candidates"]["Row"];
+
+interface PromotionRpcResponse {
+  outcome: string;
+  hackathon_id?: string;
+  existing_hackathon_id?: string;
+}
+
+interface PromotionRpcClient {
+  rpc(
+    functionName: "promote_hackathon_candidate",
+    args: {
+      p_candidate_id: string;
+      p_topics: string[];
+    },
+  ): PromiseLike<{
+    data: unknown;
+    error: { message: string } | null;
+  }>;
+}
 
 export type PromoteResult =
   | { outcome: "promoted"; hackathonId: string }
@@ -29,8 +47,10 @@ export type PromoteResult =
  * as expected, not a bug to "fix" by loosening types elsewhere; this
  * follows the same rule for selects.
  *
- * Idempotent: re-approving an already-promoted candidate returns
- * `"already_promoted"` instead of inserting a duplicate row.
+ * The read is only used to obtain the candidate's name for topic extraction.
+ * The actual status check, normalized-URL lookup, insert, and candidate
+ * update happen in one database RPC transaction protected by a per-URL
+ * advisory lock, so two concurrent approvals cannot both insert.
  */
 export async function promoteCandidate(
   candidateId: string,
@@ -50,110 +70,75 @@ export async function promoteCandidate(
   if (!candidate) {
     return { outcome: "not_found" };
   }
-  if (candidate.promoted_at && candidate.promoted_hackathon_id) {
-    return {
-      outcome: "already_promoted",
-      hackathonId: candidate.promoted_hackathon_id,
-    };
+
+  const { data, error } = await (
+    supabaseAdmin as unknown as PromotionRpcClient
+  ).rpc("promote_hackathon_candidate", {
+    p_candidate_id: candidateId,
+    p_topics: defaultTopicExtractor.extractTopics(candidate.name),
+  });
+
+  if (error) {
+    return { outcome: "error", message: error.message };
   }
 
-  const normalizedCandidateUrl = normalizeUrl(candidate.url);
+  return mapPromotionRpcResponse(data);
+}
 
-  // Reuse the same normalized-URL identity the main pipeline's own dedup
-  // uses (lib/dedup/url-normalizer.ts) - a candidate whose event has since
-  // been picked up by Luma/Devfolio/MLH/ETHGlobal on its own must not
-  // become a second row for the same event.
-  const { data: existingRowsData, error: existingError } = await supabaseAdmin
-    .from("hackathons")
-    .select("id, url")
-    .eq("url", candidate.url);
-
-  if (existingError) {
-    return { outcome: "error", message: existingError.message };
-  }
-
-  const existingRows = existingRowsData as Array<{
-    id: string;
-    url: string;
-  }> | null;
-
-  const existing = existingRows?.find(
-    (row) => normalizeUrl(row.url) === normalizedCandidateUrl,
-  );
-
-  if (existing) {
-    await supabaseAdmin
-      .from("hackathon_candidates")
-      // @ts-expect-error - Supabase generated types may not include update shape
-      .update({
-        status: "approved",
-        reviewed_at: new Date().toISOString(),
-        promoted_at: new Date().toISOString(),
-        promoted_hackathon_id: existing.id,
-      })
-      .eq("id", candidateId);
-
-    return { outcome: "duplicate_url", existingHackathonId: existing.id };
-  }
-
-  const now = new Date();
-  const dateStart = candidate.date_start ?? now.toISOString();
-  // A candidate with no recoverable structured date is inserted as
-  // "estimated" (part of the status enum specifically for this case, per
-  // the init migration's own comment) rather than guessed into
-  // "upcoming"/"past" - a human approved the event's existence, not a
-  // specific date.
-  const status = candidate.date_start
-    ? new Date(candidate.date_start) < now
-      ? "past"
-      : "upcoming"
-    : "estimated";
-
-  const { data: insertedData, error: insertError } = await supabaseAdmin
-    .from("hackathons")
-    .insert([
-      // @ts-expect-error - Supabase generated types may not include insert shape
-      {
-        name: candidate.name,
-        city: candidate.city,
-        country_code: candidate.country_code,
-        // A human-submitted or web-search candidate has no reliable
-        // location-type signal (issue #21) - explicit "tbd" rather than
-        // relying on the DB column default, so this is visible here too.
-        location_type: "tbd",
-        date_start: dateStart,
-        date_end: candidate.date_end,
-        topics: defaultTopicExtractor.extractTopics(candidate.name),
-        url: candidate.url,
-        source: "websearch",
-        status,
-        is_new: true,
-      },
-    ])
-    .select("id")
-    .single();
-
-  const inserted = insertedData as { id: string } | null;
-
-  if (insertError || !inserted) {
+function mapPromotionRpcResponse(data: unknown): PromoteResult {
+  if (!isPromotionRpcResponse(data)) {
     return {
       outcome: "error",
-      message: insertError?.message ?? "Insert returned no row",
+      message: "Promotion RPC returned an invalid response",
     };
   }
 
-  await supabaseAdmin
-    .from("hackathon_candidates")
-    // @ts-expect-error - Supabase generated types may not include update shape
-    .update({
-      status: "approved",
-      reviewed_at: now.toISOString(),
-      promoted_at: now.toISOString(),
-      promoted_hackathon_id: inserted.id,
-    })
-    .eq("id", candidateId);
+  switch (data.outcome) {
+    case "promoted":
+      return data.hackathon_id
+        ? { outcome: "promoted", hackathonId: data.hackathon_id }
+        : {
+            outcome: "error",
+            message: "Promotion RPC returned an invalid response",
+          };
+    case "already_promoted":
+      return data.hackathon_id
+        ? { outcome: "already_promoted", hackathonId: data.hackathon_id }
+        : {
+            outcome: "error",
+            message: "Promotion RPC returned an invalid response",
+          };
+    case "duplicate_url":
+      return data.existing_hackathon_id
+        ? {
+            outcome: "duplicate_url",
+            existingHackathonId: data.existing_hackathon_id,
+          }
+        : {
+            outcome: "error",
+            message: "Promotion RPC returned an invalid response",
+          };
+    case "not_found":
+      return { outcome: "not_found" };
+    default:
+      return {
+        outcome: "error",
+        message: "Promotion RPC returned an invalid response",
+      };
+  }
+}
 
-  return { outcome: "promoted", hackathonId: inserted.id };
+function isPromotionRpcResponse(data: unknown): data is PromotionRpcResponse {
+  if (typeof data !== "object" || data === null) return false;
+
+  const response = data as Record<string, unknown>;
+  return (
+    typeof response.outcome === "string" &&
+    (response.hackathon_id === undefined ||
+      typeof response.hackathon_id === "string") &&
+    (response.existing_hackathon_id === undefined ||
+      typeof response.existing_hackathon_id === "string")
+  );
 }
 
 export async function rejectCandidate(

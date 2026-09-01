@@ -116,6 +116,20 @@ export default function HackathonList({
 
   const HackathonCard = ({ hackathon }: { hackathon: Hackathon }) => {
     const { t, formatDateRange } = useTranslation();
+    const formattedLocation = europeanCountries.formatLocation(
+      hackathon.city,
+      hackathon.country_code,
+    );
+    const locationTypeLabel =
+      hackathon.location_type === "physical"
+        ? t("location.physical")
+        : hackathon.location_type === "online"
+          ? t("location.online")
+          : hackathon.location_type === "hybrid"
+            ? t("location.hybrid")
+            : hackathon.location_type === "tbd"
+              ? t("location.tbd")
+              : undefined;
     // DEBUG: log resolution for badge.new during runtime to diagnose missing translations
     if (typeof window !== "undefined") {
       try {
@@ -155,33 +169,31 @@ export default function HackathonList({
                   {formatDateRange(hackathon.date_start, hackathon.date_end)}
                 </span>
               </div>
-              {hackathon.city || hackathon.country_code ? (
-                <div className="flex md:w-1/2 items-center gap-2 text-sm text-muted-foreground">
-                  <MapPin className="h-4 w-4 shrink-0" />
-                  <span>
-                    {europeanCountries.formatLocation(
-                      hackathon.city,
-                      hackathon.country_code,
-                    )}{" "}
-                    {hackathon.country_code &&
-                      europeanCountries.getCountryEmoji(hackathon.country_code)}
-                  </span>
-                </div>
-              ) : (
-                // Issue #21: no city/country resolved (online/hybrid/tbd
-                // event) - show a badge explaining why instead of leaving
-                // blank space where a location would normally be.
-                (hackathon.location_type === "online" ||
-                  hackathon.location_type === "hybrid") && (
-                  <div className="flex md:w-1/2 items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4 shrink-0" />
-                    <Badge variant="secondary" className="text-xs">
-                      {hackathon.location_type === "online"
-                        ? t("location.online")
-                        : t("location.hybrid")}
-                    </Badge>
+              {(formattedLocation || hackathon.venue || locationTypeLabel) && (
+                <div className="flex md:w-1/2 items-start gap-2 text-sm text-muted-foreground">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                    {formattedLocation && (
+                      <span>
+                        {formattedLocation}{" "}
+                        {hackathon.country_code &&
+                          europeanCountries.getCountryEmoji(
+                            hackathon.country_code,
+                          )}
+                      </span>
+                    )}
+                    {hackathon.venue && (
+                      <span className="basis-full text-xs">
+                        {t("location.venue")}: {hackathon.venue}
+                      </span>
+                    )}
+                    {locationTypeLabel && (
+                      <Badge variant="secondary" className="text-xs">
+                        {locationTypeLabel}
+                      </Badge>
+                    )}
                   </div>
-                )
+                </div>
               )}
             </div>
           </div>

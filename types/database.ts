@@ -27,6 +27,7 @@ export interface Database {
           updated_at: string;
           notified: boolean;
           is_new: boolean;
+          normalized_url: string;
         };
         Insert: {
           id?: string;
@@ -49,6 +50,7 @@ export interface Database {
           updated_at?: string;
           notified?: boolean;
           is_new?: boolean;
+          normalized_url?: string;
         };
         Update: {
           id?: string;
@@ -69,6 +71,7 @@ export interface Database {
           updated_at?: string;
           notified?: boolean;
           is_new?: boolean;
+          normalized_url?: string;
         };
       };
       hackathon_candidates: {

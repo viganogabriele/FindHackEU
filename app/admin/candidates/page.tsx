@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import type { Database } from "@/types/database";
 import { approveCandidateAction, rejectCandidateAction } from "./actions";
 import { ManualSubmitForm } from "./manual-submit-form";
+import { isDevOnlyEnabled } from "@/lib/admin/dev-only";
 
 type CandidateRow = Database["public"]["Tables"]["hackathon_candidates"]["Row"];
 
@@ -19,20 +20,19 @@ const STATUSES: StatusFilter[] = ["pending", "approved", "rejected"];
  * "Approve" is the only path that copies a candidate into the real
  * `hackathons` table (lib/services/promote-candidate.ts).
  *
- * Dev-only for now (`notFound()` outside development, same pattern as
- * app/api/dev/trigger-update/route.ts) - this page can approve/reject
- * real data with no authentication check of its own, which is only
- * acceptable while nobody but the maintainer can reach it at all (local
- * dev, no public deployment of this route). Do not remove this gate
- * without adding real auth first - see issue #67 (Google sign-in via
- * Supabase Auth) before ever enabling this in production.
+ * Dev-only for now (`notFound()` outside an explicit development runtime,
+ * same pattern as app/api/dev/trigger-update/route.ts) - this page can
+ * approve/reject real data with no authentication check of its own. Preview
+ * and staging runtimes are intentionally closed too. Do not remove this gate
+ * without adding real auth first - see issue #67 (Google sign-in via Supabase
+ * Auth) before ever enabling this in a deployed environment.
  */
 export default async function CandidatesAdminPage({
   searchParams,
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
-  if (process.env.NODE_ENV === "production") {
+  if (!isDevOnlyEnabled()) {
     notFound();
   }
 

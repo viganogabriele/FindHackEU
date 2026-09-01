@@ -223,7 +223,6 @@ const GENERIC_EVENT_WORDS = new Set([
   "events",
   "festival",
   "hackathon",
-  "hackathons",
   "meetup",
   "summit",
   "workshop",

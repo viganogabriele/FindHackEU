@@ -158,7 +158,9 @@ export default function DocsPage() {
                 <strong>Event Name:</strong> Full hackathon title
               </li>
               <li>
-                <strong>Location:</strong> City and country
+                <strong>Location:</strong> City, country, location type
+                (physical, online, hybrid, or to be announced), and venue when
+                available
               </li>
               <li>
                 <strong>Dates:</strong> Start and end dates (if available)
@@ -245,12 +247,29 @@ export default function DocsPage() {
                     <code>status</code> - Filter by status (upcoming, past,
                     estimated)
                   </li>
+                  <li>
+                    <code>limit</code> - Optional page size from 1 to 100. If
+                    omitted, the complete result set is returned.
+                  </li>
+                  <li>
+                    <code>cursor</code> - Opaque cursor returned as{" "}
+                    <code>nextCursor</code>; use it to request the next page
+                    with the same filters.
+                  </li>
                 </ul>
 
                 <h4 className="font-semibold mb-2 mt-4">Example Request</h4>
                 <div className="bg-muted rounded-lg p-3 font-mono text-xs overflow-x-auto">
-                  GET /api/hackathons?status=upcoming
+                  GET /api/hackathons?status=upcoming&amp;limit=25
                 </div>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  When <code>limit</code> is supplied, request the next page
+                  with the returned cursor, for example{" "}
+                  <code>
+                    /api/hackathons?status=upcoming&amp;limit=25&amp;cursor=...
+                  </code>
+                  .
+                </p>
               </div>
 
               <div className="border rounded-lg p-4">
@@ -263,6 +282,8 @@ export default function DocsPage() {
       "name": "AI Hackathon Munich",
       "city": "Munich",
       "country_code": "DE",
+      "location_type": "physical",
+      "venue": "TUM Main Campus",
       "date_start": "2025-06-15T09:00:00+00:00",
       "date_end": "2025-06-16T18:00:00+00:00",
       "topics": ["AI", "Machine Learning"],
@@ -272,9 +293,15 @@ export default function DocsPage() {
       "is_new": true
     },
     ...
-  ]
+  ],
+  "nextCursor": "opaque-cursor-or-null"
 }`}
                 </div>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  <code>nextCursor</code> is returned when <code>limit</code> is
+                  supplied; it is omitted from the complete response when
+                  <code>limit</code> is not supplied.
+                </p>
               </div>
             </div>
 

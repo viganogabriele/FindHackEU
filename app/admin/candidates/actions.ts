@@ -9,6 +9,7 @@ import {
   submitManualCandidate,
   type SubmitManualCandidateResult,
 } from "@/lib/services/submit-manual-candidate";
+import { assertDevOnly } from "@/lib/admin/dev-only";
 
 /**
  * Server actions backing /admin/candidates. Every action re-checks
@@ -17,12 +18,6 @@ import {
  * page loaded - see app/admin/candidates/page.tsx's doc comment for why
  * this whole area is dev-only until issue #67 (Google-auth-gated access) lands.
  */
-function assertDevOnly() {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("Not available outside development");
-  }
-}
-
 export async function approveCandidateAction(
   candidateId: string,
 ): Promise<void> {
