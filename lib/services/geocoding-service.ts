@@ -11,9 +11,23 @@ interface GeocodingResponse {
   };
 }
 
+interface NominatimResult {
+  lat?: unknown;
+  lon?: unknown;
+  address?: { country_code?: unknown };
+}
+
 const GEOCODING_TIMEOUT_MS = 5_000;
 const GEOCODING_RETRIES = 2;
 const GEOCODING_BACKOFF_MS = 250;
+const NOMINATIM_TIMEOUT_MS = 5_000;
+// Nominatim asks clients to stay at or below one request per second. This
+// queue enforces that limit within one Node.js process. Serverless platforms
+// may run multiple concurrent instances, so the aggregate limit is not
+// guaranteed across instances; the project's low lookup volume makes this
+// best-effort protection an acceptable trade-off for now.
+let nominatimLastRequestAt = 0;
+let nominatimRequestChain = Promise.resolve();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -84,6 +98,8 @@ function getCoordinate(value: unknown, min: number, max: number) {
 
 export class GeocodingService {
   private static readonly API_URL = "https://geocoding.openapi.it/geocode";
+  private static readonly NOMINATIM_URL =
+    "https://nominatim.openstreetmap.org/search";
 
   /** Backward-compatible country lookup name used by the ingestion pipeline. */
   static async getCountryCodeFromCity(city: string): Promise<GeocodingOutcome> {
@@ -101,9 +117,9 @@ export class GeocodingService {
       const apiKey = process.env.OPENAPI_GEOCODING_KEY;
       if (!apiKey) {
         console.warn(
-          "OPENAPI_GEOCODING_KEY not configured. Skipping geocoding.",
+          "OPENAPI_GEOCODING_KEY not configured. Using Nominatim geocoding fallback.",
         );
-        return { status: "unavailable" };
+        return this.getNominatimCoordinates(city);
       }
 
       console.log(`Geocoding API request for: ${city}`);
@@ -131,14 +147,14 @@ export class GeocodingService {
         console.error(
           `Geocoding API returned HTTP ${response.status} for city: ${city}`,
         );
-        return { status: "unavailable" };
+        return this.getNominatimCoordinates(city);
       }
 
       const data: unknown = await response.json();
 
       if (!isGeocodingResponse(data)) {
         console.warn(`Invalid geocoding response structure for city: ${city}`);
-        return { status: "unavailable" };
+        return this.getNominatimCoordinates(city);
       }
 
       const countryCode = data.elements.element.countryCode;
@@ -191,7 +207,88 @@ export class GeocodingService {
       };
     } catch (error) {
       console.error(`Error geocoding city ${city}:`, error);
+      return this.getNominatimCoordinates(city);
+    }
+  }
+
+  private static async getNominatimCoordinates(
+    query: string,
+  ): Promise<GeocodingOutcome> {
+    const previousRequest = nominatimRequestChain;
+    let release!: () => void;
+    nominatimRequestChain = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    await previousRequest;
+    try {
+      const waitMs =
+        nominatimLastRequestAt === 0
+          ? 0
+          : Math.max(0, 1_000 - (Date.now() - nominatimLastRequestAt));
+      if (waitMs > 0)
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+      nominatimLastRequestAt = Date.now();
+
+      const url = new URL(this.NOMINATIM_URL);
+      url.searchParams.set("format", "json");
+      url.searchParams.set("addressdetails", "1");
+      url.searchParams.set("q", query.trim());
+      const response = await fetchWithRetry(
+        url.toString(),
+        {
+          headers: {
+            "User-Agent":
+              "HackTrack-EU/1.0 (https://github.com/viganogabriele/HackTrack-EU)",
+          },
+        },
+        { timeoutMs: NOMINATIM_TIMEOUT_MS, retries: 0 },
+      );
+
+      if (!response.ok) return { status: "unavailable" };
+      const data: unknown = await response.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        return { status: "not_found" };
+      }
+
+      const first = data[0] as NominatimResult;
+      const countryCode =
+        typeof first.address?.country_code === "string"
+          ? first.address.country_code
+          : undefined;
+      const latitude = getCoordinate(first.lat, -90, 90);
+      const longitude = getCoordinate(first.lon, -180, 180);
+      if (!countryCode || latitude === undefined || longitude === undefined) {
+        return { status: "not_found" };
+      }
+
+      const normalizedCountryCode =
+        europeanCountries.normalizeCountry(countryCode);
+      if (normalizedCountryCode) {
+        return {
+          status: "found",
+          countryCode: normalizedCountryCode,
+          latitude,
+          longitude,
+        };
+      }
+
+      if (
+        europeanCountries.classifyCountryCode(countryCode) === "non_european"
+      ) {
+        return {
+          status: "non_european",
+          countryCode: countryCode.trim().toUpperCase(),
+          latitude,
+          longitude,
+        };
+      }
+      return { status: "not_found" };
+    } catch (error) {
+      console.error(`Error fallback geocoding city ${query}:`, error);
       return { status: "unavailable" };
+    } finally {
+      release();
     }
   }
 }

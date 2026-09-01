@@ -232,6 +232,29 @@ export interface Database {
           error?: string | null;
         };
       };
+      geocode_cache: {
+        Row: {
+          query: string;
+          latitude: number;
+          longitude: number;
+          country_code: string | null;
+          created_at: string;
+        };
+        Insert: {
+          query: string;
+          latitude: number;
+          longitude: number;
+          country_code?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          query?: string;
+          latitude?: number;
+          longitude?: number;
+          country_code?: string | null;
+          created_at?: string;
+        };
+      };
     };
   };
 }

@@ -30,7 +30,6 @@ function geocodingPayload(
 describe("GeocodingService.getCountryCodeFromCity", () => {
   beforeEach(() => {
     process.env.OPENAPI_GEOCODING_KEY = "test-api-key";
-    vi.useFakeTimers();
     vi.spyOn(console, "log").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -48,16 +47,49 @@ describe("GeocodingService.getCountryCodeFromCity", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns unavailable without calling the API when the API key is missing", async () => {
+  it("uses Nominatim when the primary API key is missing", async () => {
     delete process.env.OPENAPI_GEOCODING_KEY;
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
       GeocodingService.getCountryCodeFromCity("Rome"),
-    ).resolves.toEqual({ status: "unavailable" });
+    ).resolves.toEqual({ status: "not_found" });
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
+      "OPENAPI_GEOCODING_KEY not configured. Using Nominatim geocoding fallback.",
+    );
+  });
+
+  it("falls back to Nominatim when the primary provider is unavailable", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("Unauthorized", { status: 401 }))
+      .mockResolvedValueOnce(
+        jsonResponse([
+          {
+            lat: "41.9028",
+            lon: "12.4964",
+            address: { country_code: "it" },
+          },
+        ]),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      GeocodingService.getCoordinatesFromAddress("Rome"),
+    ).resolves.toEqual({
+      status: "found",
+      countryCode: "IT",
+      latitude: 41.9028,
+      longitude: 12.4964,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][1]?.headers).toEqual({
+      "User-Agent": expect.stringContaining("HackTrack-EU"),
+    });
   });
 
   it("returns found with the normalized European country code", async () => {
@@ -167,10 +199,11 @@ describe("GeocodingService.getCountryCodeFromCity", () => {
     expect(errorSpy).not.toHaveBeenCalledWith(
       expect.stringContaining("Authentication failed"),
     );
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("retries after a timeout and returns the successful transient retry", async () => {
+    vi.useFakeTimers();
     const fetchMock = vi
       .fn<
         (input: string | URL | Request, init?: RequestInit) => Promise<Response>
