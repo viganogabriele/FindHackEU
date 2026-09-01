@@ -18,6 +18,7 @@ import {
 import { HACKATHON_TOPICS } from "@/lib/constants/topics";
 import { editCandidateFormAction } from "./actions";
 import type { Database } from "@/types/database";
+import { toast } from "sonner";
 
 type CandidateRow = Database["public"]["Tables"]["hackathon_candidates"]["Row"];
 
@@ -70,6 +71,7 @@ export function EditCandidateDialog({
   if (result !== lastResult) {
     setLastResult(result);
     if (result?.outcome === "updated") {
+      toast.success("Candidate saved");
       setOpen(false);
     }
   }

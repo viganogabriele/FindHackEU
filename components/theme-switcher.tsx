@@ -57,8 +57,13 @@ export function ThemeSwitcher() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8"
+          className="h-8 w-8 transition-colors duration-100"
           onClick={toggleMode}
+          aria-label={
+            currentMode === "light"
+              ? t("theme.switchToDark")
+              : t("theme.switchToLight")
+          }
           title={
             currentMode === "light"
               ? t("theme.switchToDark")

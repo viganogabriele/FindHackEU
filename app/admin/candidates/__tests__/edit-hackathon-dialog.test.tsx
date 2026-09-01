@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import type { Database } from "@/types/database";
 
 // This repo's vitest.config.mts doesn't enable Jest-style test globals, so
@@ -8,12 +14,21 @@ import type { Database } from "@/types/database";
 // automatically - see the neighboring candidate dialog test.
 afterEach(cleanup);
 
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
 vi.mock("../../hackathons/actions", () => ({
   editHackathonFormAction: vi.fn(),
 }));
 
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn() },
+}));
+
 import { EditHackathonDialog } from "../edit-hackathon-dialog";
 import { editHackathonFormAction } from "../../hackathons/actions";
+import { toast } from "sonner";
 
 type HackathonRow = Database["public"]["Tables"]["hackathons"]["Row"];
 
@@ -98,5 +113,21 @@ describe("EditHackathonDialog", () => {
     expect(
       document.querySelector('input[name="topics"][value="Web3"]'),
     ).toBeTruthy();
+  });
+
+  it("shows a success toast after the server confirms the save", async () => {
+    vi.mocked(editHackathonFormAction).mockResolvedValue({
+      outcome: "updated",
+    });
+
+    render(<EditHackathonDialog hackathon={hackathon} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit hackathon" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(vi.mocked(toast.success)).toHaveBeenCalledWith(
+        "Hackathon saved",
+      );
+    });
   });
 });

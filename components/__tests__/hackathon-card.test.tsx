@@ -102,6 +102,25 @@ describe("HackathonCard", () => {
     expect(screen.getByRole("button", { name: "Approve" })).toBeTruthy();
   });
 
+  it("renders the title as an external link when requested", () => {
+    render(
+      <TranslationProvider>
+        <HackathonCard
+          hackathon={{
+            ...base,
+            url: "https://example.org/hackathon",
+          }}
+          titleLink
+        />
+      </TranslationProvider>,
+    );
+
+    const link = screen.getByRole("link", { name: "Test Hackathon" });
+    expect(link.getAttribute("href")).toBe("https://example.org/hackathon");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+  });
+
   it("renders no footer when actions is omitted", () => {
     renderCard(base);
     expect(document.querySelector('[data-slot="card-footer"]')).toBeNull();
