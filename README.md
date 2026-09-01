@@ -138,26 +138,42 @@ GET /api/hackathons?status=upcoming
 # Get past hackathons
 GET /api/hackathons?status=past
 
-# Response format
+# Optional bounded pagination (omit for the full list, as above)
+GET /api/hackathons?status=upcoming&limit=25
+GET /api/hackathons?status=upcoming&limit=25&cursor=<opaque token from a previous nextCursor>
+
+# Response format (full-list, no `limit`)
 {
   "data": [
     {
       "id": "uuid",
       "name": "Hackathon Name",
       "city": "City",
-      "country": "Country",
-      "date_start": "2025-06-15T00:00:00+00:00",
-      "date_end": "2025-06-16T00:00:00+00:00",
+      "country_code": "DE",
+      "location_type": "physical",
+      "venue": null,
+      "date_start": "2026-06-15T09:00:00+00:00",
+      "date_end": "2026-06-16T18:00:00+00:00",
       "topics": ["AI", "Web3"],
       "notes": "Additional event details and requirements",
       "url": "https://...",
+      "source": "luma",
       "status": "upcoming",
       "is_new": true
     },
     ...
   ]
 }
+
+# Response format when `limit` is passed - adds a `nextCursor` (null once
+# there are no more pages); pass it back as `cursor` to fetch the next page
+{
+  "data": [ ... ],
+  "nextCursor": "MjAyNi0wOS0wM..." // or null
+}
 ```
+
+`location_type` is one of `physical | online | hybrid | tbd` (issue #21) and `venue` is free-text campus/building detail, both nullable/defaulting to `"tbd"` when unknown. `country_code` is an ISO 3166-1 alpha-2 code, not a full country name.
 
 ---
 

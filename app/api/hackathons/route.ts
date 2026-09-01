@@ -135,7 +135,7 @@ export async function GET(request: Request) {
     let query = supabase
       .from("hackathons")
       .select(
-        "id, name, city, country_code, date_start, date_end, topics, notes, url, status, is_new, source",
+        "id, name, city, country_code, location_type, venue, date_start, date_end, topics, notes, url, status, is_new, source",
       )
       .eq("status", status)
       // `id` as a secondary, always-unique tie-breaker so rows sharing
