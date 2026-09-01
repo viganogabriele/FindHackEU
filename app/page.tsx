@@ -1,7 +1,6 @@
 "use client";
 
 import HackathonList from "@/components/hackathon-list";
-import Sidebar from "@/components/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -10,8 +9,10 @@ import { FilterProvider } from "@/contexts/filter-context";
 import { buildLocationOptions } from "@/lib/location-filter";
 import { dedupeByNormalizedUrl } from "@/lib/dedup/url-normalizer";
 import { useTranslation } from "@/contexts/translation-context";
-import LanguageSelect from "@/components/language-select";
 import { AlertCircle } from "lucide-react";
+import { FiltersPanel } from "@/components/filters-panel";
+import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 
 export default function Home() {
   const [upcoming, setUpcoming] = useState<Hackathon[]>([]);
@@ -103,23 +104,30 @@ export default function Home() {
     }, [upcoming, past]);
 
   return (
-    <FilterProvider>
-      <div className="flex min-h-screen">
-        <Sidebar
-          uniqueUpcomingLocations={uniqueUpcomingLocations}
-          uniquePastLocations={uniquePastLocations}
-          uniqueTopics={uniqueTopics}
-        />
-        <main className="ml-16 flex-1 p-8 md:ml-60">
+    <FilterProvider
+      locationOptionsByStatus={{
+        upcoming: uniqueUpcomingLocations,
+        past: uniquePastLocations,
+      }}
+    >
+      <div className="flex min-h-screen flex-col">
+        <SiteHeader />
+        <main className="mx-auto w-full max-w-screen-2xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
           {/* Translated header and subtitle */}
           <TranslatedHeader />
           <Separator className="my-6" />
+          <FiltersPanel
+            uniqueUpcomingLocations={uniqueUpcomingLocations}
+            uniquePastLocations={uniquePastLocations}
+            uniqueTopics={uniqueTopics}
+          />
           {error ? (
             <ErrorState message={error} onRetry={fetchHackathons} />
           ) : (
             <HackathonList upcoming={upcoming} past={past} loading={loading} />
           )}
         </main>
+        <SiteFooter />
       </div>
     </FilterProvider>
   );
@@ -150,14 +158,9 @@ function ErrorState({
 function TranslatedHeader() {
   const { t } = useTranslation();
   return (
-    <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-      <div>
-        <h1 className="mb-3 text-3xl font-bold">{t("title")}</h1>
-        <p className="text-muted-foreground">{t("subtitle")}</p>
-      </div>
-      <div className="flex items-center md:ml-auto">
-        <LanguageSelect />
-      </div>
+    <div>
+      <h1 className="mb-3 text-3xl font-bold">{t("title")}</h1>
+      <p className="text-muted-foreground">{t("subtitle")}</p>
     </div>
   );
 }

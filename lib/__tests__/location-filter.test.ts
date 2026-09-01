@@ -16,6 +16,7 @@ import {
   hackathonMatchesLocationFilter,
   hackathonMatchesRadiusFilter,
   isCountryLocationValue,
+  narrowCountryToCity,
   toCountryLocationValue,
 } from "@/lib/location-filter";
 
@@ -225,5 +226,27 @@ describe("getCityLocationOptionsForCountry", () => {
 
     expect(getCityLocationOptionsForCountry(options, "DE")).toEqual([]);
     expect(getCityLocationOptionsForCountry(options, "ZZ")).toEqual([]);
+  });
+});
+
+describe("narrowCountryToCity", () => {
+  it("replaces a selected country with the selected city", () => {
+    expect(
+      narrowCountryToCity(
+        [toCountryLocationValue("IT"), "Berlin, Germany"],
+        toCountryLocationValue("IT"),
+        "Milan, Italy",
+      ),
+    ).toEqual(["Berlin, Germany", "Milan, Italy"]);
+  });
+
+  it("removes the city when it is already selected while narrowing", () => {
+    expect(
+      narrowCountryToCity(
+        [toCountryLocationValue("IT"), "Milan, Italy"],
+        toCountryLocationValue("IT"),
+        "Milan, Italy",
+      ),
+    ).toEqual([]);
   });
 });

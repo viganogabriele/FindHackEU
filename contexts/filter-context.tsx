@@ -43,7 +43,21 @@ const initialFilters: FilterState = {
   includeNonEnglish: true,
 };
 
-export function FilterProvider({ children }: { children: ReactNode }) {
+export function retainAvailableLocations(
+  selectedLocations: string[],
+  availableLocations: string[],
+) {
+  const available = new Set(availableLocations);
+  return selectedLocations.filter((location) => available.has(location));
+}
+
+export function FilterProvider({
+  children,
+  locationOptionsByStatus = { upcoming: [], past: [] },
+}: {
+  children: ReactNode;
+  locationOptionsByStatus?: Record<FilterState["status"], string[]>;
+}) {
   const [filters, setFilters] = useState<FilterState>(initialFilters);
 
   const updateFilter = <K extends keyof FilterState>(
@@ -51,9 +65,16 @@ export function FilterProvider({ children }: { children: ReactNode }) {
     value: FilterState[K],
   ) => {
     setFilters((prev) => {
-      // Se stiamo cambiando lo status, resetta anche le locations
       if (key === "status") {
-        return { ...prev, [key]: value, locations: [] };
+        const status = value as FilterState["status"];
+        return {
+          ...prev,
+          status,
+          locations: retainAvailableLocations(
+            prev.locations,
+            locationOptionsByStatus[status],
+          ),
+        };
       }
       return { ...prev, [key]: value };
     });
