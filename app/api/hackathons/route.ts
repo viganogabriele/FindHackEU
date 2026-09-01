@@ -105,6 +105,13 @@ export async function GET(request: Request) {
       // in the public listing, same as if it had been hard-deleted, while
       // staying recoverable from the admin Archived tab.
       .is("archived_at", null)
+      // Issue #102: a hackathon moved to "pending" or "rejected" from the
+      // admin's unified moderation UI must disappear from the public site
+      // immediately, same as archived_at already does above - these are two
+      // independent exclusion filters (moderation is an editorial decision,
+      // archival is date-based retention), both required for a row to be
+      // public.
+      .eq("moderation_state", "approved")
       // `id` as a secondary, always-unique tie-breaker so rows sharing
       // a `date_start` can't land inconsistently across a page boundary
       // (found in code review).

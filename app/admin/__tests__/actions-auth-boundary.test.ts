@@ -36,6 +36,7 @@ import {
   deleteHackathonAction,
   archiveHackathonAction,
   unarchiveHackathonAction,
+  setHackathonModerationStateAction,
 } from "../hackathons/actions";
 
 const protectedActions = [
@@ -55,6 +56,14 @@ const protectedActions = [
     () => archiveHackathonAction("hackathon-id", "reason"),
   ],
   ["unarchiveHackathonAction", () => unarchiveHackathonAction("hackathon-id")],
+  // Issue #102: the new moderation-state transition action must also
+  // re-check auth itself, same as every other action here - it's a
+  // separately-callable server action, not protected merely by the page
+  // hiding its buttons.
+  [
+    "setHackathonModerationStateAction",
+    () => setHackathonModerationStateAction("hackathon-id", "pending"),
+  ],
 ] as const;
 
 describe("admin server actions", () => {
