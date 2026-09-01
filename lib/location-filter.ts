@@ -17,6 +17,90 @@
  */
 import { europeanCountries } from "@/lib/european-countries";
 
+export interface RadiusFilter {
+  query: string;
+  latitude: number;
+  longitude: number;
+  radiusKm: number;
+}
+
+export const DEFAULT_RADIUS_KM = 25;
+
+const EARTH_RADIUS_KM = 6371;
+
+function isValidLatitude(value: number | null | undefined): value is number {
+  return (
+    value !== null &&
+    value !== undefined &&
+    Number.isFinite(value) &&
+    value >= -90 &&
+    value <= 90
+  );
+}
+
+function isValidLongitude(value: number | null | undefined): value is number {
+  return (
+    value !== null &&
+    value !== undefined &&
+    Number.isFinite(value) &&
+    value >= -180 &&
+    value <= 180
+  );
+}
+
+/** Calculate the great-circle distance between two WGS84 points. */
+export function calculateDistanceKm(
+  latitudeA: number,
+  longitudeA: number,
+  latitudeB: number,
+  longitudeB: number,
+): number {
+  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+  const deltaLatitude = toRadians(latitudeB - latitudeA);
+  const deltaLongitude = toRadians(longitudeB - longitudeA);
+  const latitudeARadians = toRadians(latitudeA);
+  const latitudeBRadians = toRadians(latitudeB);
+  const haversine =
+    Math.sin(deltaLatitude / 2) ** 2 +
+    Math.cos(latitudeARadians) *
+      Math.cos(latitudeBRadians) *
+      Math.sin(deltaLongitude / 2) ** 2;
+
+  // Clamp against tiny floating-point drift for antipodal points.
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(Math.min(1, haversine)));
+}
+
+/** Whether a hackathon's persisted coordinates fall within an active radius. */
+export function hackathonMatchesRadiusFilter(
+  latitude: number | null | undefined,
+  longitude: number | null | undefined,
+  radius: RadiusFilter | null,
+): boolean {
+  if (radius === null) {
+    return true;
+  }
+
+  if (
+    !isValidLatitude(latitude) ||
+    !isValidLongitude(longitude) ||
+    !isValidLatitude(radius.latitude) ||
+    !isValidLongitude(radius.longitude) ||
+    !Number.isFinite(radius.radiusKm) ||
+    radius.radiusKm < 0
+  ) {
+    return false;
+  }
+
+  return (
+    calculateDistanceKm(
+      radius.latitude,
+      radius.longitude,
+      latitude,
+      longitude,
+    ) <= radius.radiusKm
+  );
+}
+
 const COUNTRY_LOCATION_PREFIX = "country:";
 
 /** Build the filter-array value representing "any city in this country". */

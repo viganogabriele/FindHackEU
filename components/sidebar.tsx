@@ -56,12 +56,37 @@ import type { HackathonTopic } from "@/lib/constants/topics";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { useTranslation } from "@/contexts/translation-context";
 import {
+  DEFAULT_RADIUS_KM,
   countryCodeFromLocationValue,
   formatCountryLocationLabel,
   formatLocationValueLabel,
   getCityLocationOptionsForCountry,
   isCountryLocationValue,
 } from "@/lib/location-filter";
+
+const MIN_RADIUS_KM = 5;
+const MAX_RADIUS_KM = 500;
+const RADIUS_STEP_KM = 5;
+
+function isGeocodeResponse(
+  value: unknown,
+): value is { data: { latitude: number; longitude: number } } {
+  if (!value || typeof value !== "object" || !("data" in value)) {
+    return false;
+  }
+
+  const data = value.data;
+  if (!data || typeof data !== "object") {
+    return false;
+  }
+
+  return (
+    "latitude" in data &&
+    "longitude" in data &&
+    typeof data.latitude === "number" &&
+    typeof data.longitude === "number"
+  );
+}
 
 interface SidebarProps {
   uniqueUpcomingLocations?: string[];
@@ -253,6 +278,9 @@ function SidebarContent({
 }) {
   const [topicOpen, setTopicOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
+  const [radiusQuery, setRadiusQuery] = useState(filters.radius?.query ?? "");
+  const [radiusLoading, setRadiusLoading] = useState(false);
+  const [radiusError, setRadiusError] = useState<string | null>(null);
   const { t } = useTranslation();
 
   const locationLabel = (value: string) =>
@@ -284,9 +312,53 @@ function SidebarContent({
     updateFilter("topics", newTopics);
   };
 
+  const applyRadius = async () => {
+    const query = radiusQuery.trim();
+    if (query.length < 2) {
+      setRadiusError(t("radius.locationTooShort"));
+      return;
+    }
+
+    setRadiusLoading(true);
+    setRadiusError(null);
+
+    try {
+      const response = await fetch(
+        `/api/geocode?query=${encodeURIComponent(query)}`,
+      );
+      const body: unknown = await response.json();
+
+      if (!response.ok || !isGeocodeResponse(body)) {
+        const message =
+          body &&
+          typeof body === "object" &&
+          "error" in body &&
+          typeof body.error === "string"
+            ? body.error
+            : t("radius.lookupFailed");
+        throw new Error(message);
+      }
+
+      const data = body.data;
+      updateFilter("radius", {
+        query,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        radiusKm: filters.radius?.radiusKm ?? DEFAULT_RADIUS_KM,
+      });
+    } catch (error) {
+      setRadiusError(
+        error instanceof Error ? error.message : t("radius.lookupFailed"),
+      );
+    } finally {
+      setRadiusLoading(false);
+    }
+  };
+
   const hasActiveFilters =
     filters.search ||
     filters.locations.length > 0 ||
+    filters.radius !== null ||
     filters.topics.length > 0 ||
     filters.dateRange?.from ||
     filters.dateRange?.to ||
@@ -452,6 +524,84 @@ function SidebarContent({
                 </Badge>
               ))}
             </div>
+          )}
+        </div>
+
+        {/* Radius location filter */}
+        <div className="space-y-2">
+          <Label htmlFor="radius-location">{t("radius.label")}</Label>
+          <div className="flex gap-2">
+            <Input
+              id="radius-location"
+              placeholder={t("radius.placeholder")}
+              value={radiusQuery}
+              onChange={(event) => {
+                setRadiusQuery(event.target.value);
+                setRadiusError(null);
+                if (filters.radius) updateFilter("radius", null);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void applyRadius();
+                }
+              }}
+              aria-describedby={radiusError ? "radius-error" : undefined}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void applyRadius()}
+              disabled={radiusLoading}
+            >
+              {radiusLoading ? t("radius.loading") : t("radius.apply")}
+            </Button>
+          </div>
+          {radiusError && (
+            <p
+              id="radius-error"
+              className="text-sm text-destructive"
+              role="alert"
+            >
+              {radiusError}
+            </p>
+          )}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-sm">
+              <Label htmlFor="radius-km">{t("radius.distance")}</Label>
+              <output htmlFor="radius-km">
+                {filters.radius?.radiusKm ?? DEFAULT_RADIUS_KM} km
+              </output>
+            </div>
+            <input
+              id="radius-km"
+              type="range"
+              min={MIN_RADIUS_KM}
+              max={MAX_RADIUS_KM}
+              step={RADIUS_STEP_KM}
+              value={filters.radius?.radiusKm ?? DEFAULT_RADIUS_KM}
+              onChange={(event) => {
+                const radiusKm = Number(event.target.value);
+                if (filters.radius) {
+                  updateFilter("radius", { ...filters.radius, radiusKm });
+                }
+              }}
+              disabled={!filters.radius}
+              className="w-full accent-primary disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+          {filters.radius && (
+            <Badge
+              variant="secondary"
+              className="cursor-pointer text-xs"
+              onClick={() => updateFilter("radius", null)}
+            >
+              {t("radius.active", {
+                location: filters.radius.query,
+                distance: filters.radius.radiusKm,
+              })}
+              <X className="ml-1 h-3 w-3" />
+            </Badge>
           )}
         </div>
 

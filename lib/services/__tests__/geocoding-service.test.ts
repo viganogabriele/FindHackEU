@@ -12,13 +12,17 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-function geocodingPayload(countryCode: unknown) {
+function geocodingPayload(
+  countryCode: unknown,
+  latitude?: unknown,
+  longitude?: unknown,
+) {
   return {
     success: true,
     message: "OK",
     error: null,
     elements: {
-      element: { countryCode },
+      element: { countryCode, latitude, longitude },
     },
   };
 }
@@ -65,6 +69,26 @@ describe("GeocodingService.getCountryCodeFromCity", () => {
     await expect(
       GeocodingService.getCountryCodeFromCity(" Rome "),
     ).resolves.toEqual({ status: "found", countryCode: "IT" });
+  });
+
+  it("returns provider coordinates along with the normalized country code", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse(geocodingPayload("it", 41.9028, 12.4964)),
+        ),
+    );
+
+    await expect(
+      GeocodingService.getCountryCodeFromCity("Rome"),
+    ).resolves.toEqual({
+      status: "found",
+      countryCode: "IT",
+      latitude: 41.9028,
+      longitude: 12.4964,
+    });
   });
 
   it("returns unavailable when the response omits the nested element", async () => {

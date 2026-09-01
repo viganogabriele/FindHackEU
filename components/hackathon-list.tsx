@@ -17,7 +17,10 @@ import { HackathonCard } from "@/components/hackathon-card";
 import { Hackathon } from "@/types/hackathon";
 import Link from "next/link";
 import { useFilters } from "@/contexts/filter-context";
-import { hackathonMatchesLocationFilter } from "@/lib/location-filter";
+import {
+  hackathonMatchesLocationFilter,
+  hackathonMatchesRadiusFilter,
+} from "@/lib/location-filter";
 import { looksNonEnglish } from "@/lib/detect-non-english";
 
 interface HackathonListProps {
@@ -49,6 +52,16 @@ export default function HackathonList({
             hackathon.city,
             hackathon.country_code,
             filters.locations,
+          )
+        ) {
+          return false;
+        }
+
+        if (
+          !hackathonMatchesRadiusFilter(
+            hackathon.latitude,
+            hackathon.longitude,
+            filters.radius,
           )
         ) {
           return false;

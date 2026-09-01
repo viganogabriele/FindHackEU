@@ -15,6 +15,7 @@
     "sitemap": "next-sitemap",
     "update-themes": "node scripts/update-themes.js && npm run format",
     "backfill-topics": "tsx scripts/backfill-topics.ts",
+    "backfill-coordinates": "tsx scripts/backfill-coordinates.ts",
     "trigger-update": "node scripts/trigger-update.mjs",
     "analyze-update-frequency": "tsx scripts/analyze-update-frequency.ts",
     "update": "npx npm-check-updates -u && npm install && npm run update-themes",

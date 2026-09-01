@@ -12,7 +12,9 @@ import {
   formatCountryLocationLabel,
   formatLocationValueLabel,
   getCityLocationOptionsForCountry,
+  calculateDistanceKm,
   hackathonMatchesLocationFilter,
+  hackathonMatchesRadiusFilter,
   isCountryLocationValue,
   toCountryLocationValue,
 } from "@/lib/location-filter";
@@ -94,6 +96,39 @@ describe("hackathonMatchesLocationFilter", () => {
         toCountryLocationValue("IT"),
       ]),
     ).toBe(false);
+  });
+});
+
+describe("radius location filtering", () => {
+  it("calculates the great-circle distance in kilometers", () => {
+    expect(calculateDistanceKm(0, 0, 0, 1)).toBeCloseTo(111.195, 2);
+  });
+
+  it("matches a hackathon at or inside the selected radius", () => {
+    const radius = {
+      query: "Rome",
+      latitude: 41.9028,
+      longitude: 12.4964,
+      radiusKm: 25,
+    };
+
+    expect(hackathonMatchesRadiusFilter(41.9109, 12.4818, radius)).toBe(true);
+    expect(hackathonMatchesRadiusFilter(45.4642, 9.19, radius)).toBe(false);
+  });
+
+  it("does not match a row without coordinates when a radius is active", () => {
+    expect(
+      hackathonMatchesRadiusFilter(null, null, {
+        query: "Rome",
+        latitude: 41.9028,
+        longitude: 12.4964,
+        radiusKm: 25,
+      }),
+    ).toBe(false);
+  });
+
+  it("matches every row when no radius is selected", () => {
+    expect(hackathonMatchesRadiusFilter(null, null, null)).toBe(true);
   });
 });
 

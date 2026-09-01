@@ -383,6 +383,8 @@ export async function POST(request: Request) {
           name: string;
           city: string | null;
           country_code: string | null;
+          latitude: number | null;
+          longitude: number | null;
           location_type: string;
           venue: string | null;
           date_start: string;
@@ -396,7 +398,7 @@ export async function POST(request: Request) {
           supabaseAdmin
             .from("hackathons")
             .select(
-              "id, url, name, city, country_code, location_type, venue, date_start, date_end, topics, notes, manually_edited_at",
+              "id, url, name, city, country_code, latitude, longitude, location_type, venue, date_start, date_end, topics, notes, manually_edited_at",
             )
             // Stable order (see lib/services/fetch-all-rows.ts) so a
             // concurrent insert during pagination can't shift row
@@ -437,6 +439,8 @@ export async function POST(request: Request) {
             name: row.name,
             city: row.city ?? undefined,
             country_code: row.country_code ?? undefined,
+            latitude: row.latitude ?? undefined,
+            longitude: row.longitude ?? undefined,
             date_start: new Date(row.date_start),
             date_end: row.date_end ? new Date(row.date_end) : undefined,
             url: row.url,
@@ -496,6 +500,8 @@ export async function POST(request: Request) {
             name: hackathon.name,
             city: hackathon.city || null,
             country_code: hackathon.country_code || null,
+            latitude: hackathon.latitude ?? null,
+            longitude: hackathon.longitude ?? null,
             // Issue #21: default to the DB column's own default ('tbd')
             // when a parser has no signal, rather than each parser having
             // to repeat that fallback itself.
@@ -518,9 +524,31 @@ export async function POST(request: Request) {
             continue;
           }
 
+          const locationChanged =
+            incoming.city !== existing.city ||
+            incoming.country_code !== existing.country_code;
+          const hasIncomingCoordinates =
+            hackathon.latitude !== undefined &&
+            hackathon.longitude !== undefined;
+          const synchronizedIncoming = {
+            ...incoming,
+            // A transient geocoder failure must not erase a known pair. If
+            // the location itself changed, however, the old pair is stale.
+            latitude: hasIncomingCoordinates
+              ? hackathon.latitude!
+              : locationChanged
+                ? null
+                : existing.latitude,
+            longitude: hasIncomingCoordinates
+              ? hackathon.longitude!
+              : locationChanged
+                ? null
+                : existing.longitude,
+          };
+
           const sourceUpdateFields = getSourceUpdateFields(
             existing.manually_edited_at,
-            incoming,
+            synchronizedIncoming,
             new Date().toISOString(),
           );
 
@@ -532,26 +560,30 @@ export async function POST(request: Request) {
           }
 
           const dateChanged =
-            incoming.date_start !== toFullTimestamp(existing.date_start) ||
-            incoming.date_end !== toFullTimestamp(existing.date_end);
-          const locationChanged =
-            incoming.city !== existing.city ||
-            incoming.country_code !== existing.country_code;
+            synchronizedIncoming.date_start !==
+              toFullTimestamp(existing.date_start) ||
+            synchronizedIncoming.date_end !==
+              toFullTimestamp(existing.date_end);
+          const coordinatesChanged =
+            synchronizedIncoming.latitude !== existing.latitude ||
+            synchronizedIncoming.longitude !== existing.longitude;
           // Tracked separately from `locationChanged` (city/country) since
           // it's a distinct signal (issue #21): a hackathon flipping
           // physical -> online/hybrid, or an organizer adding/changing a
           // venue, doesn't necessarily come with a city/country change too.
           const locationTypeChanged =
-            incoming.location_type !== existing.location_type;
-          const venueChanged = incoming.venue !== existing.venue;
-          const nameChanged = incoming.name !== existing.name;
-          const notesChanged = incoming.notes !== existing.notes;
+            synchronizedIncoming.location_type !== existing.location_type;
+          const venueChanged = synchronizedIncoming.venue !== existing.venue;
+          const nameChanged = synchronizedIncoming.name !== existing.name;
+          const notesChanged = synchronizedIncoming.notes !== existing.notes;
           const topicsChanged =
-            sortedTopics(incoming.topics) !== sortedTopics(existing.topics);
+            sortedTopics(synchronizedIncoming.topics) !==
+            sortedTopics(existing.topics);
 
           if (
             !dateChanged &&
             !locationChanged &&
+            !coordinatesChanged &&
             !locationTypeChanged &&
             !venueChanged &&
             !nameChanged &&

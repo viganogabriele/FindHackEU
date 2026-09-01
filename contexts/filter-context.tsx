@@ -3,10 +3,12 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 import { DateRange } from "react-day-picker";
 import type { HackathonTopic } from "@/lib/constants/topics";
+import type { RadiusFilter } from "@/lib/location-filter";
 
 export interface FilterState {
   search: string;
   locations: string[];
+  radius: RadiusFilter | null;
   topics: HackathonTopic[];
   dateRange: DateRange | undefined;
   status: "upcoming" | "past";
@@ -33,6 +35,7 @@ const FilterContext = createContext<FilterContextType | undefined>(undefined);
 const initialFilters: FilterState = {
   search: "",
   locations: [],
+  radius: null,
   topics: [],
   dateRange: undefined,
   status: "upcoming",
