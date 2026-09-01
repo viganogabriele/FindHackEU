@@ -16,7 +16,9 @@ type SupportedLocale =
   | "sv";
 
 const LANGUAGE_SIGNALS: Record<SupportedLocale, RegExp> = {
-  it: /\b(?:di|de|per|che|con|gli|delle|degli)\b/i,
+  // "de" is also a common French, Spanish, and Portuguese preposition, so
+  // it must not be treated as a unique Italian signal.
+  it: /\b(?:di|per|che|con|gli|delle|degli)\b/i,
   de: /\b(?:und|der|die|das|für|mit|über)\b|ß/i,
   es: /\b(?:el|los|las|para|con)\b|ñ/i,
   fr: /\b(?:le|la|les|des|avec|pour)\b|[œÿ]/i,

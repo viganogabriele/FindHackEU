@@ -26,4 +26,9 @@ describe("looksLikeForeignLanguage", () => {
   it("filters Italian text when Swedish is allowed", () => {
     expect(looksLikeForeignLanguage("Hackathon per studenti", "sv")).toBe(true);
   });
+
+  it("does not treat a French title using 'de' as Italian", () => {
+    expect(looksLikeForeignLanguage("Hackathon de Lyon", "en")).toBe(false);
+    expect(looksLikeForeignLanguage("Hackathon de Lyon", "fr")).toBe(false);
+  });
 });

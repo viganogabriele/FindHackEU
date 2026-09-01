@@ -117,7 +117,7 @@ export function FiltersPanel({
     Number(Boolean(filters.radius)) +
     filters.topics.length +
     Number(Boolean(filters.dateRange?.from || filters.dateRange?.to)) +
-    Number(!filters.includeNonEnglish);
+    Number(filters.includeNonEnglish);
 
   const toggleLocation = (location: string) => {
     updateFilter(
@@ -218,7 +218,7 @@ export function FiltersPanel({
           },
         ]
       : []),
-    ...(!filters.includeNonEnglish
+    ...(filters.includeNonEnglish
       ? [
           {
             id: "language",
