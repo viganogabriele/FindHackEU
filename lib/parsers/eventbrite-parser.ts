@@ -12,6 +12,10 @@ import {
 import { classifyHackathon } from "@/lib/classification/hackathon-classifier";
 import { fetchWithRetry } from "@/lib/http/fetch-with-retry";
 import type { DroppedCounts } from "@/lib/providers/provider.interface";
+import {
+  parseEventbriteDates,
+  type EventbriteStructuredDate,
+} from "@/lib/parsers/eventbrite-date";
 
 /**
  * Per-run counters for this file's reject points, surfaced through the
@@ -37,32 +41,72 @@ interface EventbriteRawEvent {
   name: string;
   location: string;
   dateText: string;
+  structured?: EventbriteStructuredEvent;
 }
 
-const WEEKDAYS = [
-  "sunday",
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-];
+interface EventbriteStructuredVenue {
+  name?: string;
+  address?: {
+    city?: string;
+    country?: string;
+    region?: string;
+  };
+}
 
-const MONTHS = [
-  "jan",
-  "feb",
-  "mar",
-  "apr",
-  "may",
-  "jun",
-  "jul",
-  "aug",
-  "sep",
-  "oct",
-  "nov",
-  "dec",
-];
+interface EventbriteStructuredEvent extends EventbriteStructuredDate {
+  id: string;
+  name?: string;
+  url?: string;
+  primary_venue?: EventbriteStructuredVenue;
+  is_online_event?: boolean;
+}
+
+interface EventbritePageExtraction {
+  events: EventbriteRawEvent[];
+  pageNumber?: number;
+  pageCount?: number;
+  continuation?: string;
+  hasExpectedMarkup: boolean;
+}
+
+interface JsonObject {
+  [key: string]: unknown;
+}
+
+function asJsonObject(value: unknown): JsonObject | undefined {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as JsonObject)
+    : undefined;
+}
+
+function asString(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  return undefined;
+}
+
+function asNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  return undefined;
+}
+
+function asBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
+}
 
 /**
  * Eventbrite's official Search API was shut down in 2020 (already documented
@@ -77,8 +121,8 @@ const MONTHS = [
  * - NOT behind Cloudflare or any bot challenge - a plain `fetch`/`curl` with
  *   a browser User-Agent gets a normal 200 with full server-rendered HTML.
  * - Confirmed working for every country slug this parser queries
- *   (`countrySlugs` below), all returning HTTP 200 with real event data
- *   embedded directly in `data-*` attributes on anchor tags.
+ *   (`countrySlugs` below), all returning HTTP 200 with real event data in
+ *   both the rendered cards and the `window.__SERVER_DATA__` payload.
  *
  * Two real data-quality issues, both handled deliberately rather than
  * ignored:
@@ -94,6 +138,9 @@ const MONTHS = [
  *    "rejected" are both dropped (there is no candidates/review table yet,
  *    same as Luma).
  * 2. Date text has no year and comes in several shapes, all observed live:
+ *    The structured `window.__SERVER_DATA__` fields are preferred when they
+ *    include a local start date/time and timezone (and preserve an end date);
+ *    the card text below is the timezone-aware fallback.
  *    - Normal: `"Thu, Nov 12, 5:00 PM"` - weekday, month, day, time. Year is
  *      inferred: try the current year, and if that's already in the past
  *      relative to "now", assume next year instead.
@@ -112,17 +159,17 @@ const MONTHS = [
  *
  * Location comes as `data-event-location="City, ST"` (e.g. `"Erlangen, BY"`
  * - city plus a German federal-state abbreviation, not a country - the
- * country is never in this field). Since each directory page is fetched for
- * one specific country slug, the country is known unambiguously from which
- * page was fetched - only `city` (the part before the comma) is extracted;
- * the trailing region/state abbreviation isn't modeled by this project's
- * schema. Some rows have an empty region after the comma (e.g. `"Hamburg, "`,
- * observed live) - handled gracefully by just taking the city part.
+ * country is never in this field). The structured payload also carries a
+ * primary venue and an `is_online_event` flag; those fields take precedence
+ * when present. Since each directory page is fetched for one specific
+ * country slug, the country is known unambiguously from which page was
+ * fetched. Some rows have an empty region after the comma (e.g.
+ * `"Hamburg, "`, observed live) - handled gracefully.
  *
- * `location_type` is always `"physical"`: Eventbrite's own event pages
- * nearly always represent physical venues for hackathons, and no clean
- * structured online/hybrid signal was found in the directory page markup
- * (unlike Luma/MLH/ETHGlobal, which all have an explicit field for this).
+ * `location_type` uses Eventbrite's structured `is_online_event` signal when
+ * available, maps an explicitly online/virtual card to `online`, and maps an
+ * unannounced venue such as `TBD` to `tbd`. A concrete venue otherwise maps
+ * to `physical`; the parser never infers `physical` from a missing venue.
  */
 export class EventbriteParser extends BaseParser {
   readonly name = "eventbrite";
@@ -155,8 +202,8 @@ export class EventbriteParser extends BaseParser {
     "finland",
   ];
 
-  // Small delay between successive country-directory requests, same
-  // reasoning as LumaParser's pageDelayMs: this parser fetches 15 pages
+  // Small delay between successive directory requests, same reasoning as
+  // LumaParser's pageDelayMs: this parser fetches at least 15 country pages
   // from the same host in one run - a short, polite gap between requests
   // costs a few seconds of wall-clock time in exchange for being a much
   // better citizen against a host we have no formal API agreement with
@@ -166,25 +213,53 @@ export class EventbriteParser extends BaseParser {
   // measured one).
   private readonly countryDelayMs = 500;
 
+  // Eventbrite reports a very large result count for some directory queries.
+  // Keep the crawl bounded while still going beyond the first 20-result page.
+  // The cap is configurable for local probes without allowing an unbounded
+  // request loop.
+  private readonly maxPagesPerCountry =
+    EventbriteParser.resolveMaxPagesPerCountry();
+
+  private static resolveMaxPagesPerCountry(): number {
+    const raw = process.env.EVENTBRITE_MAX_PAGES_PER_COUNTRY;
+    const parsed = raw ? Number.parseInt(raw, 10) : NaN;
+
+    return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 10) : 5;
+  }
+
+  private readonly countryTimezones: Record<string, string> = {
+    AT: "Europe/Vienna",
+    BE: "Europe/Brussels",
+    CH: "Europe/Zurich",
+    DE: "Europe/Berlin",
+    DK: "Europe/Copenhagen",
+    ES: "Europe/Madrid",
+    FI: "Europe/Helsinki",
+    FR: "Europe/Paris",
+    GB: "Europe/London",
+    IE: "Europe/Dublin",
+    IT: "Europe/Rome",
+    NL: "Europe/Amsterdam",
+    PL: "Europe/Warsaw",
+    PT: "Europe/Lisbon",
+    SE: "Europe/Stockholm",
+  };
+
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
-   * Extraction regex validated against a real, freshly fetched directory
-   * page (2026-09-01): the relevant anchor is the second of two
-   * `data-event-id`-bearing anchors per event card (the first only wraps
-   * the thumbnail image) - this one wraps an `<h3>` title and is
-   * immediately followed by a `<p>` holding the date text. Each event
-   * appears twice on the page (a hidden mobile-card variant duplicates the
-   * desktop one), so callers must dedupe by `id`.
+   * Eventbrite currently renders each result more than once (for example, a
+   * thumbnail and a details card). These patterns deliberately capture
+   * generic anchors/headings/paragraphs rather than relying on one exact
+   * attribute order or whitespace layout. Results are deduped by ID after
+   * extraction.
    */
-  // Numbered groups (1=url, 2=id, 3=location, 4=name, 5=date) and
-  // `[\s\S]` instead of dotAll `.`/`s` - this repo's `tsconfig.json`
-  // targets ES2017, which predates both named capture groups and the `s`
-  // regex flag.
-  private static readonly EVENT_PATTERN =
-    /<a href="(https:\/\/www\.eventbrite\.[a-z.]+\/e\/[^"]+)"[^>]*data-event-id="(\d+)"[^>]*data-event-location="([^"]*)"[^>]*>(?:(?!<\/a>)[\s\S])*?<h3[^>]*>([^<]+)<\/h3><\/a><p[^>]*>([^<]+)<\/p>/g;
+  private static readonly ANCHOR_PATTERN = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
+  private static readonly HEADING_PATTERN =
+    /<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]>/i;
+  private static readonly PARAGRAPH_PATTERN = /<p\b[^>]*>([\s\S]*?)<\/p>/i;
 
   protected async discover(): Promise<DiscoverResult> {
     const now = new Date();
@@ -206,7 +281,8 @@ export class EventbriteParser extends BaseParser {
       }
 
       try {
-        const rawEvents = await this.fetchCountryDirectory(slug);
+        const directory = await this.fetchCountryDirectory(slug);
+        const rawEvents = directory.events;
         const country_code = europeanCountries.normalizeCountry(
           slug.replace(/-/g, " "),
         );
@@ -238,6 +314,18 @@ export class EventbriteParser extends BaseParser {
         );
 
         allHackathons.push(...hackathons);
+
+        if (directory.truncated) {
+          const truncationMessage =
+            "stopped at the " +
+            this.maxPagesPerCountry +
+            '-page limit while Eventbrite still reported more results for "' +
+            slug +
+            '" - some events were not fetched this run';
+
+          console.warn("Eventbrite [" + slug + "]: " + truncationMessage + ".");
+          errors.push("[" + slug + "] " + truncationMessage);
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
 
@@ -269,10 +357,68 @@ export class EventbriteParser extends BaseParser {
 
   private async fetchCountryDirectory(
     slug: string,
-  ): Promise<EventbriteRawEvent[]> {
-    const url = `${this.baseUrl}/${slug}/hackathon/`;
+  ): Promise<{ events: EventbriteRawEvent[]; truncated: boolean }> {
+    const allEvents = new Map<string, EventbriteRawEvent>();
+    let page = 1;
+    let pageCount: number | undefined;
+    let continuation: string | undefined;
+    let truncated = false;
 
-    const response = await fetchWithRetry(url, {
+    while (page <= this.maxPagesPerCountry) {
+      if (page > 1) {
+        await this.sleep(this.countryDelayMs);
+      }
+
+      const extraction = await this.fetchDirectoryPage(slug, page);
+
+      if (extraction.hasExpectedMarkup && extraction.events.length === 0) {
+        throw new Error(
+          'Eventbrite directory page for "' +
+            slug +
+            '" page ' +
+            page +
+            " contained expected event markup, but no events could be extracted",
+        );
+      }
+
+      for (const event of extraction.events) {
+        allEvents.set(event.id, event);
+      }
+
+      pageCount = extraction.pageCount ?? pageCount;
+      continuation = extraction.continuation;
+
+      const currentPage = extraction.pageNumber ?? page;
+      const hasNextPage =
+        (pageCount !== undefined && currentPage < pageCount) ||
+        (pageCount === undefined && Boolean(continuation));
+
+      if (!hasNextPage) {
+        break;
+      }
+
+      if (page >= this.maxPagesPerCountry) {
+        truncated = true;
+        break;
+      }
+
+      page++;
+    }
+
+    return { events: Array.from(allEvents.values()), truncated };
+  }
+
+  private async fetchDirectoryPage(
+    slug: string,
+    page: number,
+  ): Promise<EventbritePageExtraction> {
+    const url = new URL(this.baseUrl + "/" + slug + "/hackathon/");
+
+    if (page > 1) {
+      url.searchParams.set("page", page.toString());
+    }
+
+    const response = await fetchWithRetry(url.toString(), {
       headers: {
         Accept: "text/html",
         "User-Agent":
@@ -282,7 +428,10 @@ export class EventbriteParser extends BaseParser {
 
     if (!response.ok) {
       throw new Error(
-        `Eventbrite directory page HTTP ${response.status} for ${url}`,
+        "Eventbrite directory page HTTP " +
+          response.status +
+          " for " +
+          url.toString(),
       );
     }
 
@@ -290,29 +439,309 @@ export class EventbriteParser extends BaseParser {
     return this.extractEvents(html);
   }
 
-  /** Extracts and dedupes (by event id) the raw event cards in a page. */
-  private extractEvents(html: string): EventbriteRawEvent[] {
+  /**
+   * Extracts and dedupes raw events from both the rendered cards and the
+   * structured server payload. The two views are merged by Eventbrite ID:
+   * cards provide the display text while the payload provides authoritative
+   * dates, timezone, venue, and online status.
+   */
+  private extractEvents(html: string): EventbritePageExtraction {
+    const structuredPage = this.extractStructuredPage(html);
     const byId = new Map<string, EventbriteRawEvent>();
-    const pattern = new RegExp(EventbriteParser.EVENT_PATTERN);
 
-    for (const match of html.matchAll(pattern)) {
-      const [, url, id, location, name, date] = match;
-      if (!id || !url || !name || !date) {
-        continue;
-      }
+    for (const event of this.extractCardEvents(html)) {
+      byId.set(event.id, event);
+    }
 
-      if (!byId.has(id)) {
-        byId.set(id, {
-          id,
-          url,
-          name,
-          location: location ?? "",
-          dateText: date,
+    for (const structured of structuredPage.events) {
+      const existing = byId.get(structured.id);
+      const structuredLocation = this.getStructuredLocation(structured);
+
+      if (existing) {
+        byId.set(structured.id, {
+          ...existing,
+          name: existing.name || structured.name || "",
+          url: existing.url || this.normalizeEventUrl(structured.url || ""),
+          location: existing.location || structuredLocation,
+          structured,
+        });
+      } else if (structured.name && structured.url) {
+        byId.set(structured.id, {
+          id: structured.id,
+          name: structured.name,
+          url: this.normalizeEventUrl(structured.url),
+          location: structuredLocation,
+          dateText: "",
+          structured,
         });
       }
     }
 
+    const hasExpectedMarkup =
+      /\bdata-event-id\b/i.test(html) ||
+      html.includes("window.__SERVER_DATA__") ||
+      /["']eventbrite_event_id["']\s*:/i.test(html);
+
+    return {
+      events: Array.from(byId.values()).filter((event) =>
+        Boolean(event.id && event.url && event.name),
+      ),
+      pageNumber: structuredPage.pageNumber,
+      pageCount: structuredPage.pageCount,
+      continuation: structuredPage.continuation,
+      hasExpectedMarkup,
+    };
+  }
+
+  private extractCardEvents(html: string): EventbriteRawEvent[] {
+    const byId = new Map<string, EventbriteRawEvent>();
+    const pattern = new RegExp(EventbriteParser.ANCHOR_PATTERN);
+
+    for (const match of html.matchAll(pattern)) {
+      const attributes = this.parseAttributes(match[1] || "");
+      const id = attributes["data-event-id"];
+      const rawUrl = attributes.href;
+
+      if (!id || !rawUrl) {
+        continue;
+      }
+
+      const url = this.normalizeEventUrl(rawUrl);
+      if (!url) {
+        continue;
+      }
+
+      const innerHtml = match[2] || "";
+      const headingMatch = innerHtml.match(
+        new RegExp(EventbriteParser.HEADING_PATTERN),
+      );
+      const name = headingMatch
+        ? this.extractTextContent(headingMatch[1] || "")
+        : this.extractAriaLabel(attributes["aria-label"] || "");
+
+      const matchEnd = (match.index ?? 0) + match[0].length;
+      const nextAnchor = html.slice(matchEnd).search(/<a\b/i);
+      const afterAnchor = html.slice(
+        matchEnd,
+        nextAnchor === -1 ? matchEnd + 4000 : matchEnd + nextAnchor,
+      );
+      const paragraphMatch = afterAnchor.match(
+        new RegExp(EventbriteParser.PARAGRAPH_PATTERN),
+      );
+      const dateText = paragraphMatch
+        ? this.extractTextContent(paragraphMatch[1] || "")
+        : "";
+
+      const previous = byId.get(id);
+      byId.set(id, {
+        id,
+        url: previous?.url || url,
+        name: previous?.name || name,
+        location: previous?.location || attributes["data-event-location"] || "",
+        dateText: previous?.dateText || dateText,
+      });
+    }
+
     return Array.from(byId.values());
+  }
+
+  private extractStructuredPage(html: string): {
+    events: EventbriteStructuredEvent[];
+    pageNumber?: number;
+    pageCount?: number;
+    continuation?: string;
+  } {
+    const value = this.extractJsonAssignment(html, "window.__SERVER_DATA__");
+    const root = asJsonObject(value);
+    const searchData = asJsonObject(root?.search_data);
+    const eventsData = asJsonObject(searchData?.events);
+    const pagination = asJsonObject(eventsData?.pagination);
+    const results = Array.isArray(eventsData?.results)
+      ? eventsData.results
+      : [];
+
+    return {
+      events: results
+        .map((result) => this.toStructuredEvent(result))
+        .filter((event): event is EventbriteStructuredEvent => event !== null),
+      pageNumber: asNumber(pagination?.page_number),
+      pageCount: asNumber(pagination?.page_count),
+      continuation: asString(pagination?.continuation),
+    };
+  }
+
+  private toStructuredEvent(value: unknown): EventbriteStructuredEvent | null {
+    const object = asJsonObject(value);
+    const id = asString(object?.eventbrite_event_id) || asString(object?.id);
+
+    if (!id) {
+      return null;
+    }
+
+    const venue = asJsonObject(object?.primary_venue);
+    const address = asJsonObject(venue?.address);
+
+    return {
+      id,
+      name: asString(object?.name),
+      url: asString(object?.url),
+      start_date: asString(object?.start_date),
+      start_time: asString(object?.start_time),
+      timezone: asString(object?.timezone),
+      end_date: asString(object?.end_date),
+      end_time: asString(object?.end_time),
+      primary_venue: venue
+        ? {
+            name: asString(venue.name),
+            address: address
+              ? {
+                  city: asString(address.city),
+                  country: asString(address.country),
+                  region: asString(address.region),
+                }
+              : undefined,
+          }
+        : undefined,
+      is_online_event: asBoolean(object?.is_online_event),
+    };
+  }
+
+  private getStructuredLocation(event: EventbriteStructuredEvent): string {
+    const city = event.primary_venue?.address?.city;
+    const region = event.primary_venue?.address?.region;
+
+    if (!city) {
+      return "";
+    }
+
+    return region ? city + ", " + region : city;
+  }
+
+  private parseAttributes(value: string): Record<string, string> {
+    const attributes: Record<string, string> = {};
+    const pattern = /([^\s=/>]+)\s*=\s*(["'])([\s\S]*?)\2/g;
+
+    for (const match of value.matchAll(pattern)) {
+      const [, name, , attributeValue] = match;
+
+      if (name && attributeValue !== undefined) {
+        attributes[name.toLowerCase()] =
+          this.decodeHtmlEntities(attributeValue);
+      }
+    }
+
+    return attributes;
+  }
+
+  private extractTextContent(value: string): string {
+    return this.decodeHtmlEntities(value.replace(/<[^>]*>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  private extractAriaLabel(value: string): string {
+    return value.replace(/^view(?:\s+event)?\s*:?\s*/i, "").trim();
+  }
+
+  private normalizeEventUrl(rawUrl: string): string {
+    try {
+      const url = new URL(rawUrl, "https://www.eventbrite.com");
+
+      if (!url.pathname.includes("/e/")) {
+        return "";
+      }
+
+      for (const key of Array.from(url.searchParams.keys())) {
+        if (key.toLowerCase() === "aff") {
+          url.searchParams.delete(key);
+        }
+      }
+
+      return url.toString();
+    } catch {
+      return "";
+    }
+  }
+
+  private extractJsonAssignment(html: string, marker: string): unknown {
+    const markerIndex = html.indexOf(marker);
+
+    if (markerIndex === -1) {
+      return null;
+    }
+
+    const start = this.findJsonValueStart(html, markerIndex + marker.length);
+    if (start === -1) {
+      return null;
+    }
+
+    const end = this.findJsonValueEnd(html, start);
+    if (end === -1) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(html.slice(start, end)) as unknown;
+    } catch {
+      return null;
+    }
+  }
+
+  private findJsonValueStart(html: string, from: number): number {
+    for (let index = from; index < html.length; index++) {
+      if (html[index] === "{" || html[index] === "[") {
+        return index;
+      }
+
+      if (!/\s|=/.test(html[index] || "")) {
+        return -1;
+      }
+    }
+
+    return -1;
+  }
+
+  private findJsonValueEnd(html: string, start: number): number {
+    const opener = html[start];
+    const closer = opener === "{" ? "}" : opener === "[" ? "]" : "";
+
+    if (!closer) {
+      return -1;
+    }
+
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let index = start; index < html.length; index++) {
+      const character = html[index];
+
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (character === "\\") {
+          escaped = true;
+        } else if (character === '"') {
+          inString = false;
+        }
+
+        continue;
+      }
+
+      if (character === '"') {
+        inString = true;
+      } else if (character === opener) {
+        depth++;
+      } else if (character === closer) {
+        depth--;
+
+        if (depth === 0) {
+          return index + 1;
+        }
+      }
+    }
+
+    return -1;
   }
 
   private mapEventToHackathon(
@@ -345,9 +774,14 @@ export class EventbriteParser extends BaseParser {
         return null;
       }
 
-      const start = this.parseEventbriteDate(event.dateText, now);
+      const dates = parseEventbriteDates(
+        event,
+        country_code,
+        now,
+        this.countryTimezones,
+      );
 
-      if (!start) {
+      if (!dates) {
         stats.droppedByUnparseableDate++;
         console.log(
           `Eventbrite: dropping "${name}" - could not parse date text "${event.dateText}".`,
@@ -355,26 +789,25 @@ export class EventbriteParser extends BaseParser {
         return null;
       }
 
-      if (start < now) {
+      if (dates.start < now) {
         return null;
       }
 
-      if (start > getMaxFutureCutoff(now)) {
+      if (dates.start > getMaxFutureCutoff(now)) {
         stats.excludedPastFutureWindow++;
         return null;
       }
 
-      const city = europeanCountries.normalizeCity(
-        event.location.split(",")[0]?.trim(),
-      );
+      const city = this.getEventCity(event);
 
       return {
         name,
         city,
         country_code,
         location_confidence: country_code ? "high" : undefined,
-        location_type: "physical",
-        date_start: start,
+        location_type: this.mapLocationType(event, city),
+        date_start: dates.start,
+        date_end: dates.end,
         topics: this.extractTopics(name),
         url: event.url,
         source: "eventbrite",
@@ -409,114 +842,60 @@ export class EventbriteParser extends BaseParser {
       .replace(/&amp;/g, "&");
   }
 
-  /**
-   * Parses Eventbrite's directory-page date text (no year, several shapes -
-   * see class doc comment) into a concrete UTC `Date`. Returns `null` when
-   * the text doesn't match any recognized shape rather than guessing.
-   */
-  private parseEventbriteDate(rawText: string, now: Date): Date | null {
-    const cleaned = rawText.replace(/\s*\+\s*\d+\s*more\s*$/i, "").trim();
-
-    const todayMatch = cleaned.match(/^today\s+at\s+(.+)$/i);
-    if (todayMatch) {
-      const time = this.parseTimeOfDay(todayMatch[1]);
-      if (!time) return null;
-
-      return new Date(
-        Date.UTC(
-          now.getUTCFullYear(),
-          now.getUTCMonth(),
-          now.getUTCDate(),
-          time.hours,
-          time.minutes,
-        ),
-      );
+  private getEventCity(event: EventbriteRawEvent): string | undefined {
+    if (event.structured?.is_online_event === true) {
+      return undefined;
     }
 
-    const weekdayMatch = cleaned.match(
-      /^(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\s+at\s+(.+)$/i,
-    );
-    if (weekdayMatch) {
-      const time = this.parseTimeOfDay(weekdayMatch[2]);
-      if (!time) return null;
+    const structuredCity = event.structured?.primary_venue?.address?.city;
+    const rawCity =
+      structuredCity?.trim() || event.location.split(",")[0]?.trim();
 
-      const targetWeekday = WEEKDAYS.indexOf(weekdayMatch[1].toLowerCase());
-      const dayOfMonth = this.resolveNextWeekday(now, targetWeekday);
-
-      return new Date(
-        Date.UTC(
-          dayOfMonth.getUTCFullYear(),
-          dayOfMonth.getUTCMonth(),
-          dayOfMonth.getUTCDate(),
-          time.hours,
-          time.minutes,
-        ),
-      );
+    if (
+      !rawCity ||
+      this.isOnlineLocation(event) ||
+      this.isTbdLocation(rawCity)
+    ) {
+      return undefined;
     }
 
-    // Normal shape: "Thu, Nov 12, 5:00 PM" - weekday name is not needed for
-    // parsing, only month/day/time.
-    const normalMatch = cleaned.match(
-      /^\w{3,},\s*([a-z]{3})[a-z]*\s+(\d{1,2}),\s*(.+)$/i,
-    );
-    if (normalMatch) {
-      const monthIndex = MONTHS.indexOf(normalMatch[1].toLowerCase());
-      if (monthIndex === -1) return null;
-
-      const day = Number.parseInt(normalMatch[2], 10);
-      const time = this.parseTimeOfDay(normalMatch[3]);
-      if (!time) return null;
-
-      const currentYear = now.getUTCFullYear();
-      let candidate = new Date(
-        Date.UTC(currentYear, monthIndex, day, time.hours, time.minutes),
-      );
-
-      // Year-less date already elapsed this year -> assume it refers to
-      // next year instead of silently treating it as a past event.
-      if (candidate < now) {
-        candidate = new Date(
-          Date.UTC(currentYear + 1, monthIndex, day, time.hours, time.minutes),
-        );
-      }
-
-      return candidate;
-    }
-
-    return null;
+    return europeanCountries.normalizeCity(rawCity);
   }
 
-  private parseTimeOfDay(
-    text: string,
-  ): { hours: number; minutes: number } | null {
-    const match = text.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-    if (!match) return null;
-
-    let hours = Number.parseInt(match[1], 10);
-    const minutes = Number.parseInt(match[2], 10);
-    const meridiem = match[3].toUpperCase();
-
-    if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) {
-      return null;
+  private mapLocationType(
+    event: EventbriteRawEvent,
+    city: string | undefined,
+  ): ParsedHackathon["location_type"] {
+    if (
+      event.structured?.is_online_event === true ||
+      this.isOnlineLocation(event)
+    ) {
+      return "online";
     }
 
-    if (meridiem === "PM" && hours !== 12) hours += 12;
-    if (meridiem === "AM" && hours === 12) hours = 0;
+    const venueName = event.structured?.primary_venue?.name || "";
+    if (this.isTbdLocation(event.location) || this.isTbdLocation(venueName)) {
+      return "tbd";
+    }
 
-    return { hours, minutes };
+    return city || venueName.trim() || event.location.trim()
+      ? "physical"
+      : "tbd";
   }
 
-  /** Next occurrence (UTC calendar date) of `targetWeekday` (0=Sun) from `now`, never in the past. */
-  private resolveNextWeekday(now: Date, targetWeekday: number): Date {
-    const base = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  private isOnlineLocation(event: EventbriteRawEvent): boolean {
+    const locationText = [
+      event.location,
+      event.structured?.primary_venue?.name || "",
+      event.structured?.primary_venue?.address?.city || "",
+    ].join(" ");
+
+    return /\b(?:online|virtual|remote|digital)\b/i.test(locationText);
+  }
+
+  private isTbdLocation(value: string): boolean {
+    return /\btbd\b|to be announced|not announced|location pending|venue pending/i.test(
+      value,
     );
-    const currentWeekday = base.getUTCDay();
-
-    let diff = targetWeekday - currentWeekday;
-    if (diff < 0) diff += 7;
-
-    base.setUTCDate(base.getUTCDate() + diff);
-    return base;
   }
 }
