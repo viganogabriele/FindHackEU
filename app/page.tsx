@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import HackathonList from "@/components/hackathon-list";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,14 @@ import { AlertCircle } from "lucide-react";
 import { FiltersPanel } from "@/components/filters-panel";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { useFilters } from "@/contexts/filter-context";
+import { filterAndSortHackathons } from "@/lib/filter-hackathons";
+import { List, Map as MapIcon } from "lucide-react";
+import type { HackathonTopic } from "@/lib/constants/topics";
+
+const HackathonMap = dynamic(() => import("@/components/hackathon-map"), {
+  ssr: false,
+});
 
 export default function Home() {
   const [upcoming, setUpcoming] = useState<Hackathon[]>([]);
@@ -110,26 +119,110 @@ export default function Home() {
         past: uniquePastLocations,
       }}
     >
-      <div className="flex min-h-screen flex-col">
-        <SiteHeader />
-        <main className="mx-auto w-full max-w-screen-2xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-          {/* Translated header and subtitle */}
-          <TranslatedHeader />
-          <Separator className="my-6" />
-          <FiltersPanel
-            uniqueUpcomingLocations={uniqueUpcomingLocations}
-            uniquePastLocations={uniquePastLocations}
-            uniqueTopics={uniqueTopics}
-          />
-          {error ? (
-            <ErrorState message={error} onRetry={fetchHackathons} />
-          ) : (
-            <HackathonList upcoming={upcoming} past={past} loading={loading} />
-          )}
-        </main>
-        <SiteFooter />
-      </div>
+      <HomeContent
+        upcoming={upcoming}
+        past={past}
+        loading={loading}
+        error={error}
+        fetchHackathons={fetchHackathons}
+        uniqueUpcomingLocations={uniqueUpcomingLocations}
+        uniquePastLocations={uniquePastLocations}
+        uniqueTopics={uniqueTopics}
+      />
     </FilterProvider>
+  );
+}
+
+function HomeContent({
+  upcoming,
+  past,
+  loading,
+  error,
+  fetchHackathons,
+  uniqueUpcomingLocations,
+  uniquePastLocations,
+  uniqueTopics,
+}: {
+  upcoming: Hackathon[];
+  past: Hackathon[];
+  loading: boolean;
+  error: string | null;
+  fetchHackathons: () => void;
+  uniqueUpcomingLocations: string[];
+  uniquePastLocations: string[];
+  uniqueTopics: HackathonTopic[];
+}) {
+  const { filters } = useFilters();
+  const { locale, t } = useTranslation();
+  const [view, setView] = useState<"list" | "map">("list");
+  const filteredHackathons = useMemo(
+    () =>
+      filterAndSortHackathons(
+        filters.status === "upcoming" ? upcoming : past,
+        filters,
+        locale,
+      ),
+    [filters, locale, upcoming, past],
+  );
+
+  return (
+    <div className="flex min-h-screen flex-col">
+      <SiteHeader />
+      <main className="mx-auto w-full max-w-screen-2xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+        <TranslatedHeader />
+        <Separator className="my-6" />
+        <FiltersPanel
+          uniqueUpcomingLocations={uniqueUpcomingLocations}
+          uniquePastLocations={uniquePastLocations}
+          uniqueTopics={uniqueTopics}
+        />
+        {error ? (
+          <ErrorState message={error} onRetry={fetchHackathons} />
+        ) : (
+          <>
+            {!loading && (
+              <div
+                className="mb-6 flex justify-end"
+                role="group"
+                aria-label={t("view.label")}
+              >
+                <div className="inline-flex rounded-md border bg-muted/30 p-1">
+                  <Button
+                    variant={view === "list" ? "secondary" : "ghost"}
+                    size="sm"
+                    aria-pressed={view === "list"}
+                    onClick={() => setView("list")}
+                  >
+                    <List />
+                    {t("view.list")}
+                  </Button>
+                  <Button
+                    variant={view === "map" ? "secondary" : "ghost"}
+                    size="sm"
+                    aria-pressed={view === "map"}
+                    onClick={() => setView("map")}
+                  >
+                    <MapIcon />
+                    {t("view.map")}
+                  </Button>
+                </div>
+              </div>
+            )}
+            {view === "map" && !loading ? (
+              <HackathonMap hackathons={filteredHackathons} />
+            ) : (
+              <HackathonList
+                upcoming={upcoming}
+                past={past}
+                loading={loading}
+                filteredHackathons={filteredHackathons}
+              />
+            )}
+          </>
+        )}
+      </main>
+      <SiteFooter />
+    </div>
   );
 }
 
