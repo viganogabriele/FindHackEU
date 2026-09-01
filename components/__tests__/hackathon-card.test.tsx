@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import {
   HackathonCard,
   type HackathonCardData,
@@ -165,5 +165,11 @@ describe("HackathonCard", () => {
     );
 
     expect(rehydrate).toHaveBeenCalledTimes(1);
+
+    const firstBookmark = screen.getAllByRole("button", {
+      name: "Save Test Hackathon to bookmarks",
+    })[0];
+    fireEvent.click(firstBookmark);
+    expect(firstBookmark.getAttribute("aria-pressed")).toBe("true");
   });
 });
