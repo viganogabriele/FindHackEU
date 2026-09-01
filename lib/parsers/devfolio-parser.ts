@@ -77,12 +77,27 @@ export class DevfolioParser extends BaseParser {
   // maxPagesPerSlug pattern rather than a value tuned against real data.
   private readonly maxPagesPerFilter = 5;
 
+  // Small delay between successive requests, including pagination pages -
+  // same courtesy reasoning as LumaParser's pageDelayMs and EventbriteParser's
+  // countryDelayMs. Low request volume here makes this less critical than for
+  // Eventbrite's 15 requests/run, but the principle - don't hammer a host we
+  // have no formal API agreement with - applies equally.
+  private readonly requestDelayMs = 500;
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   protected async discover(): Promise<DiscoverResult> {
     const byUuid = new Map<string, DevfolioHackathon>();
     const errors: string[] = [];
     let hardFailures = 0;
 
-    for (const filter of this.filters) {
+    for (const [index, filter] of this.filters.entries()) {
+      if (index > 0) {
+        await this.sleep(this.requestDelayMs);
+      }
+
       try {
         const { items, truncated } = await this.fetchFilter(filter);
         for (const item of items) {
@@ -153,6 +168,10 @@ export class DevfolioParser extends BaseParser {
     let totalPages = 1;
 
     while (page <= totalPages && page <= this.maxPagesPerFilter) {
+      if (page > 1) {
+        await this.sleep(this.requestDelayMs);
+      }
+
       const url = `${this.baseUrl}?filter=${encodeURIComponent(filter)}&page=${page}`;
 
       const response = await fetchWithRetry(url, {
