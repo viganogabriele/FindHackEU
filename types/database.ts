@@ -27,6 +27,13 @@ export interface Database {
           updated_at: string;
           notified: boolean;
           is_new: boolean;
+          // Added for issue #72: soft-delete a published hackathon (manual
+          // "Archive" action or the automatic retention sweep) instead of a
+          // hard DELETE - null means "not archived", the normal case. The
+          // public API (app/api/hackathons/route.ts) excludes any row where
+          // this is set.
+          archived_at: string | null;
+          archived_reason: string | null;
         };
         Insert: {
           id?: string;
@@ -49,6 +56,8 @@ export interface Database {
           updated_at?: string;
           notified?: boolean;
           is_new?: boolean;
+          archived_at?: string | null;
+          archived_reason?: string | null;
         };
         Update: {
           id?: string;
@@ -69,6 +78,8 @@ export interface Database {
           updated_at?: string;
           notified?: boolean;
           is_new?: boolean;
+          archived_at?: string | null;
+          archived_reason?: string | null;
         };
       };
       hackathon_candidates: {

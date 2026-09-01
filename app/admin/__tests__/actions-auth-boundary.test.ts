@@ -32,7 +32,11 @@ import {
   rejectCandidateAction,
   submitManualCandidateFormAction,
 } from "../candidates/actions";
-import { deleteHackathonAction } from "../hackathons/actions";
+import {
+  deleteHackathonAction,
+  archiveHackathonAction,
+  unarchiveHackathonAction,
+} from "../hackathons/actions";
 
 const protectedActions = [
   ["approveCandidateAction", () => approveCandidateAction("candidate-id")],
@@ -43,6 +47,14 @@ const protectedActions = [
     () => submitManualCandidateFormAction(null, new FormData()),
   ],
   ["deleteHackathonAction", () => deleteHackathonAction("hackathon-id")],
+  // Issue #72: archive/unarchive are also destructive-ish (archive removes
+  // a public listing) and must re-check auth themselves, same as every
+  // other action here.
+  [
+    "archiveHackathonAction",
+    () => archiveHackathonAction("hackathon-id", "reason"),
+  ],
+  ["unarchiveHackathonAction", () => unarchiveHackathonAction("hackathon-id")],
 ] as const;
 
 describe("admin server actions", () => {

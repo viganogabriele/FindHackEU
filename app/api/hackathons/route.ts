@@ -100,6 +100,11 @@ export async function GET(request: Request) {
         "id, name, city, country_code, location_type, venue, date_start, date_end, topics, notes, url, status, is_new, source",
       )
       .eq("status", status)
+      // Issue #72: an archived hackathon (manual "Archive" action, or the
+      // automatic retention sweep) is a soft-delete - it must never appear
+      // in the public listing, same as if it had been hard-deleted, while
+      // staying recoverable from the admin Archived tab.
+      .is("archived_at", null)
       // `id` as a secondary, always-unique tie-breaker so rows sharing
       // a `date_start` can't land inconsistently across a page boundary
       // (found in code review).
