@@ -8,8 +8,12 @@ import { moveCandidateToPendingAction } from "./actions";
 
 export function MoveCandidateToPendingButton({
   candidateId,
+  disabled = false,
+  disabledReason,
 }: {
   candidateId: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }) {
   const [result, formAction, isPending] = useActionState(
     moveCandidateToPendingAction.bind(null, candidateId),
@@ -36,9 +40,9 @@ export function MoveCandidateToPendingButton({
         type="submit"
         variant="outline"
         size="icon"
-        title="Move to pending"
-        aria-label="Move to pending"
-        disabled={isPending}
+        title={disabledReason ?? "Move to pending"}
+        aria-label={disabledReason ?? "Move to pending"}
+        disabled={disabled || isPending}
       >
         <Clock3 aria-hidden="true" />
       </Button>

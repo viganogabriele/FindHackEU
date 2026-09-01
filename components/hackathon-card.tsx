@@ -97,12 +97,12 @@ export function HackathonCard({
   return (
     <Card
       className={cn(
-        "flex h-full flex-col transition-all duration-200 hover:shadow-lg",
-        compact && "gap-2 py-2",
+        "flex h-full flex-col border-border/80 transition-all duration-200 hover:border-border hover:shadow-md",
+        compact && "gap-1 py-1",
         className,
       )}
     >
-      <CardHeader className={cn(compact && "gap-1 px-4 py-2")}>
+      <CardHeader className={cn(compact && "gap-1.5 px-4 py-2.5")}>
         {hackathon.preview_image_url && (
           <div className="relative aspect-[16/9] overflow-hidden rounded-md">
             <Image
@@ -118,8 +118,8 @@ export function HackathonCard({
         <div className="flex items-start justify-between gap-2">
           <CardTitle
             className={cn(
-              "line-clamp-2 flex-1 leading-snug",
-              compact && "text-sm",
+              "line-clamp-2 flex-1 leading-snug tracking-tight",
+              compact && "text-[0.9375rem]",
             )}
           >
             {titleLink && hackathon.url ? (
@@ -183,20 +183,20 @@ export function HackathonCard({
       </CardHeader>
 
       <CardContent
-        className={cn("flex-1 space-y-4", compact && "space-y-1.5 px-4 py-2")}
+        className={cn("flex-1 space-y-4", compact && "space-y-2 px-4 py-2")}
       >
         <div className="space-y-2">
           <div
             className={cn(
               "flex flex-col items-start gap-4 md:flex-row md:items-center",
-              compact && "gap-2",
+              compact && "gap-2.5",
             )}
           >
             {hackathon.date_start && (
               <div
                 className={cn(
                   "flex items-center gap-2 text-sm text-muted-foreground md:w-1/2",
-                  compact && "text-xs",
+                  compact && "text-xs leading-5",
                 )}
               >
                 <CalendarIcon className="h-4 w-4 shrink-0" />
@@ -209,7 +209,7 @@ export function HackathonCard({
               <div
                 className={cn(
                   "flex items-center gap-2 text-sm text-muted-foreground md:w-1/2",
-                  compact && "text-xs",
+                  compact && "text-xs leading-5",
                 )}
               >
                 <MapPin className="h-4 w-4 shrink-0" />
@@ -230,7 +230,7 @@ export function HackathonCard({
                 <div
                   className={cn(
                     "flex items-center gap-2 text-sm text-muted-foreground md:w-1/2",
-                    compact && "text-xs",
+                    compact && "text-xs leading-5",
                   )}
                 >
                   <MapPin className="h-4 w-4 shrink-0" />
@@ -246,7 +246,7 @@ export function HackathonCard({
         </div>
 
         {hackathon.topics && hackathon.topics.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {hackathon.topics
               .slice(0, 4)
               .map((topic: string, index: number) => {
@@ -277,7 +277,7 @@ export function HackathonCard({
         <CardFooter
           className={cn(
             "flex flex-col gap-2",
-            compact && "flex-row gap-2 border-t px-4 py-2",
+            compact && "flex-row gap-2 border-t border-border/70 px-4 py-2.5",
           )}
         >
           {actions}

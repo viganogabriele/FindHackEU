@@ -278,6 +278,12 @@ function AdminShell({
       <div className="container mx-auto max-w-5xl px-4 py-6">
         <header className="mb-5 flex items-start justify-between gap-4">
           <div className="min-w-0">
+            <Button asChild variant="link" size="sm" className="mb-2 -ml-3">
+              <Link href="/">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to site
+              </Link>
+            </Button>
             <h1 className="text-xl font-bold tracking-tight">
               Hackathon candidates
             </h1>
@@ -287,12 +293,6 @@ function AdminShell({
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <Button asChild variant="link" size="sm">
-              <Link href="/">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to site
-              </Link>
-            </Button>
             <SignOutButton email={authStatus.email!} />
           </div>
         </header>
@@ -722,7 +722,7 @@ function CandidateCard({
         titleLink
         meta={<CandidateContext candidate={candidate} status={status} />}
         actions={
-          <div className="flex w-full flex-wrap items-center justify-end gap-1">
+          <div className="flex w-full flex-wrap items-center justify-end gap-1.5">
             <CopyLinkButton url={candidate.url} />
             <form action={approveCandidateAction.bind(null, candidate.id)}>
               <Button
@@ -737,29 +737,40 @@ function CandidateCard({
                 <Check aria-hidden="true" />
               </Button>
             </form>
+            <MoveCandidateToPendingButton
+              candidateId={candidate.id}
+              disabled={status !== "rejected"}
+              disabledReason={
+                status !== "rejected" ? "Already pending" : undefined
+              }
+            />
             <EditCandidateDialog candidate={candidate} />
-            {status === "rejected" && (
-              <MoveCandidateToPendingButton candidateId={candidate.id} />
-            )}
-            {status !== "rejected" && (
-              <form
-                action={rejectCandidateAction.bind(
-                  null,
-                  candidate.id,
-                  undefined,
-                )}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              title="Only published hackathons can be archived"
+              aria-label="Only published hackathons can be archived"
+              disabled
+            >
+              <Archive aria-hidden="true" />
+            </Button>
+            <form
+              action={rejectCandidateAction.bind(null, candidate.id, undefined)}
+            >
+              <Button
+                type="submit"
+                variant="destructive"
+                size="icon"
+                title={status === "rejected" ? "Already rejected" : "Reject"}
+                aria-label={
+                  status === "rejected" ? "Already rejected" : "Reject"
+                }
+                disabled={status === "rejected"}
               >
-                <Button
-                  type="submit"
-                  variant="destructive"
-                  size="icon"
-                  title="Reject"
-                  aria-label="Reject"
-                >
-                  <X aria-hidden="true" />
-                </Button>
-              </form>
-            )}
+                <X aria-hidden="true" />
+              </Button>
+            </form>
             <form action={deleteCandidateAction.bind(null, candidate.id)}>
               <ConfirmDeleteButton
                 confirmMessage={`Permanently delete "${candidate.name}"? This cannot be undone.`}
@@ -894,9 +905,40 @@ function PublishedHackathonCard({
         titleLink
         meta={<PublishedContext hackathon={hackathon} tab={tab} />}
         actions={
-          <div className="flex w-full flex-wrap items-center justify-end gap-1">
+          <div className="flex w-full flex-wrap items-center justify-end gap-1.5">
             <CopyLinkButton url={hackathon.url} />
-            {tab === "archived" && (
+            <HackathonModerationAction
+              hackathon={hackathon}
+              label="Approve"
+              state="approved"
+              icon={Check}
+              disabled={
+                tab === "approved" || tab === "past" || tab === "archived"
+              }
+              disabledReason={
+                tab === "approved" || tab === "past"
+                  ? "Already approved"
+                  : tab === "archived"
+                    ? "Archived hackathons cannot be moderated"
+                    : undefined
+              }
+            />
+            <HackathonModerationAction
+              hackathon={hackathon}
+              label="Move to pending"
+              state="pending"
+              icon={Clock3}
+              disabled={tab === "pending" || tab === "archived"}
+              disabledReason={
+                tab === "pending"
+                  ? "Already pending"
+                  : tab === "archived"
+                    ? "Archived hackathons cannot be moderated"
+                    : undefined
+              }
+            />
+            <EditHackathonDialog hackathon={hackathon} />
+            {tab === "archived" ? (
               <form action={unarchiveHackathonAction.bind(null, hackathon.id)}>
                 <Button
                   type="submit"
@@ -908,41 +950,7 @@ function PublishedHackathonCard({
                   <ArchiveRestore aria-hidden="true" />
                 </Button>
               </form>
-            )}
-            {tab === "pending" && (
-              <HackathonModerationAction
-                hackathon={hackathon}
-                label="Approve"
-                state="approved"
-                icon={Check}
-              />
-            )}
-            {tab === "rejected" && (
-              <>
-                <HackathonModerationAction
-                  hackathon={hackathon}
-                  label="Approve"
-                  state="approved"
-                  icon={Check}
-                />
-                <HackathonModerationAction
-                  hackathon={hackathon}
-                  label="Move to pending"
-                  state="pending"
-                  icon={Clock3}
-                />
-              </>
-            )}
-            {(tab === "approved" || tab === "past") && (
-              <HackathonModerationAction
-                hackathon={hackathon}
-                label="Move to pending"
-                state="pending"
-                icon={Clock3}
-              />
-            )}
-            <EditHackathonDialog hackathon={hackathon} />
-            {(tab === "approved" || tab === "past") && (
+            ) : (
               <form
                 action={archiveHackathonAction.bind(
                   null,
@@ -955,20 +963,31 @@ function PublishedHackathonCard({
                   variant="outline"
                   size="icon"
                   aria-label="Archive"
-                  title="Archive (remove from the public listing, reversible)"
+                  title={
+                    hackathon.moderation_state === "approved"
+                      ? "Archive (remove from the public listing, reversible)"
+                      : "Approve or reject this hackathon before archiving it"
+                  }
+                  disabled={hackathon.moderation_state !== "approved"}
                 >
                   <Archive aria-hidden="true" />
                 </Button>
               </form>
             )}
-            {(tab === "pending" || tab === "approved" || tab === "past") && (
-              <HackathonModerationAction
-                hackathon={hackathon}
-                label="Reject"
-                state="rejected"
-                icon={X}
-              />
-            )}
+            <HackathonModerationAction
+              hackathon={hackathon}
+              label="Reject"
+              state="rejected"
+              icon={X}
+              disabled={tab === "rejected" || tab === "archived"}
+              disabledReason={
+                tab === "rejected"
+                  ? "Already rejected"
+                  : tab === "archived"
+                    ? "Archived hackathons cannot be moderated"
+                    : undefined
+              }
+            />
             <form action={deleteHackathonAction.bind(null, hackathon.id)}>
               <ConfirmDeleteButton
                 confirmMessage={`Permanently delete "${hackathon.name}" from the live site? This cannot be undone.`}
@@ -1039,11 +1058,15 @@ function HackathonModerationAction({
   label,
   state,
   icon: Icon,
+  disabled = false,
+  disabledReason,
 }: {
   hackathon: HackathonRow;
   label: string;
   state: ModerationState;
   icon: typeof Check;
+  disabled?: boolean;
+  disabledReason?: string;
 }) {
   return (
     <form
@@ -1059,8 +1082,9 @@ function HackathonModerationAction({
               : "outline"
         }
         size="icon"
-        title={label}
-        aria-label={label}
+        title={disabledReason ?? label}
+        aria-label={disabledReason ?? label}
+        disabled={disabled}
       >
         <Icon aria-hidden="true" />
       </Button>
