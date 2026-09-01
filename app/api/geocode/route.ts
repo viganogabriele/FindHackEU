@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import { GeocodingService } from "@/lib/services/geocoding-service";
+import {
+  getCachedCoordinates,
+  setCachedCoordinates,
+} from "@/lib/services/geocode-cache";
 
 const MAX_QUERY_LENGTH = 120;
 const RATE_LIMIT_PER_HOUR = 10;
-const CACHE_TTL_MS = 60 * 60 * 1000;
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const coordinateCache = new Map<
-  string,
-  { latitude: number; longitude: number; expiresAt: number }
->();
 
 function getClientKey(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -57,9 +56,8 @@ export async function GET(request: Request) {
     );
   }
 
-  const cacheKey = query.toLocaleLowerCase();
-  const cached = coordinateCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
+  const cached = await getCachedCoordinates(query);
+  if (cached) {
     return NextResponse.json({
       data: {
         query,
@@ -92,10 +90,13 @@ export async function GET(request: Request) {
     latitude: outcome.latitude,
     longitude: outcome.longitude,
   };
-  coordinateCache.set(cacheKey, {
+  await setCachedCoordinates(query, {
     latitude: outcome.latitude,
     longitude: outcome.longitude,
-    expiresAt: Date.now() + CACHE_TTL_MS,
+    countryCode:
+      outcome.status === "found" || outcome.status === "non_european"
+        ? outcome.countryCode
+        : null,
   });
 
   return NextResponse.json({ data });

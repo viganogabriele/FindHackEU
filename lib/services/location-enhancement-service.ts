@@ -5,6 +5,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchAllRows } from "@/lib/services/fetch-all-rows";
 import { normalizeUrl } from "@/lib/dedup/url-normalizer";
 import pLimit from "p-limit";
+import {
+  getCachedCoordinates,
+  setCachedCoordinates,
+} from "@/lib/services/geocode-cache";
 
 /**
  * Servizio per migliorare i dati di location degli hackathon
@@ -79,10 +83,41 @@ export class LocationEnhancementService {
             const geocodingAddress = hackathon.country_code
               ? `${city}, ${europeanCountries.getCountryName(hackathon.country_code) ?? hackathon.country_code}`
               : city;
-            const outcome =
-              await GeocodingService.getCoordinatesFromAddress(
-                geocodingAddress,
-              );
+            const cached = await getCachedCoordinates(geocodingAddress);
+            const outcome = cached
+              ? cached.countryCode &&
+                europeanCountries.classifyCountryCode(cached.countryCode) ===
+                  "non_european"
+                ? {
+                    status: "non_european" as const,
+                    countryCode: cached.countryCode,
+                    latitude: cached.latitude,
+                    longitude: cached.longitude,
+                  }
+                : {
+                    status: "found" as const,
+                    countryCode:
+                      cached.countryCode ?? hackathon.country_code ?? "",
+                    latitude: cached.latitude,
+                    longitude: cached.longitude,
+                  }
+              : await GeocodingService.getCoordinatesFromAddress(
+                  geocodingAddress,
+                );
+
+            if (
+              !cached &&
+              (outcome.status === "found" ||
+                outcome.status === "non_european") &&
+              outcome.latitude !== undefined &&
+              outcome.longitude !== undefined
+            ) {
+              await setCachedCoordinates(geocodingAddress, {
+                latitude: outcome.latitude,
+                longitude: outcome.longitude,
+                countryCode: outcome.countryCode,
+              });
+            }
 
             switch (outcome.status) {
               case "found": {
