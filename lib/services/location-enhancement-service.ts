@@ -122,7 +122,7 @@ export class LocationEnhancementService {
             switch (outcome.status) {
               case "found": {
                 console.log(
-                  `Enhanced location via geocoding: ${city} -> ${outcome.countryCode}`,
+                  `Enhanced location via ${cached ? "cache" : "geocoding"}: ${city} -> ${outcome.countryCode}`,
                 );
                 return {
                   ...hackathon,

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { GeocodingService } from "@/lib/services/geocoding-service";
 import {
   getCachedCoordinates,
+  pruneGeocodeCache,
   setCachedCoordinates,
 } from "@/lib/services/geocode-cache";
 
@@ -68,11 +69,7 @@ export async function GET(request: Request) {
   }
 
   const outcome = await GeocodingService.getCoordinatesFromAddress(query);
-  if (
-    (outcome.status !== "found" && outcome.status !== "non_european") ||
-    outcome.latitude === undefined ||
-    outcome.longitude === undefined
-  ) {
+  if (outcome.status === "unavailable" || outcome.status === "not_found") {
     const status = outcome.status === "unavailable" ? 503 : 404;
     return NextResponse.json(
       {
@@ -84,6 +81,9 @@ export async function GET(request: Request) {
       { status },
     );
   }
+  if (outcome.latitude === undefined || outcome.longitude === undefined) {
+    return NextResponse.json({ error: "Location not found." }, { status: 404 });
+  }
 
   const data = {
     query,
@@ -93,11 +93,9 @@ export async function GET(request: Request) {
   await setCachedCoordinates(query, {
     latitude: outcome.latitude,
     longitude: outcome.longitude,
-    countryCode:
-      outcome.status === "found" || outcome.status === "non_european"
-        ? outcome.countryCode
-        : null,
+    countryCode: outcome.countryCode,
   });
+  await pruneGeocodeCache();
 
   return NextResponse.json({ data });
 }

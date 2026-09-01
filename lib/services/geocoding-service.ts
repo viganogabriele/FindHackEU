@@ -21,6 +21,11 @@ const GEOCODING_TIMEOUT_MS = 5_000;
 const GEOCODING_RETRIES = 2;
 const GEOCODING_BACKOFF_MS = 250;
 const NOMINATIM_TIMEOUT_MS = 5_000;
+// Nominatim asks clients to stay at or below one request per second. This
+// queue enforces that limit within one Node.js process. Serverless platforms
+// may run multiple concurrent instances, so the aggregate limit is not
+// guaranteed across instances; the project's low lookup volume makes this
+// best-effort protection an acceptable trade-off for now.
 let nominatimLastRequestAt = 0;
 let nominatimRequestChain = Promise.resolve();
 
@@ -112,7 +117,7 @@ export class GeocodingService {
       const apiKey = process.env.OPENAPI_GEOCODING_KEY;
       if (!apiKey) {
         console.warn(
-          "OPENAPI_GEOCODING_KEY not configured. Skipping geocoding.",
+          "OPENAPI_GEOCODING_KEY not configured. Using Nominatim geocoding fallback.",
         );
         return this.getNominatimCoordinates(city);
       }

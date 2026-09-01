@@ -47,7 +47,7 @@ describe("GeocodingService.getCountryCodeFromCity", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns unavailable without calling the API when the API key is missing", async () => {
+  it("uses Nominatim when the primary API key is missing", async () => {
     delete process.env.OPENAPI_GEOCODING_KEY;
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
     vi.stubGlobal("fetch", fetchMock);
@@ -57,6 +57,9 @@ describe("GeocodingService.getCountryCodeFromCity", () => {
     ).resolves.toEqual({ status: "not_found" });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
+      "OPENAPI_GEOCODING_KEY not configured. Using Nominatim geocoding fallback.",
+    );
   });
 
   it("falls back to Nominatim when the primary provider is unavailable", async () => {

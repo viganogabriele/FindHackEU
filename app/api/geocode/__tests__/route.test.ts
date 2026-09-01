@@ -3,6 +3,7 @@ import { GET } from "@/app/api/geocode/route";
 import { GeocodingService } from "@/lib/services/geocoding-service";
 import {
   getCachedCoordinates,
+  pruneGeocodeCache,
   setCachedCoordinates,
 } from "@/lib/services/geocode-cache";
 
@@ -11,6 +12,7 @@ vi.mock("@/lib/services/geocoding-service", () => ({
 }));
 vi.mock("@/lib/services/geocode-cache", () => ({
   getCachedCoordinates: vi.fn(),
+  pruneGeocodeCache: vi.fn(),
   setCachedCoordinates: vi.fn(),
 }));
 
@@ -56,5 +58,6 @@ describe("GET /api/geocode", () => {
       longitude: 12.4964,
       countryCode: "IT",
     });
+    expect(pruneGeocodeCache).toHaveBeenCalledTimes(1);
   });
 });

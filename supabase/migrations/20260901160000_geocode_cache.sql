@@ -1,6 +1,7 @@
 -- Persistent geocoding results shared by the public geocode endpoint and the
--- ingestion pipeline. Coordinates are stable enough that this table has no
--- TTL; rows can be corrected manually if a provider returns a bad result.
+-- ingestion pipeline. Coordinates are stable, but the application applies a
+-- best-effort 180-day TTL and 10,000-row cap because public queries are
+-- unauthenticated and arbitrary.
 create table if not exists public.geocode_cache (
   query text primary key,
   latitude double precision not null,
