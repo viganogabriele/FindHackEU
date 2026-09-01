@@ -4,15 +4,15 @@ Instructions for AI coding agents working in this repository. See `CLAUDE.md` fo
 
 ## Project overview
 
-HackTrack EU is a Next.js 16 (App Router, TypeScript) app that aggregates European hackathons. Data flows: external sources → parsers → Supabase (Postgres) → public API / web UI, with a README table and Discord/Telegram/Twitter notifications regenerated on every update run. This is Gabriele Viganò's fork of Lorenzo Palaia's original project (MIT-licensed, see `LICENSE`), developed independently rather than aimed at an upstream merge.
+FindHackEU is an independent Next.js 16 (App Router, TypeScript) app that aggregates European hackathons. It was originally inspired by HackTrack EU by Lorenzo Palaia, but is now developed independently. Data flows: external sources → parsers → Supabase (Postgres) → public API / web UI, with a README table and Discord/Telegram/Twitter notifications regenerated on every update run.
 
 ## Discovery coverage & data quality roadmap
 
 Phase 1 (make every hackathon already discoverable via Luma actually surface) and most of Phase 2 (additional free sources, web-search discovery) are **done** as of 2026-09-01 — 20+ issues closed in one large session, all verified live (not just unit-tested) before closing. Current state, not history:
 
-- **Four active `Provider` parsers**: Luma (reference implementation, accepted ToS risk — see issue #65), Devfolio, MLH, ETHGlobal. LabLab is disabled (its site's JSON endpoint no longer exists after a framework migration — not Cloudflare, see issue #11). Eventbrite directory-page scraping exists on a separate branch (`feat/eventbrite-provider`, issue #68) not yet merged into the main discovery branch.
+- **Six active `Provider` parsers**: Luma (reference implementation, accepted ToS risk — see issue #65), Devfolio, MLH, ETHGlobal, Eventbrite, and Devpost. LabLab is disabled because its former JSON endpoint no longer exists after a framework migration — not Cloudflare.
 - **Web-search discovery** (`lib/search/*`, `lib/discovery/*`) is a _second, distinct_ pipeline — never feeds `hackathons` directly. It writes to a moderated `hackathon_candidates` review queue (`/admin/candidates`, now gated behind real Google sign-in — issue #67), whose Approved tab also doubles as the manager for already-published rows regardless of source (issue #82; `/admin/hackathons` was retired as a separate route and now just redirects there). See `CLAUDE.md`'s "Web-search discovery and candidate review" section for the full mechanics (search-provider fallback chain, JSON-LD/OG extraction with conflict detection, robots.txt-gated fetch classification, multilingual/site-scoped query generation, a persistent daily query budget).
-- Tracking issue: [#2 (EPIC) Improve hackathon discovery coverage and data quality](https://github.com/viganogabriele/HackTrack-EU/issues/2) — kept open as an index, not itself actionable.
+- Tracking issue: [#2 (EPIC) Improve hackathon discovery coverage and data quality](https://github.com/viganogabriele/FindHackEU/issues/2) — kept open as an index, not itself actionable.
 - Genuinely still open, real work: #29 (split the update route into independent phases — a large architecture change, needs the maintainer's explicit go-ahead before starting, don't just do it), #72 (archive/un-publish a wrong or stale hackathon), #73 (filter by country, not just city), #74 (Meetup — investigated and found low-value today, informational only).
 - Deliberately deferred (their own issue text says so, don't second-guess it): #19 (headless-browser rendering), #33 (re-evaluate update frequency — needs `update_runs` history to accumulate real data first).
 
@@ -20,11 +20,11 @@ Before picking up any issue, read it in full and check it isn't already covered 
 
 ### Known structural limits on Luma coverage
 
-Not every "missing" hackathon is a bug: Luma events can be set to `visibility: "private"` by their organizer, making them structurally invisible to the public discovery API — no pagination or geography fix will surface those. Before filing a coverage-gap issue, check the event directly (`https://api.luma.com/url?url=<slug>`); issue #53 in this fork's history was opened and then closed for exactly this reason.
+Not every "missing" hackathon is a bug: Luma events can be set to `visibility: "private"` by their organizer, making them structurally invisible to the public discovery API — no pagination or geography fix will surface those. Before filing a coverage-gap issue, check the event directly (`https://api.luma.com/url?url=<slug>`); issue #53 in the project's history was opened and then closed for exactly this reason.
 
-### Fork ownership note (important for local testing)
+### Infrastructure ownership note (important for local testing)
 
-This is a fork; the original repo owner's Supabase project, Vercel deployment, and API keys are **not accessible from here** and are out of scope — this is a hard, permanent constraint, not a temporary gap. The repo now ships its own Supabase schema (`supabase/migrations/20260101000000_init.sql`) so local development is fully self-contained: run `npx supabase start` (Docker-based CLI, devDependency) to get a local Postgres/Studio instance with that schema applied, then point `.env.local` at it. Any issue that needs an external API key assumes **your own** free-tier personal key for local development; production secrets (if this fork is ever deployed) are a separate concern configured by whoever owns that deployment.
+FindHackEU owns its current Supabase/deployment configuration and does not depend on any earlier project's production infrastructure. The repo ships its own Supabase schema (`supabase/migrations/20260101000000_init.sql`) so local development is fully self-contained: run `npx supabase start` (Docker-based CLI, devDependency) to get a local Postgres/Studio instance with that schema applied, then point `.env.local` at it. Any issue that needs an external API key assumes your own free-tier personal key for local development; deployment secrets are configured separately for the FindHackEU deployment.
 
 ## Setup
 
@@ -74,7 +74,7 @@ For local Supabase, `.env.local` only strictly needs the three Supabase keys `np
 - Run `npm run format` (Prettier, with `prettier-plugin-tailwindcss` for class sorting) before finishing a change — don't hand-format.
 - Keep new UI-facing strings synced across every file in `i18n/` (en, it, de, es, fr, nl, pl, pt, ro, sv) — don't add a key to only one locale.
 - New scraping sources should extend `BaseParser` (`lib/parsers/base-parser.ts`), implement `discover()` per the `Provider`/`ProviderResult`/`ParseStatus` contract in `lib/providers/provider.interface.ts`, and return `ParsedHackathon[]`; wire them into `sourceResults` and the parse stage in `app/api/update/route.ts`. Report an honest `status` (`"ok"|"partial"|"failed"`) rather than masking partial failures as success.
-- Add or update a Vitest test under the relevant `__tests__/` directory for any bugfix in `lib/classification`, `lib/dedup`, `lib/parsers`, `lib/european-countries.ts`, or `lib/services/fetch-all-rows.ts` — this fork has caught several real regressions this way (e.g. a classifier double-counting bug found via live Luma data, now a regression test).
+- Add or update a Vitest test under the relevant `__tests__/` directory for any bugfix in `lib/classification`, `lib/dedup`, `lib/parsers`, `lib/european-countries.ts`, or `lib/services/fetch-all-rows.ts` — this project has caught several real regressions this way.
 
 ### Dependency version constraints
 
@@ -87,9 +87,16 @@ For local Supabase, `.env.local` only strictly needs the three Supabase keys `np
 - Any query that might exceed 1000 rows must use `lib/services/fetch-all-rows.ts`'s `fetchAllRows<T>()` — PostgREST silently truncates past its default `max_rows`; several past bugs here came from a raw unpaginated `.select()`.
 - Notification bots (`lib/bots/discord-bot.ts`, `telegram-bot.ts`, `twitter-bot.ts`) are invoked together via `Promise.allSettled` so one platform's failure doesn't block the others — keep new bots consistent with that contract (`notifyNewHackathons(hackathons)`).
 - `lib/parsers/luma-parser.ts` is the reference parser: cursor pagination against `api.luma.com/discover/get-paginated-events`, an explicit non-European drop check via `classifyCountryCode()` in `lib/european-countries.ts` that must run first against only `geo.country_code` (before any regional/city fallback — reordering it after fallbacks reintroduces false-positive drops on things like US state abbreviations). Note `classifyCountryCode()` is designed for exactly-2-letter codes vs. free text — a source giving a full country name instead (e.g. Devfolio's `country: "Germany"`) needs its own explicit-name-drop handling, not this function directly (see `devfolio-parser.ts`'s doc comment for why).
-- `types/database.ts` is hand-maintained (not Supabase-generated in this fork) — every schema migration in `supabase/migrations/*.sql` needs a matching manual update here.
+- `types/database.ts` is hand-maintained (not Supabase-generated) — every schema migration in `supabase/migrations/*.sql` needs a matching manual update here.
 - `/admin/candidates` is a real review queue backed by its own `hackathon_candidates` table (never auto-published into `hackathons`); its Approved tab also manages published `hackathons` rows directly, regardless of source (issue #82 — `/admin/hackathons` is retired and now just redirects there). See `CLAUDE.md`'s "Web-search discovery and candidate review" section before touching anything under `app/admin/`, `lib/search/`, `lib/discovery/`, or `lib/services/{promote-candidate,submit-manual-candidate,require-admin-auth}.ts`.
-- This repo currently has several small, focused feature branches all based on `feat/devfolio-provider` (not `main`) with open PRs against it — check `git log --oneline` / `gh pr list` before assuming `main` or any one branch has everything. If a branch is explicitly noted as frozen for external review, do not commit to it; branch off it instead (matches the pattern already used for `feat/eventbrite-provider`, `fix/parser-request-delays`, `fix/estimated-status-not-displayed`, `feat/admin-auth-and-ui`).
+- The active provider set is Luma, Devfolio, MLH, ETHGlobal, Eventbrite, and Devpost. LabLab remains disabled because its former JSON endpoint disappeared after a framework migration. Generic web search is a separate moderated candidate pipeline and must never insert directly into `hackathons`.
+- `lib/detect-non-english.ts` applies a conservative locale-aware display filter: English and ambiguous titles remain visible; a title is hidden only when one supported non-English language is detected and it differs from the current locale.
+- `lib/services/geocode-cache.ts` stores normalized geocoding results in Supabase with a 180-day TTL and bounded pruning. The primary geocoder has a Nominatim fallback; cache and fallback errors are best-effort.
+- `preview_image_url` is optional, populated during ingestion when a validated image URL is available, exposed by the public API, and rendered by the shared hackathon card.
+- Public bookmarks use `lib/bookmarks-store.ts`, Zustand, and `localStorage`; hydration is deferred until mount. `components/hackathon-map.tsx` uses Leaflet/OpenStreetMap with clustering and country-centroid fallbacks from `lib/country-centroids.ts`.
+- `POST /api/submit-hackathon` and `components/public-submit-form.tsx` submit suggestions into the moderated candidate queue. The shared `lib/http/rate-limit.ts` limits public submissions to 10 per hour per client key. `components/copy-link-button.tsx` provides clipboard links in admin review.
+- The public layout uses `site-header.tsx`, `site-footer.tsx`, and `filters-panel.tsx`; the admin dashboard uses unified navigation, shared cards, consistent action ordering, and visible-but-disabled actions when an operation is not applicable.
+- Monitoring consists of Sentry error tracking (`SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN`, no analytics or PII-oriented features), `GET /api/health`, and `.github/workflows/uptime.yml`, which checks the deployment every 15 minutes via `APP_URL`.
 
 ## Testing / verification instructions
 
@@ -107,16 +114,16 @@ curl -X POST http://localhost:3000/api/update \
   -H "x-test-mode: true"
 ```
 
-Test mode skips bot notifications and the README/GitHub commit, so it's safe to run repeatedly. On this fork, point it at your **own** Supabase project or local instance (see the "Fork ownership note" above) — not at the original repo owner's, which you don't have access to.
+Test mode skips bot notifications and the README/GitHub commit, so it's safe to run repeatedly. Point it at FindHackEU's own Supabase project or a local instance (see the "Infrastructure ownership note" above).
 
-When verifying a fix — your own, a subagent's, or an external review tool's suggestion — prefer checking it against real code and, where feasible, a real local run (local Supabase + a live Luma fetch, or a real headless-browser check for UI/hydration issues) over accepting it on trust. This fork's history has several bugs that only surfaced this way (see `CLAUDE.md`'s "Working conventions" section for specifics).
+When verifying a fix — your own, a subagent's, or an external review tool's suggestion — prefer checking it against real code and, where feasible, a real local run (local Supabase + a live provider fetch, or a real headless-browser check for UI/hydration issues) over accepting it on trust.
 
 ## PR / commit guidance
 
 - Do not commit `.env*` files or any Supabase/bot credentials.
 - The README's hackathon tables (between the `<!-- UPCOMING_TABLE_START/END -->` and `<!-- PAST_TABLE_START/END -->` markers) are machine-generated by `ReadmeUpdater` — don't hand-edit that content; edit `lib/services/readme-updater.ts` if the format needs to change.
 - Keep commit messages focused on a single logical change; this repo's automated commits use a `🔄 ... [Automated]` convention — human commits don't need to follow that pattern.
-- `.github/workflows/update.yml` should run once a day (not 3-5x/day) against an `APP_URL` repository variable rather than a hardcoded URL. If it still shows the old schedule/hardcoded URL, note that pushing workflow-file changes needs `gh`/git auth with `workflow` OAuth scope, which may not be available — that edit may need to go through GitHub's web UI directly instead of a PR.
+- `.github/workflows/update.yml` should run once a day against the FindHackEU deployment's `APP_URL` repository variable rather than a hardcoded URL.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
