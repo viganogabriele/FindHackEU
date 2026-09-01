@@ -207,7 +207,7 @@ export function ManualSubmitForm() {
           </div>
 
           {result?.outcome === "created" && (
-            <p className="text-sm text-green-600">
+            <p className="text-sm text-success">
               Added to the pending queue below.
             </p>
           )}

@@ -13,7 +13,7 @@ import {
 import {
   AUTO_PUBLISH_BLOCKER_TAGS,
   type AutoPublishBlockerCode,
-} from "@/lib/discovery/web-search-candidates";
+} from "@/lib/discovery/auto-publish-blockers";
 
 /** URL-backed pending-reason filter with no separate Apply step. */
 export function PendingReasonFilter({
@@ -101,9 +101,7 @@ export function PendingReasonFilter({
                   data-lpignore="true"
                 />
                 <Badge
-                  variant={
-                    selected.includes(tag.code) ? "default" : "outline"
-                  }
+                  variant={selected.includes(tag.code) ? "default" : "outline"}
                 >
                   {tag.label}
                 </Badge>

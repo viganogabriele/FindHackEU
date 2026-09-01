@@ -439,7 +439,7 @@ async function PendingTab({
       showManualForm
     >
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Candidates</h2>
+        <h2 className="text-lg font-semibold">Review queue</h2>
         <PendingReasonFilter query={query} selectedCodes={blockerCodes} />
       </div>
 
@@ -457,7 +457,7 @@ async function PendingTab({
         </p>
       )}
 
-      <ul className="mb-6 space-y-3">
+      <ul className="space-y-2">
         {visibleCandidates?.map((candidate) => (
           <CandidateCard
             key={candidate.id}
@@ -465,15 +465,6 @@ async function PendingTab({
             status="pending"
           />
         ))}
-      </ul>
-
-      {hackathonsError && (
-        <p className="text-sm text-destructive">
-          Failed to load hackathons: {hackathonsError.message}
-        </p>
-      )}
-
-      <ul className="space-y-2">
         {hackathons?.map((hackathon) => (
           <PublishedHackathonCard
             key={hackathon.id}
@@ -482,6 +473,12 @@ async function PendingTab({
           />
         ))}
       </ul>
+
+      {hackathonsError && (
+        <p className="mt-3 text-sm text-destructive">
+          Failed to load already-published hackathons: {hackathonsError.message}
+        </p>
+      )}
     </AdminShell>
   );
 }
@@ -521,7 +518,7 @@ async function RejectedTab({
       query={query}
       tabCounts={tabCounts}
     >
-      <h2 className="mb-3 text-lg font-semibold">Candidates</h2>
+      <h2 className="mb-3 text-lg font-semibold">Review queue</h2>
 
       {candidatesError && (
         <p className="text-sm text-destructive">
@@ -535,7 +532,7 @@ async function RejectedTab({
         </p>
       )}
 
-      <ul className="mb-6 space-y-3">
+      <ul className="space-y-2">
         {candidates?.map((candidate) => (
           <CandidateCard
             key={candidate.id}
@@ -543,15 +540,6 @@ async function RejectedTab({
             status="rejected"
           />
         ))}
-      </ul>
-
-      {hackathonsError && (
-        <p className="text-sm text-destructive">
-          Failed to load hackathons: {hackathonsError.message}
-        </p>
-      )}
-
-      <ul className="space-y-2">
         {hackathons?.map((hackathon) => (
           <PublishedHackathonCard
             key={hackathon.id}
@@ -560,6 +548,12 @@ async function RejectedTab({
           />
         ))}
       </ul>
+
+      {hackathonsError && (
+        <p className="mt-3 text-sm text-destructive">
+          Failed to load already-published hackathons: {hackathonsError.message}
+        </p>
+      )}
     </AdminShell>
   );
 }

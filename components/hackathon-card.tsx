@@ -110,7 +110,11 @@ export function HackathonCard({
           {hackathon.is_new && (
             <Badge
               variant="default"
-              className="shrink-0 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-sm"
+              className={cn(
+                "shrink-0",
+                !adminTheme &&
+                  "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm hover:from-emerald-600 hover:to-teal-700",
+              )}
             >
               <Sparkles className="mr-1 h-3 w-3" />
               {t("badge.new")}
