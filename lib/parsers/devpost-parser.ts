@@ -20,7 +20,7 @@ interface DevpostHackathon {
   title: string;
   url: string;
   submission_period_dates: string;
-  displayed_location?: string | { location?: string } | null;
+  displayed_location?: string | { icon?: string; location?: string } | null;
   themes?: Array<string | DevpostTheme>;
 }
 
@@ -50,6 +50,16 @@ const MONTHS: Record<string, number> = {
   nov: 10,
   dec: 11,
 };
+
+// Devpost location text sometimes uses a regional/state abbreviation after
+// the city (for example, "Munich, BY" for Bayern). Some of these collide
+// with European ISO country codes.
+const REGIONAL_LOCATION_CODES = new Set([
+  // Bayern is commonly abbreviated "BY" and collides with Belarus's ISO
+  // code. Other two-letter codes are resolved through the city consistency
+  // check below, preserving valid locations such as "Berlin, DE".
+  "BY",
+]);
 
 /**
  * Devpost's public listing endpoint is undocumented and returns dates as a
@@ -173,7 +183,12 @@ export class DevpostParser extends BaseParser {
 
       const dates = this.parseSubmissionPeriod(item.submission_period_dates);
       const now = new Date();
-      if (dates.start < now) return null;
+      // Open listings have already started by definition. Keep them until
+      // the submission/event window has actually ended.
+      if (dates.end < now) {
+        stats.excludedPastFutureWindow++;
+        return null;
+      }
       if (dates.start > getMaxFutureCutoff(now)) {
         stats.excludedPastFutureWindow++;
         return null;
@@ -186,17 +201,12 @@ export class DevpostParser extends BaseParser {
         return null;
       }
 
-      const isOnline = /\b(online|remote|worldwide|virtual)\b/i.test(location);
       return {
         name: item.title.trim(),
         city: parsedLocation.city,
         country_code: parsedLocation.countryCode,
         location_confidence: parsedLocation.countryCode ? "high" : undefined,
-        location_type: isOnline
-          ? "online"
-          : parsedLocation.city
-            ? "physical"
-            : "tbd",
+        location_type: this.getLocationType(item.displayed_location),
         date_start: dates.start,
         date_end: dates.end,
         topics: this.extractTopics(
@@ -243,6 +253,24 @@ export class DevpostParser extends BaseParser {
     return value?.location?.trim() ?? "";
   }
 
+  /** Maps only Devpost's explicit location icon, never city text. */
+  private getLocationType(
+    value: DevpostHackathon["displayed_location"],
+  ): ParsedHackathon["location_type"] {
+    if (typeof value === "string") {
+      return /\b(online|remote|worldwide|virtual)\b/i.test(value)
+        ? "online"
+        : "tbd";
+    }
+    if (value === null || value === undefined) return "tbd";
+    if (value.icon === "globe") return "online";
+    if (value.icon === "map-marker-alt") return "physical";
+    if (/\b(online|remote|worldwide|virtual)\b/i.test(value.location ?? "")) {
+      return "online";
+    }
+    return "tbd";
+  }
+
   private parseLocation(location: string): {
     city?: string;
     countryCode?: string;
@@ -256,14 +284,36 @@ export class DevpostParser extends BaseParser {
       .map((part) => part.trim())
       .filter(Boolean);
     const countryPart = parts.at(-1);
+    const city = europeanCountries.normalizeCity(
+      parts.length > 1 ? parts.slice(0, -1).join(", ") : location,
+    );
+    const cityCountry = city
+      ? europeanCountries.inferCountryFromCity(city)
+      : undefined;
+    const isTwoLetterCode =
+      countryPart !== undefined && /^[A-Za-z]{2}$/.test(countryPart);
+
+    // A regional/state suffix must not collide with an ISO country code. Also
+    // reject a two-letter country interpretation that conflicts with a known
+    // city's country; it is more likely an administrative abbreviation.
+    if (
+      (isTwoLetterCode &&
+        REGIONAL_LOCATION_CODES.has(countryPart.toUpperCase())) ||
+      (isTwoLetterCode &&
+        cityCountry !== undefined &&
+        europeanCountries.normalizeCountry(countryPart) !== cityCountry)
+    ) {
+      return { city, nonEuropean: false };
+    }
+
     const classification = europeanCountries.classifyCountryCode(countryPart);
     if (classification === "non_european") return { nonEuropean: true };
 
     const countryCode = europeanCountries.normalizeCountry(countryPart);
-    const city = europeanCountries.normalizeCity(
+    const normalizedCity = europeanCountries.normalizeCity(
       countryCode ? parts.slice(0, -1).join(", ") : location,
     );
-    return { city, countryCode, nonEuropean: false };
+    return { city: normalizedCity, countryCode, nonEuropean: false };
   }
 
   private extractThemeNames(themes: DevpostHackathon["themes"]): string {
