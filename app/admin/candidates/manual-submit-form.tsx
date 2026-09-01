@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { HACKATHON_TOPICS } from "@/lib/constants/topics";
 import { submitManualCandidateFormAction } from "./actions";
 
 const EMPTY_FIELDS = {
@@ -40,10 +42,18 @@ const EMPTY_FIELDS = {
  * everything the submitter had already typed, forcing a full retype
  * (found from a real report). Controlled state survives that reset;
  * fields are only cleared explicitly, on a real success.
+ *
+ * Topics are picked explicitly here (toggleable badges, submitted as
+ * hidden `topics` inputs - one per selected topic) rather than relying
+ * solely on `promoteCandidate()`'s title-based auto-extraction fallback -
+ * a submitter who already knows the event is a much better source of
+ * truth than a regex over a five-word title (found from a real question:
+ * "shouldn't it ask me to set them?").
  */
 export function ManualSubmitForm() {
   const [open, setOpen] = useState(false);
   const [fields, setFields] = useState(EMPTY_FIELDS);
+  const [topics, setTopics] = useState<string[]>([]);
   const [result, formAction, isPending] = useActionState(
     submitManualCandidateFormAction,
     null,
@@ -60,12 +70,19 @@ export function ManualSubmitForm() {
     if (result?.outcome === "created") {
       setOpen(false);
       setFields(EMPTY_FIELDS);
+      setTopics([]);
     }
   }
 
   function updateField(field: keyof typeof fields) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>
       setFields((prev) => ({ ...prev, [field]: e.target.value }));
+  }
+
+  function toggleTopic(topic: string) {
+    setTopics((prev) =>
+      prev.includes(topic) ? prev.filter((t) => t !== topic) : [...prev, topic],
+    );
   }
 
   return (
@@ -139,6 +156,34 @@ export function ManualSubmitForm() {
                 value={fields.dateStart}
                 onChange={updateField("dateStart")}
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>
+                Topics{" "}
+                <span className="font-normal text-muted-foreground">
+                  (optional - auto-detected from the name if left empty)
+                </span>
+              </Label>
+              <div className="flex flex-wrap gap-1.5">
+                {HACKATHON_TOPICS.map((topic) => (
+                  <button
+                    key={topic}
+                    type="button"
+                    onClick={() => toggleTopic(topic)}
+                  >
+                    <Badge
+                      variant={topics.includes(topic) ? "default" : "outline"}
+                      className="cursor-pointer select-none"
+                    >
+                      {topic}
+                    </Badge>
+                  </button>
+                ))}
+              </div>
+              {topics.map((topic) => (
+                <input key={topic} type="hidden" name="topics" value={topic} />
+              ))}
             </div>
 
             {result?.outcome === "created" && (

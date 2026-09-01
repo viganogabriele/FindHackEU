@@ -99,6 +99,11 @@ export interface Database {
           // "web-search" for a discovered candidate, "manual" for a
           // hand-submitted URL (see submit-manual-candidate.ts).
           source: string;
+          // Explicitly chosen by a submitter (manual submission form) or
+          // left null for a web-search-discovered candidate, which falls
+          // back to auto-extraction from `name` at promotion time - see
+          // lib/services/promote-candidate.ts.
+          topics: HackathonTopic[] | null;
         };
         Insert: {
           id?: string;
@@ -120,6 +125,7 @@ export interface Database {
           created_at?: string;
           has_conflict?: boolean;
           source?: string;
+          topics?: HackathonTopic[] | null;
         };
         Update: {
           id?: string;
@@ -141,6 +147,7 @@ export interface Database {
           created_at?: string;
           has_conflict?: boolean;
           source?: string;
+          topics?: HackathonTopic[] | null;
         };
       };
       update_runs: {

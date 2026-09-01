@@ -99,6 +99,7 @@ export async function submitManualCandidateFormAction(
     city: String(formData.get("city") ?? ""),
     countryCode: String(formData.get("countryCode") ?? ""),
     dateStart: String(formData.get("dateStart") ?? ""),
+    topics: formData.getAll("topics").map(String),
   });
 
   if (result.outcome === "created") {
