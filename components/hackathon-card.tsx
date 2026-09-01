@@ -74,7 +74,7 @@ export function HackathonCard({
     >
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="line-clamp-2 flex-1">
+          <CardTitle className="line-clamp-2 flex-1 leading-snug">
             {hackathon.name}
           </CardTitle>
           {hackathon.is_new && (
