@@ -24,6 +24,23 @@ type AutoPublishCandidate = Pick<
   | "date_start"
 >;
 
+export const AUTO_PUBLISH_BLOCKER_TAGS = [
+  { code: "non-web-source", label: "Non-web source" },
+  { code: "unstructured-data", label: "Unstructured data" },
+  { code: "conflict", label: "Conflicting data" },
+  { code: "no-location", label: "No location" },
+  { code: "non-european-location", label: "Non-European location" },
+  { code: "no-date", label: "No date" },
+] as const;
+
+export type AutoPublishBlockerCode =
+  (typeof AUTO_PUBLISH_BLOCKER_TAGS)[number]["code"];
+
+export type AutoPublishBlocker = {
+  code: AutoPublishBlockerCode;
+  label: string;
+};
+
 /**
  * Auto-publication is deliberately narrower than candidate collection:
  * only structured, geographically verified, non-conflicting web evidence
@@ -36,30 +53,27 @@ export function isAutoPublishEligible(
 }
 
 /**
- * Returns which of `isAutoPublishEligible`'s criteria this candidate
- * fails, phrased in plain language rather than raw field/enum names where
- * avoidable (issue #78). An empty array means the candidate is eligible
- * for auto-publish - mirrors `isAutoPublishEligible` exactly (in fact,
- * `isAutoPublishEligible` is defined in terms of this function) so the
- * two can never silently drift apart.
+ * Returns which of `isAutoPublishEligible`'s criteria this candidate fails as
+ * stable codes with compact labels (issue #104). An empty array means the
+ * candidate is eligible for auto-publish - mirrors `isAutoPublishEligible`
+ * exactly (in fact, `isAutoPublishEligible` is defined in terms of this
+ * function) so the two can never silently drift apart.
  */
 export function getAutoPublishBlockers(
   candidate: AutoPublishCandidate,
-): string[] {
-  const blockers: string[] = [];
+): AutoPublishBlocker[] {
+  const blockers: AutoPublishBlocker[] = [];
 
   if (candidate.source !== "web-search") {
-    blockers.push(`source is "${candidate.source}", not web-search`);
+    blockers.push({ code: "non-web-source", label: "Non-web source" });
   }
 
   if (candidate.extraction_method !== "jsonld-event") {
-    blockers.push(
-      `extraction method is "${candidate.extraction_method}", not structured event data (jsonld-event)`,
-    );
+    blockers.push({ code: "unstructured-data", label: "Unstructured data" });
   }
 
   if (candidate.has_conflict === true) {
-    blockers.push("title conflicts with the page's own description");
+    blockers.push({ code: "conflict", label: "Conflicting data" });
   }
 
   if (
@@ -68,8 +82,11 @@ export function getAutoPublishBlockers(
   ) {
     blockers.push(
       candidate.country_code
-        ? `country "${candidate.country_code}" isn't a recognized European country`
-        : "no country could be determined",
+        ? {
+            code: "non-european-location",
+            label: "Non-European location",
+          }
+        : { code: "no-location", label: "No location" },
     );
   }
 
@@ -77,10 +94,40 @@ export function getAutoPublishBlockers(
     typeof candidate.date_start !== "string" ||
     Number.isNaN(Date.parse(candidate.date_start))
   ) {
-    blockers.push("no usable start date was found");
+    blockers.push({ code: "no-date", label: "No date" });
   }
 
   return blockers;
+}
+
+/**
+ * Returns true only when a candidate has every selected reason tag. Empty
+ * filters match every candidate.
+ */
+export function matchesAutoPublishBlockerFilter(
+  candidate: AutoPublishCandidate,
+  selectedCodes: readonly AutoPublishBlockerCode[],
+): boolean {
+  const blockerCodes = new Set(
+    getAutoPublishBlockers(candidate).map((blocker) => blocker.code),
+  );
+
+  return selectedCodes.every((code) => blockerCodes.has(code));
+}
+
+/**
+ * Parses repeated `reason` query parameters without allowing unknown values
+ * to affect the candidate list. The canonical tag order keeps the UI stable
+ * regardless of the order in which a browser submits the checkboxes.
+ */
+export function parseAutoPublishBlockerCodes(
+  value: string | string[] | undefined,
+): AutoPublishBlockerCode[] {
+  const selected = new Set(Array.isArray(value) ? value : value ? [value] : []);
+
+  return AUTO_PUBLISH_BLOCKER_TAGS.map(({ code }) => code).filter((code) =>
+    selected.has(code),
+  );
 }
 
 /**

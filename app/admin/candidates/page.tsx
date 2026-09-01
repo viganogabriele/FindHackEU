@@ -34,8 +34,13 @@ import { EditCandidateDialog } from "./edit-candidate-dialog";
 import { GoogleSignInButton } from "./google-sign-in-button";
 import { SignOutButton } from "./sign-out-button";
 import { getAdminAuthStatus } from "@/lib/services/require-admin-auth";
-import { cleanRawSnippet } from "@/lib/format-snippet";
-import { getAutoPublishBlockers } from "@/lib/discovery/web-search-candidates";
+import {
+  AUTO_PUBLISH_BLOCKER_TAGS,
+  getAutoPublishBlockers,
+  matchesAutoPublishBlockerFilter,
+  parseAutoPublishBlockerCodes,
+  type AutoPublishBlockerCode,
+} from "@/lib/discovery/web-search-candidates";
 import { candidateToHackathonCardData } from "./candidate-card-data";
 
 type CandidateRow = Database["public"]["Tables"]["hackathon_candidates"]["Row"];
@@ -122,6 +127,7 @@ export default async function CandidatesAdminPage({
     status?: string;
     q?: string;
     error?: string;
+    reason?: string | string[];
   }>;
 }) {
   if (process.env.NODE_ENV === "production") {
@@ -144,6 +150,7 @@ export default async function CandidatesAdminPage({
     ? (params.status as StatusFilter)
     : "pending";
   const query = params.q?.trim() ?? "";
+  const blockerCodes = parseAutoPublishBlockerCodes(params.reason);
 
   if (status === "approved" || status === "past") {
     return (
@@ -159,7 +166,13 @@ export default async function CandidatesAdminPage({
     return <RejectedTab authStatus={authStatus} query={query} />;
   }
 
-  return <PendingTab authStatus={authStatus} query={query} />;
+  return (
+    <PendingTab
+      authStatus={authStatus}
+      query={query}
+      blockerCodes={blockerCodes}
+    />
+  );
 }
 
 /**
@@ -310,9 +323,11 @@ function SignInGate({
 async function PendingTab({
   authStatus,
   query,
+  blockerCodes,
 }: {
   authStatus: AuthStatus;
   query: string;
+  blockerCodes: AutoPublishBlockerCode[];
 }) {
   const [
     { data: candidatesData, error: candidatesError },
@@ -324,6 +339,9 @@ async function PendingTab({
 
   const candidates = candidatesData as CandidateRow[] | null;
   const hackathons = hackathonsData as HackathonRow[] | null;
+  const visibleCandidates = candidates?.filter((candidate) =>
+    matchesAutoPublishBlockerFilter(candidate, blockerCodes),
+  );
 
   return (
     <AdminShell
@@ -336,20 +354,24 @@ async function PendingTab({
 
       <h2 className="mb-3 text-lg font-semibold">From candidate review</h2>
 
+      <PendingReasonFilter query={query} selectedCodes={blockerCodes} />
+
       {candidatesError && (
         <p className="text-sm text-destructive">
           Failed to load candidates: {candidatesError.message}
         </p>
       )}
 
-      {!candidatesError && candidates?.length === 0 && (
+      {!candidatesError && visibleCandidates?.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          No pending candidates{query ? ` matching "${query}"` : ""}.
+          {candidates?.length === 0
+            ? `No pending candidates${query ? ` matching "${query}"` : ""}.`
+            : "No pending candidates carry all selected reason tags."}
         </p>
       )}
 
       <ul className="mb-8 space-y-4">
-        {candidates?.map((candidate) => (
+        {visibleCandidates?.map((candidate) => (
           <CandidateCard
             key={candidate.id}
             candidate={candidate}
@@ -389,6 +411,65 @@ async function PendingTab({
         ))}
       </ul>
     </AdminShell>
+  );
+}
+
+function PendingReasonFilter({
+  query,
+  selectedCodes,
+}: {
+  query: string;
+  selectedCodes: AutoPublishBlockerCode[];
+}) {
+  const clearHref = `/admin/candidates?status=pending${query ? `&q=${encodeURIComponent(query)}` : ""}`;
+
+  return (
+    <form
+      method="get"
+      className="mb-4 rounded-md border bg-muted/30 p-3"
+      aria-label="Filter pending candidates"
+    >
+      <input type="hidden" name="status" value="pending" />
+      {query && <input type="hidden" name="q" value={query} />}
+      <fieldset>
+        <legend className="mb-2 text-sm font-medium">
+          Filter by pending reason
+        </legend>
+        <div className="flex flex-wrap gap-2">
+          {AUTO_PUBLISH_BLOCKER_TAGS.map((tag) => (
+            <label
+              key={tag.code}
+              className="flex cursor-pointer items-center gap-1.5"
+            >
+              <input
+                type="checkbox"
+                name="reason"
+                value={tag.code}
+                defaultChecked={selectedCodes.includes(tag.code)}
+                className="h-4 w-4 rounded border-input accent-primary"
+              />
+              <Badge
+                variant={
+                  selectedCodes.includes(tag.code) ? "default" : "outline"
+                }
+              >
+                {tag.label}
+              </Badge>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <div className="mt-3 flex items-center gap-2">
+        <Button type="submit" size="sm">
+          Apply filters
+        </Button>
+        {selectedCodes.length > 0 && (
+          <Button asChild type="button" variant="ghost" size="sm">
+            <Link href={clearHref}>Clear filters</Link>
+          </Button>
+        )}
+      </div>
+    </form>
   );
 }
 
@@ -589,8 +670,7 @@ async function ArchivedTab({
  * (components/hackathon-card.tsx), mapped through
  * `candidateToHackathonCardData` since a `hackathon_candidates` row isn't
  * shaped like a `hackathons` row. The admin-only "how it was found" context
- * (source/extraction-method/conflict badges, the query, the cleaned
- * snippet, and the auto-publish-blocker text from issue #78) sits in a
+ * (source, search provider, query, and compact reason tags) sits in a
  * second, visually secondary card directly below it rather than being
  * folded into the hackathon card itself - that context is about the
  * candidate row, not about what the event will look like once published.
@@ -648,42 +728,47 @@ function CandidateCard({
       />
 
       <Card className="border-dashed">
-        <CardContent className="space-y-2 text-xs text-muted-foreground">
+        <CardContent className="space-y-3">
           <a
             href={candidate.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="block truncate hover:underline"
+            className="block truncate text-xs text-muted-foreground hover:underline"
           >
             {candidate.url}
           </a>
 
-          <div className="flex flex-wrap gap-1.5">
-            <Badge variant="outline">{candidate.search_provider}</Badge>
-            <Badge
-              variant={
-                candidate.extraction_method === "jsonld-event"
-                  ? "default"
-                  : candidate.extraction_method === "og-meta"
-                    ? "secondary"
-                    : "outline"
-              }
-            >
-              {candidate.extraction_method}
-            </Badge>
-            {candidate.has_conflict && (
-              <Badge variant="destructive">
-                Conflicting title (issue #15) - check page before approving
-              </Badge>
-            )}
+          <div className="space-y-1 text-sm text-foreground">
+            <p>
+              <span className="font-medium">Source:</span> {candidate.source}
+            </p>
+            <p>
+              <span className="font-medium">Search provider:</span>{" "}
+              {candidate.search_provider}
+            </p>
+            <p className="break-words">
+              <span className="font-medium">Query:</span> &ldquo;
+              {candidate.query}&rdquo;
+            </p>
           </div>
 
-          <p>Query: &ldquo;{candidate.query}&rdquo;</p>
-
-          {candidate.raw_snippet && (
-            <p className="line-clamp-3 rounded-md bg-muted p-2">
-              {cleanRawSnippet(candidate.raw_snippet)}
-            </p>
+          {status === "rejected" && (
+            <div className="flex flex-wrap gap-1.5 text-xs text-muted-foreground">
+              <Badge
+                variant={
+                  candidate.extraction_method === "jsonld-event"
+                    ? "default"
+                    : candidate.extraction_method === "og-meta"
+                      ? "secondary"
+                      : "outline"
+                }
+              >
+                {candidate.extraction_method}
+              </Badge>
+              {candidate.has_conflict && (
+                <Badge variant="destructive">Conflicting page data</Badge>
+              )}
+            </div>
           )}
 
           {status === "pending" && (
@@ -697,7 +782,7 @@ function CandidateCard({
 
 /**
  * Surfaces exactly why a pending candidate wasn't auto-published (issue
- * #78), by calling `getAutoPublishBlockers` - the same function
+ * #78/#104), by calling `getAutoPublishBlockers` - the same function
  * `isAutoPublishEligible` is defined in terms of, so this can never
  * silently drift from the real auto-publish decision. Purely informational:
  * doesn't change the approve/reject flow below it.
@@ -710,9 +795,13 @@ function AutoPublishBlockers({ candidate }: { candidate: CandidateRow }) {
   }
 
   return (
-    <p className="mb-4 text-xs text-muted-foreground">
-      Not auto-published: {blockers.join("; ")}.
-    </p>
+    <div className="flex flex-wrap gap-1.5" aria-label="Auto-publish blockers">
+      {blockers.map((blocker) => (
+        <Badge key={blocker.code} variant="outline" title={blocker.label}>
+          {blocker.label}
+        </Badge>
+      ))}
+    </div>
   );
 }
 
