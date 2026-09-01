@@ -4,43 +4,35 @@ import {
   type ManualCandidateInput,
   type SubmitManualCandidateResult,
 } from "@/lib/services/submit-manual-candidate";
+import { createRateLimiter, getClientKey } from "@/lib/http/rate-limit";
 
 const RATE_LIMIT_PER_HOUR = 10;
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-
-function getClientKey(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  const ip = forwarded
-    ? forwarded.split(",").pop()?.trim()
-    : request.headers.get("x-real-ip");
-  return ip || "unknown";
-}
-
-function isRateLimited(key: string): boolean {
-  const now = Date.now();
-  const current = rateLimitMap.get(key);
-
-  if (!current || current.resetAt <= now) {
-    rateLimitMap.set(key, { count: 1, resetAt: now + 60 * 60 * 1000 });
-    return false;
-  }
-
-  if (current.count >= RATE_LIMIT_PER_HOUR) return true;
-  current.count++;
-  return false;
-}
+const rateLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: RATE_LIMIT_PER_HOUR,
+});
 
 function resultResponse(result: SubmitManualCandidateResult) {
   if (result.outcome === "created") {
     return NextResponse.json(result, { status: 201 });
   }
+  if (result.outcome === "error") {
+    console.error("Public hackathon submission failed:", result.message);
+    return NextResponse.json(
+      {
+        outcome: "error",
+        message: "Unable to save the suggestion. Please try again later.",
+      },
+      { status: 500 },
+    );
+  }
   return NextResponse.json(result, {
-    status: result.outcome === "invalid" ? 400 : 500,
+    status: 400,
   });
 }
 
 export async function POST(request: Request) {
-  if (isRateLimited(getClientKey(request))) {
+  if (!rateLimiter.check(getClientKey(request)).allowed) {
     return NextResponse.json(
       {
         outcome: "error",

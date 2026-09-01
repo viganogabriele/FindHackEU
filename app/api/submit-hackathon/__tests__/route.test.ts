@@ -66,6 +66,21 @@ describe("POST /api/submit-hackathon", () => {
     });
   });
 
+  it("hides database error details from public callers", async () => {
+    mockedSubmit.mockResolvedValue({
+      outcome: "error",
+      message: "new row violates constraint hackathon_candidates_url_key",
+    });
+
+    const response = await POST(request("198.51.100.13"));
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      outcome: "error",
+      message: "Unable to save the suggestion. Please try again later.",
+    });
+  });
+
   it("limits a single IP to ten submissions per hour", async () => {
     mockedSubmit.mockResolvedValue({ outcome: "created" });
     const ip = "198.51.100.12";

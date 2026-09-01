@@ -5,42 +5,17 @@ import {
   pruneGeocodeCache,
   setCachedCoordinates,
 } from "@/lib/services/geocode-cache";
+import { createRateLimiter, getClientKey } from "@/lib/http/rate-limit";
 
 const MAX_QUERY_LENGTH = 120;
 const RATE_LIMIT_PER_HOUR = 10;
-
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-
-function getClientKey(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  const ip = forwarded
-    ? forwarded.split(",").pop()?.trim()
-    : request.headers.get("x-real-ip");
-  return ip || "unknown";
-}
-
-function isRateLimited(key: string): boolean {
-  const now = Date.now();
-  const current = rateLimitMap.get(key);
-
-  if (!current || current.resetAt <= now) {
-    rateLimitMap.set(key, {
-      count: 1,
-      resetAt: now + 60 * 60 * 1000,
-    });
-    return false;
-  }
-
-  if (current.count >= RATE_LIMIT_PER_HOUR) {
-    return true;
-  }
-
-  current.count++;
-  return false;
-}
+const rateLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: RATE_LIMIT_PER_HOUR,
+});
 
 export async function GET(request: Request) {
-  if (isRateLimited(getClientKey(request))) {
+  if (!rateLimiter.check(getClientKey(request)).allowed) {
     return NextResponse.json(
       { error: "Too many location searches. Please try again later." },
       { status: 429 },
