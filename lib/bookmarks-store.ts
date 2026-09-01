@@ -1,5 +1,9 @@
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
+import {
+  createJSONStorage,
+  persist,
+  type StateStorage,
+} from "zustand/middleware";
 import { useEffect } from "react";
 
 interface BookmarksState {
@@ -36,6 +40,13 @@ const safeStorage = (): Storage => {
   }
 };
 
+/** Resolve browser storage per operation so blocked storage is handled lazily. */
+const lazyStorage: StateStorage = {
+  getItem: (name) => safeStorage().getItem(name),
+  setItem: (name, value) => safeStorage().setItem(name, value),
+  removeItem: (name) => safeStorage().removeItem(name),
+};
+
 export const useBookmarksStore = create<BookmarksState>()(
   persist(
     (set, get) => ({
@@ -50,7 +61,7 @@ export const useBookmarksStore = create<BookmarksState>()(
     }),
     {
       name: "hacktrack-bookmarks",
-      storage: createJSONStorage(safeStorage),
+      storage: createJSONStorage(() => lazyStorage),
       partialize: (state) => ({ bookmarkedIds: state.bookmarkedIds }),
       skipHydration: true,
     },

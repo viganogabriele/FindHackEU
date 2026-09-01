@@ -33,12 +33,15 @@ describe("bookmarks store", () => {
   });
 
   it("keeps working when localStorage is unavailable", () => {
-    vi.spyOn(window, "localStorage", "get").mockImplementation(() => {
-      throw new Error("blocked");
-    });
+    const localStorageGetter = vi
+      .spyOn(window, "localStorage", "get")
+      .mockImplementation(() => {
+        throw new Error("blocked");
+      });
 
     useBookmarksStore.getState().toggleBookmark("hackathon-3");
 
+    expect(localStorageGetter).toHaveBeenCalled();
     expect(useBookmarksStore.getState().hasBookmark("hackathon-3")).toBe(true);
   });
 });
