@@ -145,7 +145,7 @@ export function HackathonCard({
                   <Badge
                     key={`${topic}-${index}`}
                     variant="outline"
-                    className={`text-xs border ${topicConfig.color}`}
+                    className={`text-xs ${topicConfig.color}`}
                   >
                     {topicConfig.label}
                   </Badge>
