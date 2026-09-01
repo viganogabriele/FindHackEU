@@ -11,6 +11,10 @@ import {
   setHackathonModerationState,
   type ModerationState,
 } from "@/lib/services/hackathon-moderation";
+import {
+  editHackathon,
+  type EditHackathonResult,
+} from "@/lib/services/edit-hackathon";
 
 function assertDevOnly() {
   if (process.env.NODE_ENV === "production") {
@@ -140,4 +144,35 @@ export async function setHackathonModerationStateAction(
   }
 
   revalidatePath("/admin/candidates");
+}
+
+/**
+ * Issue #103 - saves an in-place edit to a published `hackathons` row. This
+ * is separate from candidate editing because published rows may have been
+ * inserted directly by a provider and never had a `hackathon_candidates`
+ * record. The service validates all editable fields before its plain UPDATE.
+ */
+export async function editHackathonFormAction(
+  hackathonId: string,
+  _prevState: EditHackathonResult | null,
+  formData: FormData,
+): Promise<EditHackathonResult> {
+  await assertAuthorized();
+
+  const result = await editHackathon({
+    hackathonId,
+    url: String(formData.get("url") ?? ""),
+    name: String(formData.get("name") ?? ""),
+    city: String(formData.get("city") ?? ""),
+    countryCode: String(formData.get("countryCode") ?? ""),
+    dateStart: String(formData.get("dateStart") ?? ""),
+    topics: formData.getAll("topics").map(String),
+  });
+
+  if (result.outcome === "updated") {
+    revalidatePath("/admin/candidates");
+    revalidatePath("/api/hackathons");
+  }
+
+  return result;
 }

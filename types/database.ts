@@ -42,6 +42,10 @@ export interface Database {
           // API only returns 'approved' rows (in addition to the existing
           // archived_at is null filter).
           moderation_state: "approved" | "pending" | "rejected";
+          // Set by issue #103's published-row editor. A non-null value tells
+          // the main source-sync pipeline to preserve the row's manually
+          // corrected scraper-owned fields.
+          manually_edited_at: string | null;
         };
         Insert: {
           id?: string;
@@ -70,6 +74,7 @@ export interface Database {
           // implicit behavior for every caller that doesn't have an
           // opinion (the main scraping pipeline, promote-candidate.ts).
           moderation_state?: "approved" | "pending" | "rejected";
+          manually_edited_at?: string | null;
         };
         Update: {
           id?: string;
@@ -93,6 +98,7 @@ export interface Database {
           archived_at?: string | null;
           archived_reason?: string | null;
           moderation_state?: "approved" | "pending" | "rejected";
+          manually_edited_at?: string | null;
         };
       };
       hackathon_candidates: {
