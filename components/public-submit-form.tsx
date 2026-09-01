@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useTranslation } from "@/contexts/translation-context";
 import { HACKATHON_TOPICS } from "@/lib/constants/topics";
-import { NO_AUTOFILL_PROPS } from "@/app/admin/candidates/form-utils";
+import { NO_AUTOFILL_PROPS } from "@/lib/form-utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

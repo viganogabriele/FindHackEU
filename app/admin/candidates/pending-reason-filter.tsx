@@ -14,7 +14,7 @@ import {
   AUTO_PUBLISH_BLOCKER_TAGS,
   type AutoPublishBlockerCode,
 } from "@/lib/discovery/auto-publish-blockers";
-import { NO_AUTOFILL_PROPS } from "./form-utils";
+import { NO_AUTOFILL_PROPS } from "@/lib/form-utils";
 
 /** URL-backed pending-reason filter with no separate Apply step. */
 export function PendingReasonFilter({

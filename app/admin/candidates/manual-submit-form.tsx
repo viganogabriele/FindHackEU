@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { HACKATHON_TOPICS } from "@/lib/constants/topics";
 import { submitManualCandidateFormAction } from "./actions";
-import { NO_AUTOFILL_PROPS } from "./form-utils";
+import { NO_AUTOFILL_PROPS } from "@/lib/form-utils";
 
 const EMPTY_FIELDS = {
   url: "",
