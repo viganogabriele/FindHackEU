@@ -199,6 +199,48 @@ describe("MlhParser", () => {
     expect(results).toHaveLength(0);
   });
 
+  // Issue #31: structured per-stage drop counts (MLH has no classifier
+  // stage - its season pages are already scoped to hackathons - so only
+  // date-window and country counts are wired up).
+  it("reports structured dropped counts for date-window and country rejections", async () => {
+    mockFetchPerSeason({
+      [NEXT_SEASON]: [
+        {
+          id: "far-future",
+          slug: "far-future",
+          name: "Far Future Hackathon",
+          startsAt: "2030-01-01T00:00:00.000Z",
+          url: "/events/far-future/prizes",
+          venueAddress: { city: "Berlin", country: "DE" },
+        },
+        {
+          id: "hackrice-2",
+          slug: "hackrice-2",
+          name: "HackRice",
+          startsAt: FUTURE,
+          url: "/events/hackrice-2/prizes",
+          formatType: "physical",
+          venueAddress: { city: "Houston", state: "Texas", country: "US" },
+        },
+        {
+          id: "durhack-2",
+          slug: "durhack-2",
+          name: "DurHack",
+          startsAt: FUTURE,
+          url: "/events/durhack-2/prizes",
+          formatType: "physical",
+          venueAddress: { city: "Durham", country: "GB" },
+        },
+      ],
+    });
+
+    const result = await new MlhParser().parse();
+
+    expect(result.hackathons).toHaveLength(1);
+    expect(result.dropped?.byDateWindow).toBe(1);
+    expect(result.dropped?.byCountry).toBe(1);
+  });
+
   it("reports status 'failed' when every season request rejects", async () => {
     vi.stubGlobal(
       "fetch",

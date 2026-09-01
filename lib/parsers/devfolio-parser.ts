@@ -4,6 +4,18 @@ import {
   DiscoverResult,
   ParseStatus,
 } from "@/lib/parsers/base-parser";
+
+/**
+ * Per-run counters for the reject points this file already had (date
+ * window, non-European country) - just surfaced through the return value
+ * instead of only console.log (issue #31). Devfolio's API is already
+ * scoped to "hackathons" specifically, so there's no separate
+ * classify-vs-reject step here (unlike Luma).
+ */
+interface DevfolioDropStats {
+  excludedPastFutureWindow: number;
+  droppedByCountry: number;
+}
 import { europeanCountries } from "@/lib/european-countries";
 import {
   MAX_FUTURE_DAYS,
@@ -84,7 +96,10 @@ export class DevfolioParser extends BaseParser {
       }
     }
 
-    const stats = { excludedPastFutureWindow: 0 };
+    const stats: DevfolioDropStats = {
+      excludedPastFutureWindow: 0,
+      droppedByCountry: 0,
+    };
     const hackathons = Array.from(byUuid.values())
       .map((item) => this.mapEventToHackathon(item, stats))
       .filter((hackathon): hackathon is ParsedHackathon => hackathon !== null);
@@ -93,7 +108,8 @@ export class DevfolioParser extends BaseParser {
       `Devfolio: fetched ${byUuid.size} unique raw event(s) across ` +
         `${this.filters.length} filter(s), matched ${hackathons.length} ` +
         `European/undetermined hackathons, excluded ${stats.excludedPastFutureWindow} ` +
-        `beyond the ${MAX_FUTURE_DAYS}-day future window`,
+        `beyond the ${MAX_FUTURE_DAYS}-day future window, dropped ` +
+        `${stats.droppedByCountry} as non-European`,
     );
 
     let status: ParseStatus;
@@ -105,7 +121,18 @@ export class DevfolioParser extends BaseParser {
       status = "partial";
     }
 
-    return { hackathons, errors, status };
+    const dropped = {
+      byDateWindow: stats.excludedPastFutureWindow,
+      byCountry: stats.droppedByCountry,
+    };
+    const totalDropped = dropped.byDateWindow + dropped.byCountry;
+
+    console.log(
+      `devfolio: ${hackathons.length} found, ${totalDropped} dropped ` +
+        `(date: ${dropped.byDateWindow}, country: ${dropped.byCountry})`,
+    );
+
+    return { hackathons, errors, status, dropped };
   }
 
   private async fetchFilter(filter: string): Promise<DevfolioHackathon[]> {
@@ -145,7 +172,7 @@ export class DevfolioParser extends BaseParser {
 
   private mapEventToHackathon(
     item: DevfolioHackathon,
-    stats: { excludedPastFutureWindow: number },
+    stats: DevfolioDropStats,
   ): ParsedHackathon | null {
     try {
       if (!item.name || !item.starts_at || !item.slug) {
@@ -178,6 +205,7 @@ export class DevfolioParser extends BaseParser {
         country_code = europeanCountries.normalizeCountry(item.country);
 
         if (!country_code) {
+          stats.droppedByCountry++;
           console.log(
             `Dropping Devfolio event "${item.name}": explicit country "${item.country}" is not European.`,
           );

@@ -154,6 +154,7 @@ export interface Database {
           parsed_count: number | null;
           inserted_count: number | null;
           updated_count: number | null;
+          duplicates_removed: number | null;
           degraded: boolean | null;
           error: string | null;
         };
@@ -167,6 +168,7 @@ export interface Database {
           parsed_count?: number | null;
           inserted_count?: number | null;
           updated_count?: number | null;
+          duplicates_removed?: number | null;
           degraded?: boolean | null;
           error?: string | null;
         };
@@ -180,6 +182,7 @@ export interface Database {
           parsed_count?: number | null;
           inserted_count?: number | null;
           updated_count?: number | null;
+          duplicates_removed?: number | null;
           degraded?: boolean | null;
           error?: string | null;
         };

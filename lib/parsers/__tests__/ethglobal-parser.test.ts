@@ -194,6 +194,59 @@ describe("EthGlobalParser", () => {
     expect(results[0].name).toBe("ETHGlobal Paris 2026");
   });
 
+  // Issue #31: structured per-stage drop counts (ETHGlobal has no
+  // classifier stage - extractEvents() already filters to type "hackathon"
+  // - so only date-window and country counts are wired up).
+  it("reports structured dropped counts for date-window and country rejections", async () => {
+    mockFetchEvents([
+      {
+        id: 10,
+        name: "Far Future Hackathon",
+        slug: "far-future",
+        type: "hackathon",
+        startTime: "2030-01-01T00:00:00.000Z",
+        city: {
+          id: 10,
+          name: "Berlin",
+          country: { id: 1, name: "Germany" },
+          countryCode: "DE",
+        },
+      },
+      {
+        id: 11,
+        name: "ETHGlobal Mumbai 2",
+        slug: "mumbai-2",
+        type: "hackathon",
+        startTime: FUTURE,
+        city: {
+          id: 11,
+          name: "Mumbai",
+          country: { id: 2, name: "India" },
+          countryCode: "IN",
+        },
+      },
+      {
+        id: 12,
+        name: "ETHGlobal Berlin 2027",
+        slug: "berlin2027",
+        type: "hackathon",
+        startTime: FUTURE,
+        city: {
+          id: 12,
+          name: "Berlin",
+          country: { id: 1, name: "Germany" },
+          countryCode: "DE",
+        },
+      },
+    ]);
+
+    const result = await new EthGlobalParser().parse();
+
+    expect(result.hackathons).toHaveLength(1);
+    expect(result.dropped?.byDateWindow).toBe(1);
+    expect(result.dropped?.byCountry).toBe(1);
+  });
+
   it("reports status 'failed' when the fetch itself fails", async () => {
     vi.stubGlobal(
       "fetch",

@@ -21,7 +21,10 @@ import { ReadmeUpdater } from "@/lib/services/readme-updater";
 import { LocationEnhancementService } from "@/lib/services/location-enhancement-service";
 import { MemoryOptimizer } from "@/lib/utils/memory-optimizer";
 import { Hackathon } from "@/types/hackathon";
-import type { ParseStatus } from "@/lib/providers/provider.interface";
+import type {
+  ParseStatus,
+  DroppedCounts,
+} from "@/lib/providers/provider.interface";
 
 interface SourceResult {
   enabled: boolean;
@@ -33,6 +36,9 @@ interface SourceResult {
   status?: ParseStatus;
   parsed: number;
   error: string | null;
+  // Per-stage rejection counts for this source's own run (issue #31) -
+  // absent/undefined for a disabled source or one that hasn't run yet.
+  dropped?: DroppedCounts;
 }
 
 export async function POST(request: Request) {
@@ -192,6 +198,7 @@ export async function POST(request: Request) {
         sourceResults[provider.name].success = result.success;
         sourceResults[provider.name].status = result.status;
         sourceResults[provider.name].parsed = result.count;
+        sourceResults[provider.name].dropped = result.dropped;
 
         if (result.errors.length > 0) {
           sourceResults[provider.name].error = result.errors.join("; ");
@@ -247,8 +254,16 @@ export async function POST(request: Request) {
     // below); persisting cross-source provenance is deferred to issue #24.
     const deduplicatedHackathons = mergeHackathonDuplicates(parsedHackathons);
 
+    // Cross-source duplicate count (issue #31): this pass runs once, after
+    // every provider's output has already been combined, so it isn't
+    // attributable to any single source's `dropped` counts - tracked here
+    // as a single aggregate instead.
+    const duplicatesRemoved =
+      parsedHackathons.length - deduplicatedHackathons.length;
+
     console.log(
-      `After deduplication: ${deduplicatedHackathons.length} hackathons`,
+      `After deduplication: ${deduplicatedHackathons.length} hackathons ` +
+        `(${duplicatesRemoved} duplicate(s) removed)`,
     );
 
     await MemoryOptimizer.allowGarbageCollection();
@@ -816,6 +831,7 @@ export async function POST(request: Request) {
             parsed_count: parsedHackathons.length,
             inserted_count: newHackathons.length,
             updated_count: updatedHackathons.length,
+            duplicates_removed: duplicatesRemoved,
             degraded,
           })
           .eq("id", runId);
@@ -837,6 +853,7 @@ export async function POST(request: Request) {
         parsed: parsedHackathons.length,
         inserted: newHackathons.length,
         updated: updatedHackathons.length,
+        duplicatesRemoved,
         notableUpdates: notableUpdates.length,
         updateErrors: updateErrors.length > 0 ? updateErrors : undefined,
 

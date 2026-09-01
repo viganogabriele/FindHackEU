@@ -187,6 +187,45 @@ describe("DevfolioParser", () => {
     expect(results[0].location_confidence).toBe("low");
   });
 
+  // Issue #31: structured per-stage drop counts (Devfolio has no classifier
+  // stage - its API is already scoped to hackathons - so only date-window
+  // and country counts are wired up).
+  it("reports structured dropped counts for date-window and country rejections", async () => {
+    mockFetchPerFilter({
+      upcoming: [
+        {
+          uuid: "far-future",
+          name: "Far Future Hackathon",
+          slug: "far-future",
+          starts_at: "2030-01-01T00:00:00.000Z",
+          country: "Germany",
+        },
+        {
+          uuid: "non-european",
+          name: "HackCelestial 3.0",
+          slug: "hackcelestial-2",
+          starts_at: FUTURE,
+          city: "Navi Mumbai",
+          country: "India",
+        },
+        {
+          uuid: "accepted",
+          name: "TUM Blockchain & AI Hackathon",
+          slug: "tum-2",
+          starts_at: FUTURE,
+          city: "München",
+          country: "Germany",
+        },
+      ],
+    });
+
+    const result = await new DevfolioParser().parse();
+
+    expect(result.hackathons).toHaveLength(1);
+    expect(result.dropped?.byDateWindow).toBe(1);
+    expect(result.dropped?.byCountry).toBe(1);
+  });
+
   it("reports status 'failed' when every filter request rejects", async () => {
     vi.stubGlobal(
       "fetch",

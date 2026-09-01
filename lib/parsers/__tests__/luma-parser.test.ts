@@ -456,6 +456,49 @@ describe("LumaParser", () => {
     expect(results).toHaveLength(0);
   });
 
+  // Issue #31: structured per-stage drop counts, wired into the existing
+  // reject points (classifier, date window, country) rather than only
+  // console.log/warn.
+  it("reports structured dropped counts for classifier, date-window, and country rejections", async () => {
+    mockFetchPerSlug({
+      tech: [
+        // Rejected by the classifier (no hackathon-y keywords at all).
+        {
+          name: "Just A Regular Meetup",
+          start_at: FUTURE,
+          url: "regular-meetup",
+        },
+        // Rejected for being outside the configured future-date window.
+        {
+          name: "Far Future Hackathon",
+          start_at: "2030-01-01T00:00:00.000Z",
+          url: "far-future-hackathon",
+        },
+        // Rejected as an explicit non-European country.
+        {
+          name: "San Francisco AI Hackathon",
+          start_at: FUTURE,
+          url: "sf-hackathon-2",
+          geo_address_info: { city: "San Francisco", country_code: "US" },
+        },
+        // Accepted, so the counts above aren't just "everything dropped".
+        {
+          name: "Zurich Builders Hackathon",
+          start_at: FUTURE,
+          url: "zurich-builders-hackathon-2",
+          geo_address_info: { city: "Zurich", country_code: "ch" },
+        },
+      ],
+    });
+
+    const result = await new LumaParser().parse();
+
+    expect(result.hackathons).toHaveLength(1);
+    expect(result.dropped?.byClassifier).toBe(1);
+    expect(result.dropped?.byDateWindow).toBe(1);
+    expect(result.dropped?.byCountry).toBe(1);
+  });
+
   // Regression test for a real bug found in a second round of code review:
   // the non-European check only ran `if (!country_code)`, AFTER the
   // region/city_state fallbacks - so an explicit non-European

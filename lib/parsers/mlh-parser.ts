@@ -4,6 +4,18 @@ import {
   DiscoverResult,
   ParseStatus,
 } from "@/lib/parsers/base-parser";
+
+/**
+ * Per-run counters for the reject points this file already had (date
+ * window, non-European country) - just surfaced through the return value
+ * instead of only console.log (issue #31). MLH's own season pages are
+ * already scoped to hackathon events, so there's no separate
+ * classify-vs-reject step here (unlike Luma).
+ */
+interface MlhDropStats {
+  excludedPastFutureWindow: number;
+  droppedByCountry: number;
+}
 import { europeanCountries } from "@/lib/european-countries";
 import {
   MAX_FUTURE_DAYS,
@@ -89,7 +101,10 @@ export class MlhParser extends BaseParser {
       }
     }
 
-    const stats = { excludedPastFutureWindow: 0 };
+    const stats: MlhDropStats = {
+      excludedPastFutureWindow: 0,
+      droppedByCountry: 0,
+    };
     const hackathons = Array.from(byId.values())
       .map((event) => this.mapEventToHackathon(event, stats))
       .filter((hackathon): hackathon is ParsedHackathon => hackathon !== null);
@@ -98,7 +113,8 @@ export class MlhParser extends BaseParser {
       `MLH: fetched ${byId.size} unique raw event(s) across ${seasons.length} ` +
         `season(s), matched ${hackathons.length} European/undetermined ` +
         `hackathons, excluded ${stats.excludedPastFutureWindow} beyond the ` +
-        `${MAX_FUTURE_DAYS}-day future window`,
+        `${MAX_FUTURE_DAYS}-day future window, dropped ${stats.droppedByCountry} ` +
+        `as non-European`,
     );
 
     let status: ParseStatus;
@@ -110,7 +126,18 @@ export class MlhParser extends BaseParser {
       status = "partial";
     }
 
-    return { hackathons, errors, status };
+    const dropped = {
+      byDateWindow: stats.excludedPastFutureWindow,
+      byCountry: stats.droppedByCountry,
+    };
+    const totalDropped = dropped.byDateWindow + dropped.byCountry;
+
+    console.log(
+      `mlh: ${hackathons.length} found, ${totalDropped} dropped ` +
+        `(date: ${dropped.byDateWindow}, country: ${dropped.byCountry})`,
+    );
+
+    return { hackathons, errors, status, dropped };
   }
 
   private async fetchSeason(season: number): Promise<MlhEvent[]> {
@@ -169,7 +196,7 @@ export class MlhParser extends BaseParser {
 
   private mapEventToHackathon(
     event: MlhEvent,
-    stats: { excludedPastFutureWindow: number },
+    stats: MlhDropStats,
   ): ParsedHackathon | null {
     try {
       if (!event.name || !event.startsAt || !event.slug) {
@@ -198,6 +225,7 @@ export class MlhParser extends BaseParser {
         europeanCountries.classifyCountryCode(explicitCountry) ===
         "non_european"
       ) {
+        stats.droppedByCountry++;
         console.log(
           `Dropping MLH event "${event.name}": explicit country ${explicitCountry} is not European.`,
         );

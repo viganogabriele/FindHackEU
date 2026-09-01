@@ -3,6 +3,7 @@ import {
   ParsedHackathon,
   DiscoverResult,
   ParseStatus,
+  DroppedCounts,
 } from "@/lib/parsers/base-parser";
 import { europeanCountries } from "@/lib/european-countries";
 import {
@@ -44,6 +45,18 @@ interface LumaApiResponse {
   entries?: LumaEventEntry[];
   has_more?: boolean;
   next_cursor?: string;
+}
+
+/**
+ * Per-slug counters for the existing reject points this file already had
+ * (classifier, date window, non-European country) - just surfaced through
+ * the return value instead of only console.log/warn (issue #31). No new
+ * rejection logic; only counting around what already exists.
+ */
+interface LumaDropStats {
+  excludedPastFutureWindow: number;
+  droppedByClassifier: number;
+  droppedByCountry: number;
 }
 
 // KNOWN RISK (issue #65, decision recorded 2026-09-01): this parser calls
@@ -108,19 +121,36 @@ export class LumaParser extends BaseParser {
     // "failed" if every slug happened to truncate but none actually
     // errored (found in code review).
     let hardFailures = 0;
+    // Aggregated per-stage drop counts across every slug (issue #31) -
+    // surfaced through the return value (previously only visible via
+    // scattered console.log/warn calls, with no structured accounting).
+    const dropped: Required<DroppedCounts> = {
+      byClassifier: 0,
+      byDateWindow: 0,
+      byCountry: 0,
+    };
 
     for (const slug of this.slugs) {
       try {
         const { events, pagesFetched, truncated } =
           await this.fetchEventsForSlug(slug);
-        const stats = { excludedPastFutureWindow: 0 };
+        const stats: LumaDropStats = {
+          excludedPastFutureWindow: 0,
+          droppedByClassifier: 0,
+          droppedByCountry: 0,
+        };
         const hackathons = this.filterHackathons(events, stats);
+
+        dropped.byClassifier += stats.droppedByClassifier;
+        dropped.byDateWindow += stats.excludedPastFutureWindow;
+        dropped.byCountry += stats.droppedByCountry;
 
         console.log(
           `Luma [${slug}]: fetched ${pagesFetched} page(s), ` +
             `${events.length} raw events, matched ${hackathons.length} hackathons, ` +
-            `excluded ${stats.excludedPastFutureWindow} beyond the ` +
-            `${MAX_FUTURE_DAYS}-day future window`,
+            `dropped ${stats.droppedByClassifier} by classifier, ` +
+            `${stats.excludedPastFutureWindow} beyond the ${MAX_FUTURE_DAYS}-day ` +
+            `future window, ${stats.droppedByCountry} as non-European`,
         );
 
         if (truncated) {
@@ -167,7 +197,16 @@ export class LumaParser extends BaseParser {
       status = "partial";
     }
 
-    return { hackathons, errors, status };
+    const totalDropped =
+      dropped.byClassifier + dropped.byDateWindow + dropped.byCountry;
+
+    console.log(
+      `luma: ${hackathons.length} found, ${totalDropped} dropped ` +
+        `(classifier: ${dropped.byClassifier}, date: ${dropped.byDateWindow}, ` +
+        `country: ${dropped.byCountry})`,
+    );
+
+    return { hackathons, errors, status, dropped };
   }
 
   private async fetchEventsForSlug(slug: string): Promise<{
@@ -262,10 +301,18 @@ export class LumaParser extends BaseParser {
    */
   private filterHackathons(
     events: LumaEventEntry[],
-    stats: { excludedPastFutureWindow: number },
+    stats: LumaDropStats,
   ): ParsedHackathon[] {
     const hackathons = events
-      .filter((entry) => this.isHackathon(entry.event))
+      .filter((entry) => {
+        const isHack = this.isHackathon(entry.event);
+
+        if (!isHack) {
+          stats.droppedByClassifier++;
+        }
+
+        return isHack;
+      })
       .map((entry) => this.mapEventToHackathon(entry, stats))
       .filter((hackathon): hackathon is ParsedHackathon => hackathon !== null);
 
@@ -323,7 +370,7 @@ export class LumaParser extends BaseParser {
 
   private mapEventToHackathon(
     entry: LumaEventEntry,
-    stats: { excludedPastFutureWindow: number },
+    stats: LumaDropStats,
   ): ParsedHackathon | null {
     try {
       const event = entry.event;
@@ -376,6 +423,7 @@ export class LumaParser extends BaseParser {
         europeanCountries.classifyCountryCode(geo.country_code) ===
         "non_european"
       ) {
+        stats.droppedByCountry++;
         console.log(
           `Dropping Luma event "${event.name}": explicit country_code ${geo.country_code} is not European.`,
         );
@@ -416,6 +464,7 @@ export class LumaParser extends BaseParser {
         country_code &&
         !europeanCountries.isValidEuropeanCountry(country_code)
       ) {
+        stats.droppedByCountry++;
         console.log(
           `Dropping Luma event "${event.name}": explicit country_code ${country_code} is not European.`,
         );

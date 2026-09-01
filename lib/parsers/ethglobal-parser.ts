@@ -4,6 +4,18 @@ import {
   DiscoverResult,
   ParseStatus,
 } from "@/lib/parsers/base-parser";
+
+/**
+ * Per-run counters for the reject points this file already had (date
+ * window, non-European country) - just surfaced through the return value
+ * instead of only console.log (issue #31). ETHGlobal's events listing is
+ * already scoped to type "hackathon" (filtered in extractEvents()), so
+ * there's no separate classify-vs-reject step here (unlike Luma).
+ */
+interface EthGlobalDropStats {
+  excludedPastFutureWindow: number;
+  droppedByCountry: number;
+}
 import { europeanCountries } from "@/lib/european-countries";
 import {
   MAX_FUTURE_DAYS,
@@ -79,7 +91,10 @@ export class EthGlobalParser extends BaseParser {
       const html = await response.text();
       const events = this.extractEvents(html);
 
-      const stats = { excludedPastFutureWindow: 0 };
+      const stats: EthGlobalDropStats = {
+        excludedPastFutureWindow: 0,
+        droppedByCountry: 0,
+      };
       const hackathons = events
         .map((event) => this.mapEventToHackathon(event, stats))
         .filter(
@@ -90,11 +105,22 @@ export class EthGlobalParser extends BaseParser {
         `ETHGlobal: extracted ${events.length} raw event(s), matched ` +
           `${hackathons.length} European/undetermined hackathons, excluded ` +
           `${stats.excludedPastFutureWindow} beyond the ${MAX_FUTURE_DAYS}-day ` +
-          `future window`,
+          `future window, dropped ${stats.droppedByCountry} as non-European`,
       );
 
       const status: ParseStatus = "ok";
-      return { hackathons, errors: [], status };
+      const dropped = {
+        byDateWindow: stats.excludedPastFutureWindow,
+        byCountry: stats.droppedByCountry,
+      };
+      const totalDropped = dropped.byDateWindow + dropped.byCountry;
+
+      console.log(
+        `ethglobal: ${hackathons.length} found, ${totalDropped} dropped ` +
+          `(date: ${dropped.byDateWindow}, country: ${dropped.byCountry})`,
+      );
+
+      return { hackathons, errors: [], status, dropped };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error("Error in ETHGlobal parser:", error);
@@ -187,7 +213,7 @@ export class EthGlobalParser extends BaseParser {
 
   private mapEventToHackathon(
     event: EthGlobalEvent,
-    stats: { excludedPastFutureWindow: number },
+    stats: EthGlobalDropStats,
   ): ParsedHackathon | null {
     try {
       if (!event.name || !event.startTime || !event.slug) {
@@ -212,6 +238,7 @@ export class EthGlobalParser extends BaseParser {
         europeanCountries.classifyCountryCode(explicitCountry) ===
         "non_european"
       ) {
+        stats.droppedByCountry++;
         console.log(
           `Dropping ETHGlobal event "${event.name}": explicit country ${explicitCountry} is not European.`,
         );

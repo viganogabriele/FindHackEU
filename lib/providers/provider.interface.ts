@@ -18,6 +18,34 @@ import type { ParsedHackathon } from "@/lib/parsers/base-parser";
 export type ParseStatus = "ok" | "partial" | "failed";
 
 /**
+ * Per-stage rejection counts for a single provider's run (issue #31).
+ *
+ * All fields optional/additive so this can be layered onto the existing
+ * `DiscoverResult`/`ProviderResult` contract without touching every call
+ * site that already destructures those shapes:
+ *
+ * - `byClassifier`: raw candidates rejected by a classify-vs-reject step
+ *   (only Luma has one today - its API isn't already scoped to
+ *   "hackathons", unlike Devfolio/MLH/ETHGlobal, so this is omitted/
+ *   undefined for those three rather than fabricating a classify stage
+ *   that doesn't exist for them).
+ * - `byDateWindow`: candidates whose start date fell outside the
+ *   configured future-date window (`lib/config/discovery-config.ts`).
+ * - `byCountry`: candidates dropped because their source-reported country
+ *   was explicitly non-European (`lib/european-countries.ts`).
+ *
+ * Deliberately does NOT include a duplicates count - cross-source dedup
+ * happens once, after every provider has already run
+ * (`mergeHackathonDuplicates` in `app/api/update/route.ts`), so it isn't
+ * attributable to any single provider and is tracked separately there.
+ */
+export interface DroppedCounts {
+  byClassifier?: number;
+  byDateWindow?: number;
+  byCountry?: number;
+}
+
+/**
  * Standard result shape every `Provider` returns from `parse()`.
  *
  * This lets the orchestrator (`app/api/update/route.ts`) treat every
@@ -29,6 +57,8 @@ export interface ProviderResult {
   status: ParseStatus;
   count: number;
   errors: string[];
+  /** Per-stage rejection counts observed while discovering this run (issue #31). */
+  dropped?: DroppedCounts;
 }
 
 /**

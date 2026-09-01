@@ -4,9 +4,13 @@ import type {
   Provider,
   ProviderResult,
   ParseStatus,
+  DroppedCounts,
 } from "@/lib/providers/provider.interface";
 
-export type { ParseStatus } from "@/lib/providers/provider.interface";
+export type {
+  ParseStatus,
+  DroppedCounts,
+} from "@/lib/providers/provider.interface";
 
 export interface ParsedHackathon {
   name: string;
@@ -60,6 +64,8 @@ export interface DiscoverResult {
   hackathons: ParsedHackathon[];
   errors: string[];
   status: ParseStatus;
+  /** Per-stage rejection counts observed while discovering this run (issue #31). */
+  dropped?: DroppedCounts;
 }
 
 /**
@@ -83,7 +89,7 @@ export abstract class BaseParser implements Provider {
 
   async parse(): Promise<ProviderResult> {
     try {
-      const { hackathons, errors, status } = await this.discover();
+      const { hackathons, errors, status, dropped } = await this.discover();
 
       return {
         hackathons,
@@ -91,6 +97,7 @@ export abstract class BaseParser implements Provider {
         status,
         count: hackathons.length,
         errors,
+        dropped,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
