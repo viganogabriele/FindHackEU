@@ -9,21 +9,10 @@ on:
     # WEEKEND (Sab-Dom) - 2 chiamate al giorno
     - cron: "0 10 * * 6,0" # 12:00 CET
     - cron: "0 16 * * 6,0" # 18:00 CET
-    # Issue #72: daily retention-archive sweep, once a day is plenty since
-    # nothing newly crosses the "more than a year past" threshold between
-    # runs. Deliberately a separate schedule entry/job below, not folded
-    # into the update-hackathons job above - this is a distinct concern
-    # from the main scrape/dedupe/notify pipeline.
-    - cron: "0 3 * * *" # 04:00/05:00 CET/CEST
   workflow_dispatch:
 
 jobs:
-  # A single `on.schedule` list fires every job in this workflow on every
-  # cron entry - `github.event.schedule` (unset for workflow_dispatch) is
-  # how each job below opts out of the other job's cron entries. On a
-  # manual workflow_dispatch (schedule unset) both jobs run.
   update-hackathons:
-    if: github.event.schedule != '0 3 * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -66,52 +55,4 @@ jobs:
         with:
           name: error-response-${{ github.run_number }}
           path: response.json
-          retention-days: 7
-
-  # Issue #72: automatic retention sweep - archives (soft-deletes, same
-  # mechanism the manual "Archive" button uses) any hackathon that has been
-  # `status: "past"` for more than a year. Only runs on its own daily cron
-  # entry (or a manual workflow_dispatch), not on the update-hackathons
-  # job's more frequent schedule entries above.
-  archive-old-hackathons:
-    if: github.event.schedule == '0 3 * * *' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-
-    steps:
-      - name: Trigger archive-old-hackathons endpoint
-        run: |
-          echo "🗄️ Triggering retention archive sweep..."
-
-          response=$(curl -s -w "%{http_code}" -o archive-response.json \
-            --max-time 120 \
-            --retry 3 \
-            --retry-delay 5 \
-            -X POST \
-            "https://hacktrack-eu.vercel.app/api/archive-old-hackathons" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json")
-
-          echo "📊 HTTP Status: $response"
-
-          if [ -f archive-response.json ]; then
-            echo "📄 Response:"
-            cat archive-response.json
-          else
-            echo "⚠️ No response file generated"
-          fi
-
-          if [ "$response" -eq 200 ]; then
-            echo "✅ Retention sweep completed successfully"
-          else
-            echo "❌ Retention sweep failed with status $response"
-            exit 1
-          fi
-
-      - name: Upload response artifact on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: archive-error-response-${{ github.run_number }}
-          path: archive-response.json
           retention-days: 7
