@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  AUTO_PUBLISH_BLOCKER_TAGS,
   discoverWebCandidates,
   generateQueries,
   getAutoPublishBlockers,
   isAutoPublishEligible,
+  matchesAutoPublishBlockerFilter,
+  parseAutoPublishBlockerCodes,
 } from "@/lib/discovery/web-search-candidates";
 import { createInMemoryQueryBudget } from "@/lib/discovery/query-budget";
 import type { SearchProvider } from "@/lib/search/search-provider";
@@ -608,23 +611,39 @@ describe("isAutoPublishEligible", () => {
       [
         "Open Graph evidence",
         { extraction_method: "og-meta" as const },
-        "extraction method",
+        { code: "unstructured-data", label: "Unstructured data" },
       ],
-      ["conflicting evidence", { has_conflict: true }, "conflict"],
-      ["missing country", { country_code: null }, "country"],
+      [
+        "conflicting evidence",
+        { has_conflict: true },
+        { code: "conflict", label: "Conflicting data" },
+      ],
+      [
+        "missing country",
+        { country_code: null },
+        { code: "no-location", label: "No location" },
+      ],
       [
         "non-European country",
         { country_code: "US" },
-        "recognized European country",
+        { code: "non-european-location", label: "Non-European location" },
       ],
-      ["missing date", { date_start: null }, "date"],
-      ["manual source", { source: "manual" }, "source"],
-    ])("reports why %s is not auto-published", (_reason, override, phrase) => {
+      [
+        "missing date",
+        { date_start: null },
+        { code: "no-date", label: "No date" },
+      ],
+      [
+        "manual source",
+        { source: "manual" },
+        { code: "non-web-source", label: "Non-web source" },
+      ],
+    ])("reports why %s is not auto-published", (_reason, override, blocker) => {
       const blockers = getAutoPublishBlockers({
         ...trustedCandidate,
         ...override,
       });
-      expect(blockers.some((blocker) => blocker.includes(phrase))).toBe(true);
+      expect(blockers).toContainEqual(blocker);
     });
 
     it("reports every failed criterion at once, not just the first", () => {
@@ -636,7 +655,13 @@ describe("isAutoPublishEligible", () => {
         date_start: null,
         source: "manual",
       });
-      expect(blockers).toHaveLength(5);
+      expect(blockers).toEqual([
+        { code: "non-web-source", label: "Non-web source" },
+        { code: "unstructured-data", label: "Unstructured data" },
+        { code: "conflict", label: "Conflicting data" },
+        { code: "no-location", label: "No location" },
+        { code: "no-date", label: "No date" },
+      ]);
     });
 
     it("stays in sync with isAutoPublishEligible across arbitrary combinations", () => {
@@ -657,6 +682,48 @@ describe("isAutoPublishEligible", () => {
           isAutoPublishEligible(candidate),
         );
       }
+    });
+
+    it("exposes the same tags as the filter options", () => {
+      expect(AUTO_PUBLISH_BLOCKER_TAGS).toEqual([
+        { code: "non-web-source", label: "Non-web source" },
+        { code: "unstructured-data", label: "Unstructured data" },
+        { code: "conflict", label: "Conflicting data" },
+        { code: "no-location", label: "No location" },
+        { code: "non-european-location", label: "Non-European location" },
+        { code: "no-date", label: "No date" },
+      ]);
+    });
+
+    it("matches every selected tag instead of matching only one", () => {
+      const candidate = {
+        ...trustedCandidate,
+        extraction_method: "og-meta" as const,
+        date_start: null,
+      };
+
+      expect(
+        matchesAutoPublishBlockerFilter(candidate, [
+          "unstructured-data",
+          "no-date",
+        ]),
+      ).toBe(true);
+      expect(
+        matchesAutoPublishBlockerFilter(candidate, [
+          "unstructured-data",
+          "conflict",
+        ]),
+      ).toBe(false);
+    });
+
+    it("ignores unknown URL filter values while preserving order", () => {
+      expect(
+        parseAutoPublishBlockerCodes([
+          "no-date",
+          "not-a-real-code",
+          "no-location",
+        ]),
+      ).toEqual(["no-location", "no-date"]);
     });
   });
 });
