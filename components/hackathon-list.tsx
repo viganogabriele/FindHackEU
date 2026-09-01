@@ -25,6 +25,7 @@ import { Hackathon } from "@/types/hackathon";
 import Link from "next/link";
 import { useFilters } from "@/contexts/filter-context";
 import { europeanCountries } from "@/lib/european-countries";
+import { hackathonMatchesLocationFilter } from "@/lib/location-filter";
 import { getTopicDisplay } from "@/lib/constants/topics";
 import { looksNonEnglish } from "@/lib/detect-non-english";
 
@@ -52,17 +53,14 @@ export default function HackathonList({
           return false;
         }
 
-        if (filters.locations.length > 0) {
-          const hackathonLocation = europeanCountries.formatLocation(
+        if (
+          !hackathonMatchesLocationFilter(
             hackathon.city,
             hackathon.country_code,
-          );
-          if (
-            !hackathonLocation ||
-            !filters.locations.includes(hackathonLocation)
-          ) {
-            return false;
-          }
+            filters.locations,
+          )
+        ) {
+          return false;
         }
 
         if (filters.topics.length > 0) {
