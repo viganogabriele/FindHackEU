@@ -77,7 +77,9 @@ describe("DevfolioParser", () => {
       ],
     });
 
-    const results = (await new DevfolioParser().parse()).hackathons;
+    const pendingParse = new DevfolioParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(1);
     expect(results[0].country_code).toBe("DE");
@@ -102,7 +104,9 @@ describe("DevfolioParser", () => {
       ],
     });
 
-    const results = (await new DevfolioParser().parse()).hackathons;
+    const pendingParse = new DevfolioParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(0);
   });
@@ -122,7 +126,9 @@ describe("DevfolioParser", () => {
       ],
     });
 
-    const results = (await new DevfolioParser().parse()).hackathons;
+    const pendingParse = new DevfolioParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(1);
     expect(results[0].country_code).toBeUndefined();
@@ -142,7 +148,9 @@ describe("DevfolioParser", () => {
 
     mockFetchPerFilter({ upcoming: [event], application_open: [event] });
 
-    const results = (await new DevfolioParser().parse()).hackathons;
+    const pendingParse = new DevfolioParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(1);
   });
@@ -160,7 +168,9 @@ describe("DevfolioParser", () => {
       ],
     });
 
-    const results = (await new DevfolioParser().parse()).hackathons;
+    const pendingParse = new DevfolioParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(0);
   });
@@ -179,7 +189,9 @@ describe("DevfolioParser", () => {
       ],
     });
 
-    const results = (await new DevfolioParser().parse()).hackathons;
+    const pendingParse = new DevfolioParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(1);
     expect(results[0].city).toBe("Berlin");
@@ -219,7 +231,9 @@ describe("DevfolioParser", () => {
       ],
     });
 
-    const result = await new DevfolioParser().parse();
+    const pendingParse = new DevfolioParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const result = await pendingParse;
 
     expect(result.hackathons).toHaveLength(1);
     expect(result.dropped?.byDateWindow).toBe(1);

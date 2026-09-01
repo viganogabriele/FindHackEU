@@ -81,13 +81,26 @@ export class MlhParser extends BaseParser {
     return [currentYear, currentYear + 1];
   }
 
+  // Small delay between successive season requests - same courtesy
+  // reasoning as LumaParser's pageDelayMs and EventbriteParser's
+  // countryDelayMs.
+  private readonly seasonDelayMs = 500;
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   protected async discover(): Promise<DiscoverResult> {
     const byId = new Map<string, MlhEvent>();
     const errors: string[] = [];
     let hardFailures = 0;
     const seasons = this.seasonsToCheck();
 
-    for (const season of seasons) {
+    for (const [index, season] of seasons.entries()) {
+      if (index > 0) {
+        await this.sleep(this.seasonDelayMs);
+      }
+
       try {
         const events = await this.fetchSeason(season);
         for (const event of events) {

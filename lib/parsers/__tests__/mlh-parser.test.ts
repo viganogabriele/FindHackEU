@@ -85,7 +85,9 @@ describe("MlhParser", () => {
       ],
     });
 
-    const results = (await new MlhParser().parse()).hackathons;
+    const pendingParse = new MlhParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(1);
     expect(results[0].country_code).toBe("GB");
@@ -110,7 +112,9 @@ describe("MlhParser", () => {
       ],
     });
 
-    const results = (await new MlhParser().parse()).hackathons;
+    const pendingParse = new MlhParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(0);
   });
@@ -130,7 +134,9 @@ describe("MlhParser", () => {
       ],
     });
 
-    const results = (await new MlhParser().parse()).hackathons;
+    const pendingParse = new MlhParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(1);
     expect(results[0].country_code).toBeUndefined();
@@ -154,7 +160,9 @@ describe("MlhParser", () => {
       ],
     });
 
-    const results = (await new MlhParser().parse()).hackathons;
+    const pendingParse = new MlhParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(1);
     expect(results[0].location_type).toBe("hybrid");
@@ -175,7 +183,9 @@ describe("MlhParser", () => {
       [NEXT_SEASON]: [event],
     });
 
-    const results = (await new MlhParser().parse()).hackathons;
+    const pendingParse = new MlhParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(1);
   });
@@ -194,7 +204,9 @@ describe("MlhParser", () => {
       ],
     });
 
-    const results = (await new MlhParser().parse()).hackathons;
+    const pendingParse = new MlhParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(0);
   });
@@ -234,7 +246,9 @@ describe("MlhParser", () => {
       ],
     });
 
-    const result = await new MlhParser().parse();
+    const pendingParse = new MlhParser().parse();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const result = await pendingParse;
 
     expect(result.hackathons).toHaveLength(1);
     expect(result.dropped?.byDateWindow).toBe(1);
