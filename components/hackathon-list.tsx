@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
 import { useTranslation } from "@/contexts/translation-context";
 import {
   Card,
@@ -17,121 +16,24 @@ import { HackathonCard } from "@/components/hackathon-card";
 import { Hackathon } from "@/types/hackathon";
 import Link from "next/link";
 import { useFilters } from "@/contexts/filter-context";
-import {
-  hackathonMatchesLocationFilter,
-  hackathonMatchesRadiusFilter,
-} from "@/lib/location-filter";
-import { looksLikeForeignLanguage } from "@/lib/detect-non-english";
-import {
-  filterBookmarkedHackathons,
-  useBookmarksHydration,
-  useBookmarksStore,
-} from "@/lib/bookmarks-store";
 
 interface HackathonListProps {
   upcoming: Hackathon[];
   past: Hackathon[];
   loading: boolean;
+  filteredHackathons?: Hackathon[];
 }
-
-const NO_BOOKMARKS: readonly string[] = [];
 
 export default function HackathonList({
   upcoming,
   past,
   loading,
+  filteredHackathons,
 }: HackathonListProps) {
-  const { locale, t } = useTranslation();
+  const { t } = useTranslation();
   const { filters } = useFilters();
-  useBookmarksHydration();
-  const bookmarkedIds = useBookmarksStore((state) => state.bookmarkedIds);
-  // Bookmark changes cannot affect the list while this filter is disabled.
-  const effectiveBookmarkedIds = filters.showBookmarked
-    ? bookmarkedIds
-    : NO_BOOKMARKS;
-
-  const filterHackathons = useCallback(
-    (hackathons: Hackathon[]) => {
-      const filtered = hackathons.filter((hackathon) => {
-        if (
-          filters.search &&
-          !hackathon.name.toLowerCase().includes(filters.search.toLowerCase())
-        ) {
-          return false;
-        }
-
-        if (
-          !hackathonMatchesLocationFilter(
-            hackathon.city,
-            hackathon.country_code,
-            filters.locations,
-          )
-        ) {
-          return false;
-        }
-
-        if (
-          !hackathonMatchesRadiusFilter(
-            hackathon.latitude,
-            hackathon.longitude,
-            filters.radius,
-          )
-        ) {
-          return false;
-        }
-
-        if (filters.topics.length > 0) {
-          const hackathonTopics = hackathon.topics || [];
-          const hasMatchingTopic = filters.topics.some((topic) =>
-            hackathonTopics.includes(topic),
-          );
-          if (!hasMatchingTopic) {
-            return false;
-          }
-        }
-
-        if (
-          !filters.includeNonEnglish &&
-          looksLikeForeignLanguage(hackathon.name, locale)
-        ) {
-          return false;
-        }
-
-        if (filters.dateRange?.from || filters.dateRange?.to) {
-          const hackathonDate = new Date(hackathon.date_start);
-
-          if (
-            filters.dateRange.from &&
-            hackathonDate < filters.dateRange.from
-          ) {
-            return false;
-          }
-
-          if (filters.dateRange.to && hackathonDate > filters.dateRange.to) {
-            return false;
-          }
-        }
-
-        return true;
-      });
-      return filters.showBookmarked
-        ? filterBookmarkedHackathons(filtered, effectiveBookmarkedIds)
-        : filtered;
-    },
-    [filters, locale, effectiveBookmarkedIds],
-  );
-
-  const currentHackathons = useMemo(() => {
-    const source = filters.status === "upcoming" ? upcoming : past;
-    const filtered = filterHackathons(source);
-    const sorted = [...filtered].sort((a, b) => {
-      const da = new Date(a.date_start).getTime();
-      const db = new Date(b.date_start).getTime();
-      if (filters.sort === "asc") return da - db;
-      return db - da;
-    });
-    return sorted;
-  }, [filters.status, filters.sort, upcoming, past, filterHackathons]);
+  const currentHackathons =
+    filteredHackathons ?? (filters.status === "upcoming" ? upcoming : past);
 
   // formatDate is provided by the translation context (formatDateRange)
 
