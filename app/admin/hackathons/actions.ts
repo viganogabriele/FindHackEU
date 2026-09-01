@@ -26,6 +26,10 @@ async function assertAuthorized() {
  * (2026-09-01). This is a hard delete, not the more elaborate reversible
  * "archive with a reason" design sketched in issue #72 - simpler, on
  * purpose, per what was actually asked for.
+ *
+ * Called from /admin/candidates's Approved tab (issue #82) - the standalone
+ * /admin/hackathons page that used to own this action was retired, but the
+ * action itself stays here since it has no page-specific dependency.
  */
 export async function deleteHackathonAction(
   hackathonId: string,
@@ -41,5 +45,5 @@ export async function deleteHackathonAction(
     throw new Error(error.message);
   }
 
-  revalidatePath("/admin/hackathons");
+  revalidatePath("/admin/candidates");
 }
