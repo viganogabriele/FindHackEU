@@ -31,6 +31,7 @@ import {
 } from "./queries";
 import { ManualSubmitForm } from "./manual-submit-form";
 import { EditCandidateDialog } from "./edit-candidate-dialog";
+import { EditHackathonDialog } from "./edit-hackathon-dialog";
 import { GoogleSignInButton } from "./google-sign-in-button";
 import { SignOutButton } from "./sign-out-button";
 import { getAdminAuthStatus } from "@/lib/services/require-admin-auth";
@@ -792,12 +793,9 @@ function PublishedHackathonCard({
                   : ""}
               </p>
             )}
-            {/* Extension point for issue #103 (edit for published
-                hackathons) and #104 (compact reason tags) - not implemented
-                here, out of scope for issue #102. An Edit button/reason-tag
-                row would go here, alongside the existing badges. */}
           </div>
           <div className="flex flex-wrap items-center gap-1">
+            <EditHackathonDialog hackathon={hackathon} />
             <HackathonModerationActions hackathon={hackathon} tab={tab} />
             {(tab === "approved" || tab === "past") && (
               <form
