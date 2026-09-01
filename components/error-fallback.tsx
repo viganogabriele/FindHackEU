@@ -5,10 +5,10 @@ import * as Sentry from "@sentry/nextjs";
 
 type ErrorFallbackProps = {
   error: Error & { digest?: string };
-  retry: () => void;
+  reset: () => void;
 };
 
-export function ErrorFallback({ error, retry }: ErrorFallbackProps) {
+export function ErrorFallback({ error, reset }: ErrorFallbackProps) {
   // Next.js error boundaries must be Client Components:
   // https://nextjs.org/docs/app/getting-started/error-handling
   useEffect(() => {
@@ -18,7 +18,7 @@ export function ErrorFallback({ error, retry }: ErrorFallbackProps) {
   return (
     <div>
       <h2>Something went wrong</h2>
-      <button type="button" onClick={retry}>
+      <button type="button" onClick={reset}>
         Try again
       </button>
     </div>

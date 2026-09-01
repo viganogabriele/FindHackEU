@@ -4,15 +4,15 @@ import { ErrorFallback } from "@/components/error-fallback";
 
 export default function GlobalError({
   error,
-  unstable_retry,
+  reset,
 }: {
   error: Error & { digest?: string };
-  unstable_retry: () => void;
+  reset: () => void;
 }) {
   return (
     <html lang="en">
       <body>
-        <ErrorFallback error={error} retry={unstable_retry} />
+        <ErrorFallback error={error} reset={reset} />
       </body>
     </html>
   );

@@ -4,10 +4,10 @@ import { ErrorFallback } from "@/components/error-fallback";
 
 export default function Error({
   error,
-  unstable_retry,
+  reset,
 }: {
   error: Error & { digest?: string };
-  unstable_retry: () => void;
+  reset: () => void;
 }) {
-  return <ErrorFallback error={error} retry={unstable_retry} />;
+  return <ErrorFallback error={error} reset={reset} />;
 }
