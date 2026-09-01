@@ -85,122 +85,120 @@ export function ManualSubmitForm() {
   }
 
   return (
-    <div className="mb-6 flex justify-end">
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline" size="sm">
-            Submit a URL manually
-          </Button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Submit a URL manually</DialogTitle>
-            <DialogDescription>
-              Adds an event to the pending review queue below without running
-              automated extraction.
-            </DialogDescription>
-          </DialogHeader>
-          <form action={formAction} className="space-y-3">
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          Submit a URL manually
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Submit a URL manually</DialogTitle>
+          <DialogDescription>
+            Adds an event to the pending review queue below without running
+            automated extraction.
+          </DialogDescription>
+        </DialogHeader>
+        <form action={formAction} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="url">URL *</Label>
+            <Input
+              id="url"
+              name="url"
+              type="url"
+              required
+              placeholder="https://..."
+              value={fields.url}
+              onChange={updateField("url")}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="name">Name *</Label>
+            <Input
+              id="name"
+              name="name"
+              required
+              placeholder="Event name"
+              value={fields.name}
+              onChange={updateField("name")}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="url">URL *</Label>
+              <Label htmlFor="city">City</Label>
               <Input
-                id="url"
-                name="url"
-                type="url"
-                required
-                placeholder="https://..."
-                value={fields.url}
-                onChange={updateField("url")}
+                id="city"
+                name="city"
+                placeholder="Optional"
+                value={fields.city}
+                onChange={updateField("city")}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="name">Name *</Label>
+              <Label htmlFor="countryCode">Country</Label>
               <Input
-                id="name"
-                name="name"
-                required
-                placeholder="Event name"
-                value={fields.name}
-                onChange={updateField("name")}
+                id="countryCode"
+                name="countryCode"
+                placeholder="e.g. Italy or IT"
+                value={fields.countryCode}
+                onChange={updateField("countryCode")}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="city">City</Label>
-                <Input
-                  id="city"
-                  name="city"
-                  placeholder="Optional"
-                  value={fields.city}
-                  onChange={updateField("city")}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="countryCode">Country</Label>
-                <Input
-                  id="countryCode"
-                  name="countryCode"
-                  placeholder="e.g. Italy or IT"
-                  value={fields.countryCode}
-                  onChange={updateField("countryCode")}
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="dateStart">Start date</Label>
-              <Input
-                id="dateStart"
-                name="dateStart"
-                type="date"
-                value={fields.dateStart}
-                onChange={updateField("dateStart")}
-              />
-            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="dateStart">Start date</Label>
+            <Input
+              id="dateStart"
+              name="dateStart"
+              type="date"
+              value={fields.dateStart}
+              onChange={updateField("dateStart")}
+            />
+          </div>
 
-            <div className="space-y-1.5">
-              <Label>
-                Topics{" "}
-                <span className="font-normal text-muted-foreground">
-                  (optional - auto-detected from the name if left empty)
-                </span>
-              </Label>
-              <div className="flex flex-wrap gap-1.5">
-                {HACKATHON_TOPICS.map((topic) => (
-                  <Button
-                    key={topic}
-                    type="button"
-                    variant={topics.includes(topic) ? "default" : "outline"}
-                    size="sm"
-                    aria-pressed={topics.includes(topic)}
-                    onClick={() => toggleTopic(topic)}
-                    className="h-auto px-2 py-0.5 text-xs"
-                  >
-                    {topic}
-                  </Button>
-                ))}
-              </div>
-              {topics.map((topic) => (
-                <input key={topic} type="hidden" name="topics" value={topic} />
+          <div className="space-y-1.5">
+            <Label>
+              Topics{" "}
+              <span className="font-normal text-muted-foreground">
+                (optional - auto-detected from the name if left empty)
+              </span>
+            </Label>
+            <div className="flex flex-wrap gap-1.5">
+              {HACKATHON_TOPICS.map((topic) => (
+                <Button
+                  key={topic}
+                  type="button"
+                  variant={topics.includes(topic) ? "default" : "outline"}
+                  size="sm"
+                  aria-pressed={topics.includes(topic)}
+                  onClick={() => toggleTopic(topic)}
+                  className="h-auto px-2 py-0.5 text-xs"
+                >
+                  {topic}
+                </Button>
               ))}
             </div>
+            {topics.map((topic) => (
+              <input key={topic} type="hidden" name="topics" value={topic} />
+            ))}
+          </div>
 
-            {result?.outcome === "created" && (
-              <p className="text-sm text-green-600">
-                Added to the pending queue below.
-              </p>
-            )}
-            {result && result.outcome !== "created" && (
-              <p className="text-sm text-destructive">{result.message}</p>
-            )}
+          {result?.outcome === "created" && (
+            <p className="text-sm text-green-600">
+              Added to the pending queue below.
+            </p>
+          )}
+          {result && result.outcome !== "created" && (
+            <p className="text-sm text-destructive">{result.message}</p>
+          )}
 
-            <DialogFooter>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? "Submitting…" : "Add to review queue"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </div>
+          <DialogFooter>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Submitting…" : "Add to review queue"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

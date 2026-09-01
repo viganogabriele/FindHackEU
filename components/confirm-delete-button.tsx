@@ -35,12 +35,12 @@ export function ConfirmDeleteButton({
         <Button
           ref={triggerRef}
           type="button"
-          variant="ghost"
+          variant="destructive"
           size="icon"
           title="Delete permanently"
           aria-label="Delete permanently"
         >
-          <Trash2 className="h-4 w-4 text-destructive" />
+          <Trash2 aria-hidden="true" />
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>

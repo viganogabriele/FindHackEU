@@ -102,7 +102,7 @@ export function EditCandidateDialog({
       <DialogTrigger asChild>
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           size="icon"
           title="Edit candidate"
           aria-label="Edit candidate"

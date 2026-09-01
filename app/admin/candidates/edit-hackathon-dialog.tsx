@@ -104,7 +104,7 @@ export function EditHackathonDialog({
       <DialogTrigger asChild>
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           size="icon"
           title="Edit hackathon"
           aria-label="Edit hackathon"

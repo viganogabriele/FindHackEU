@@ -125,9 +125,7 @@ describe("EditHackathonDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
-      expect(vi.mocked(toast.success)).toHaveBeenCalledWith(
-        "Hackathon saved",
-      );
+      expect(vi.mocked(toast.success)).toHaveBeenCalledWith("Hackathon saved");
     });
   });
 });
