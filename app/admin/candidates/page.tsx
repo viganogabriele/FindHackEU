@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { supabaseAdmin } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -67,6 +69,13 @@ export default async function CandidatesAdminPage({
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto max-w-4xl px-4 py-8">
+        <Button asChild variant="ghost" size="sm" className="mb-4 -ml-2">
+          <Link href="/">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to site
+          </Link>
+        </Button>
+
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
             <h1 className="mb-2 text-2xl font-bold">Hackathon candidates</h1>
@@ -144,6 +153,12 @@ function SignInGate({ email }: { email: string | null }) {
           )}
           <Separator />
           <GoogleSignInButton />
+          <Button asChild variant="link" size="sm">
+            <Link href="/">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to site
+            </Link>
+          </Button>
         </CardContent>
       </Card>
     </div>

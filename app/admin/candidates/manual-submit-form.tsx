@@ -16,6 +16,14 @@ import {
 } from "@/components/ui/dialog";
 import { submitManualCandidateFormAction } from "./actions";
 
+const EMPTY_FIELDS = {
+  url: "",
+  name: "",
+  city: "",
+  countryCode: "",
+  dateStart: "",
+};
+
 /**
  * Manual URL submission (docs/discovery-research.md's "moderated URL
  * submission" idea) - for events no automated fetch/search can reach at
@@ -24,24 +32,40 @@ import { submitManualCandidateFormAction } from "./actions";
  * no page content to extract evidence from). The submitter types the
  * fields directly instead of relying on extraction; the result still
  * lands in the normal pending review queue, not straight into `hackathons`.
+ *
+ * Fields are controlled (not left to the browser's default uncontrolled
+ * `<input>` behavior) specifically because React resets a `<form>`'s
+ * uncontrolled inputs after every action submission, success OR failure -
+ * a validation error (e.g. an unrecognized country) used to silently wipe
+ * everything the submitter had already typed, forcing a full retype
+ * (found from a real report). Controlled state survives that reset;
+ * fields are only cleared explicitly, on a real success.
  */
 export function ManualSubmitForm() {
   const [open, setOpen] = useState(false);
+  const [fields, setFields] = useState(EMPTY_FIELDS);
   const [result, formAction, isPending] = useActionState(
     submitManualCandidateFormAction,
     null,
   );
 
-  // Close the dialog once a submission succeeds - adjusting state during
-  // render (rather than in a useEffect) per React's documented pattern for
-  // reacting to a value changing, guarded by comparing against the last
-  // result seen so this only runs once per new result.
+  // Close the dialog and clear the form once a submission succeeds -
+  // adjusting state during render (rather than in a useEffect) per React's
+  // documented pattern for reacting to a value changing, guarded by
+  // comparing against the last result seen so this only runs once per new
+  // result.
   const [lastResult, setLastResult] = useState(result);
   if (result !== lastResult) {
     setLastResult(result);
     if (result?.outcome === "created") {
       setOpen(false);
+      setFields(EMPTY_FIELDS);
     }
+  }
+
+  function updateField(field: keyof typeof fields) {
+    return (e: React.ChangeEvent<HTMLInputElement>) =>
+      setFields((prev) => ({ ...prev, [field]: e.target.value }));
   }
 
   return (
@@ -69,16 +93,31 @@ export function ManualSubmitForm() {
                 type="url"
                 required
                 placeholder="https://..."
+                value={fields.url}
+                onChange={updateField("url")}
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="name">Name *</Label>
-              <Input id="name" name="name" required placeholder="Event name" />
+              <Input
+                id="name"
+                name="name"
+                required
+                placeholder="Event name"
+                value={fields.name}
+                onChange={updateField("name")}
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="city">City</Label>
-                <Input id="city" name="city" placeholder="Optional" />
+                <Input
+                  id="city"
+                  name="city"
+                  placeholder="Optional"
+                  value={fields.city}
+                  onChange={updateField("city")}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="countryCode">Country</Label>
@@ -86,12 +125,20 @@ export function ManualSubmitForm() {
                   id="countryCode"
                   name="countryCode"
                   placeholder="e.g. Italy or IT"
+                  value={fields.countryCode}
+                  onChange={updateField("countryCode")}
                 />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="dateStart">Start date</Label>
-              <Input id="dateStart" name="dateStart" type="date" />
+              <Input
+                id="dateStart"
+                name="dateStart"
+                type="date"
+                value={fields.dateStart}
+                onChange={updateField("dateStart")}
+              />
             </div>
 
             {result?.outcome === "created" && (
