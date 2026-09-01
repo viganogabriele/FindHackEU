@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { Octokit } from "@octokit/rest";
 import { supabaseAdmin } from "@/lib/supabase";
 import { LumaParser } from "@/lib/parsers/luma-parser";
@@ -156,6 +157,7 @@ export async function POST(request: Request) {
       }
     } catch (error) {
       console.error("Error creating update_runs row:", error);
+      Sentry.captureException(error);
     }
 
     // ---------------------------------------------------------
@@ -218,6 +220,7 @@ export async function POST(request: Request) {
         error instanceof Error ? error.message : "Failed to reset is_new flags";
 
       console.error("Error resetting is_new flags:", error);
+      Sentry.captureException(error);
     }
 
     // ---------------------------------------------------------
@@ -264,6 +267,7 @@ export async function POST(request: Request) {
             : `${provider.name} parser failed`;
 
         console.error(`${provider.name} parser failed:`, error);
+        Sentry.captureException(error);
       }
     }
 
@@ -681,6 +685,7 @@ export async function POST(request: Request) {
         error instanceof Error ? error.message : "Database insertion failed";
 
       console.error("Database insertion failed:", error);
+      Sentry.captureException(error);
     }
 
     // ---------------------------------------------------------
@@ -720,6 +725,7 @@ export async function POST(request: Request) {
         error instanceof Error ? error.message : "Status update failed";
 
       console.error("Error updating hackathon statuses:", error);
+      Sentry.captureException(error);
     }
 
     // ---------------------------------------------------------
@@ -798,6 +804,7 @@ export async function POST(request: Request) {
               : "Failed to mark hackathons as notified";
 
           console.error("Error updating notification status:", error);
+          Sentry.captureException(error);
 
           notificationErrors.push(`Supabase: ${message}`);
         }
@@ -861,6 +868,7 @@ export async function POST(request: Request) {
         readmeError = error instanceof Error ? error.message : "Unknown error";
 
         console.error("Error updating README:", error);
+        Sentry.captureException(error);
       }
     } else if (testMode) {
       console.log("Test mode: README update skipped");
@@ -979,6 +987,7 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error("Update error:", error);
+    Sentry.captureException(error);
 
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
