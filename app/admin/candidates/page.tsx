@@ -19,6 +19,7 @@ import { GoogleSignInButton } from "./google-sign-in-button";
 import { SignOutButton } from "./sign-out-button";
 import { getAdminAuthStatus } from "@/lib/services/require-admin-auth";
 import { cleanRawSnippet } from "@/lib/format-snippet";
+import { getAutoPublishBlockers } from "@/lib/discovery/web-search-candidates";
 
 type CandidateRow = Database["public"]["Tables"]["hackathon_candidates"]["Row"];
 
@@ -286,6 +287,10 @@ function CandidateCard({
             </p>
           )}
 
+          {status === "pending" && (
+            <AutoPublishBlockers candidate={candidate} />
+          )}
+
           <div className="flex gap-2">
             {status !== "approved" && (
               <form action={approveCandidateAction.bind(null, candidate.id)}>
@@ -316,5 +321,26 @@ function CandidateCard({
         </CardContent>
       </Card>
     </li>
+  );
+}
+
+/**
+ * Surfaces exactly why a pending candidate wasn't auto-published (issue
+ * #78), by calling `getAutoPublishBlockers` - the same function
+ * `isAutoPublishEligible` is defined in terms of, so this can never
+ * silently drift from the real auto-publish decision. Purely informational:
+ * doesn't change the approve/reject flow below it.
+ */
+function AutoPublishBlockers({ candidate }: { candidate: CandidateRow }) {
+  const blockers = getAutoPublishBlockers(candidate);
+
+  if (blockers.length === 0) {
+    return null;
+  }
+
+  return (
+    <p className="mb-4 text-xs text-muted-foreground">
+      Not auto-published: {blockers.join("; ")}.
+    </p>
   );
 }
