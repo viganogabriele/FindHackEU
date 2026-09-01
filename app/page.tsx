@@ -8,6 +8,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { Hackathon } from "@/types/hackathon";
 import { FilterProvider } from "@/contexts/filter-context";
 import { europeanCountries } from "@/lib/european-countries";
+import { dedupeByNormalizedUrl } from "@/lib/dedup/url-normalizer";
 import { useTranslation } from "@/contexts/translation-context";
 import LanguageSelect from "@/components/language-select";
 import { AlertCircle } from "lucide-react";
@@ -59,10 +60,12 @@ export default function Home() {
       const pastData = await pastRes.json();
       const estimatedData = await estimatedRes.json();
 
-      setUpcoming([
-        ...(upcomingData.data || []),
-        ...(estimatedData.data || []),
-      ]);
+      setUpcoming(
+        dedupeByNormalizedUrl([
+          ...(upcomingData.data || []),
+          ...(estimatedData.data || []),
+        ]),
+      );
       setPast(pastData.data || []);
     } catch (err) {
       console.error("Error fetching hackathons:", err);
