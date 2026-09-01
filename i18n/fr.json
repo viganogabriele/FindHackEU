@@ -83,6 +83,7 @@
   "view.map": "Carte",
   "action.viewEvent": "Voir l’événement",
   "map.markers": "{count} événements avec une position sur la carte",
+  "map.approximateLocation": "Emplacement approximatif du pays",
   "error.loadFailed": "Échec du chargement des hackathons",
   "error.retry": "Réessayer",
   "aria.register": "S'inscrire à {name}",

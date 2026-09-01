@@ -171,6 +171,32 @@
   opacity: 0.85;
 }
 
+.hackathon-map-approximate-marker {
+  border: 0;
+  background: transparent;
+}
+
+.hackathon-map-approximate-marker span {
+  display: block;
+  width: 22px;
+  height: 22px;
+  transform: rotate(-45deg);
+  border: 2px solid white;
+  border-radius: 50% 50% 50% 0;
+  background: oklch(0.75 0.16 80);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 35%);
+}
+
+.hackathon-map-approximate-marker span::after {
+  display: block;
+  width: 6px;
+  height: 6px;
+  margin: 6px;
+  border-radius: 9999px;
+  background: white;
+  content: "";
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
