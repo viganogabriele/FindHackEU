@@ -2,31 +2,22 @@
 
 import { useMemo, useCallback } from "react";
 import { useTranslation } from "@/contexts/translation-context";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
   CardHeader,
-  CardTitle,
-  CardDescription,
   CardFooter,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import {
-  ExternalLink,
-  MapPin,
-  Calendar as CalendarIcon,
-  Sparkles,
-} from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { ExportCalendarDropdown } from "@/components/export-calendar-dropdown";
 import { ShareHackathonDropdown } from "@/components/share-hackathon-dropdown";
+import { HackathonCard } from "@/components/hackathon-card";
 import { Hackathon } from "@/types/hackathon";
 import Link from "next/link";
 import { useFilters } from "@/contexts/filter-context";
-import { europeanCountries } from "@/lib/european-countries";
 import { hackathonMatchesLocationFilter } from "@/lib/location-filter";
-import { getTopicDisplay } from "@/lib/constants/topics";
 import { looksNonEnglish } from "@/lib/detect-non-english";
 
 interface HackathonListProps {
@@ -112,129 +103,47 @@ export default function HackathonList({
 
   // formatDate is provided by the translation context (formatDateRange)
 
-  const HackathonCard = ({ hackathon }: { hackathon: Hackathon }) => {
-    const { t, formatDateRange } = useTranslation();
-    // DEBUG: log resolution for badge.new during runtime to diagnose missing translations
-    if (typeof window !== "undefined") {
-      try {
-        console.debug("[i18n-debug] badge.new ->", t("badge.new"));
-      } catch {}
-    }
+  // The public site's own card - a thin wrapper around the shared
+  // `HackathonCard` (components/hackathon-card.tsx, extracted from this
+  // file by issue #93) that supplies the Join+Share+Calendar (or just
+  // Share for past events) footer as the card's `actions` slot. A full
+  // `Hackathon` row satisfies `HackathonCardData` as-is, so no mapping is
+  // needed here (unlike the admin candidate card - see
+  // app/admin/candidates/candidate-card-data.ts).
+  const PublicHackathonCard = ({ hackathon }: { hackathon: Hackathon }) => {
+    const { t } = useTranslation();
+
     return (
-      <Card className="flex h-full flex-col transition-all duration-200 hover:shadow-lg">
-        <CardHeader>
-          <div className="flex items-start justify-between gap-2">
-            <CardTitle className="line-clamp-2 flex-1">
-              {hackathon.name}
-            </CardTitle>
-            {hackathon.is_new && (
-              <Badge
-                variant="default"
-                className="shrink-0 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-sm"
-              >
-                <Sparkles className="mr-1 h-3 w-3" />
-                {t("badge.new")}
-              </Badge>
-            )}
-          </div>
-          {hackathon.notes && hackathon.notes.trim() && (
-            <CardDescription className="line-clamp-2">
-              {hackathon.notes}
-            </CardDescription>
-          )}
-        </CardHeader>
+      <HackathonCard
+        hackathon={hackathon}
+        actions={
+          <>
+            {filters.status === "upcoming" && (
+              <>
+                <Button asChild className="w-full">
+                  <Link
+                    href={hackathon.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={t("aria.register", { name: hackathon.name })}
+                  >
+                    {t("action.join")} <ExternalLink className="ml-1 h-4 w-4" />
+                  </Link>
+                </Button>
 
-        <CardContent className="flex-1 space-y-4">
-          <div className="space-y-2">
-            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-              <div className="flex md:w-1/2 items-center gap-2 text-sm text-muted-foreground">
-                <CalendarIcon className="h-4 w-4 shrink-0" />
-                <span>
-                  {formatDateRange(hackathon.date_start, hackathon.date_end)}
-                </span>
-              </div>
-              {hackathon.city || hackathon.country_code ? (
-                <div className="flex md:w-1/2 items-center gap-2 text-sm text-muted-foreground">
-                  <MapPin className="h-4 w-4 shrink-0" />
-                  <span>
-                    {europeanCountries.formatLocation(
-                      hackathon.city,
-                      hackathon.country_code,
-                    )}{" "}
-                    {hackathon.country_code &&
-                      europeanCountries.getCountryEmoji(hackathon.country_code)}
-                  </span>
+                <div className="grid grid-cols-2 gap-2 w-full">
+                  <ShareHackathonDropdown hackathon={hackathon} />
+                  <ExportCalendarDropdown hackathon={hackathon} />
                 </div>
-              ) : (
-                // Issue #21: no city/country resolved (online/hybrid/tbd
-                // event) - show a badge explaining why instead of leaving
-                // blank space where a location would normally be.
-                (hackathon.location_type === "online" ||
-                  hackathon.location_type === "hybrid") && (
-                  <div className="flex md:w-1/2 items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4 shrink-0" />
-                    <Badge variant="secondary" className="text-xs">
-                      {hackathon.location_type === "online"
-                        ? t("location.online")
-                        : t("location.hybrid")}
-                    </Badge>
-                  </div>
-                )
-              )}
-            </div>
-          </div>
+              </>
+            )}
 
-          {hackathon.topics && hackathon.topics.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {hackathon.topics
-                .slice(0, 4)
-                .map((topic: string, index: number) => {
-                  const topicConfig = getTopicDisplay(topic);
-                  return (
-                    <Badge
-                      key={`${topic}-${index}`}
-                      variant="outline"
-                      className={`text-xs border ${topicConfig.color}`}
-                    >
-                      {topicConfig.label}
-                    </Badge>
-                  );
-                })}
-              {hackathon.topics.length > 4 && (
-                <Badge variant="outline" className="text-xs">
-                  {`+${hackathon.topics.length - 4} ${t("topics.more")}`}
-                </Badge>
-              )}
-            </div>
-          )}
-        </CardContent>
-
-        <CardFooter className="flex flex-col gap-2">
-          {filters.status === "upcoming" && (
-            <>
-              <Button asChild className="w-full">
-                <Link
-                  href={hackathon.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={t("aria.register", { name: hackathon.name })}
-                >
-                  {t("action.join")} <ExternalLink className="ml-1 h-4 w-4" />
-                </Link>
-              </Button>
-
-              <div className="grid grid-cols-2 gap-2 w-full">
-                <ShareHackathonDropdown hackathon={hackathon} />
-                <ExportCalendarDropdown hackathon={hackathon} />
-              </div>
-            </>
-          )}
-
-          {filters.status === "past" && (
-            <ShareHackathonDropdown hackathon={hackathon} />
-          )}
-        </CardFooter>
-      </Card>
+            {filters.status === "past" && (
+              <ShareHackathonDropdown hackathon={hackathon} />
+            )}
+          </>
+        }
+      />
     );
   };
 
@@ -313,7 +222,7 @@ export default function HackathonList({
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {currentHackathons.map((hackathon) => (
-            <HackathonCard key={hackathon.id} hackathon={hackathon} />
+            <PublicHackathonCard key={hackathon.id} hackathon={hackathon} />
           ))}
         </div>
       )}

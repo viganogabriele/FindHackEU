@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
+import { HackathonCard as SharedHackathonCard } from "@/components/hackathon-card";
 import type { Database } from "@/types/database";
 import {
   approveCandidateAction,
@@ -22,6 +23,7 @@ import { SignOutButton } from "./sign-out-button";
 import { getAdminAuthStatus } from "@/lib/services/require-admin-auth";
 import { cleanRawSnippet } from "@/lib/format-snippet";
 import { getAutoPublishBlockers } from "@/lib/discovery/web-search-candidates";
+import { candidateToHackathonCardData } from "./candidate-card-data";
 
 type CandidateRow = Database["public"]["Tables"]["hackathon_candidates"]["Row"];
 type HackathonRow = Database["public"]["Tables"]["hackathons"]["Row"];
@@ -363,6 +365,25 @@ function SignInGate({
   );
 }
 
+/**
+ * Pending/Rejected candidate card (issue #93). Renders the candidate as a
+ * real hackathon card - same date/location/topics presentation the public
+ * site uses once the event is published - via the shared `HackathonCard`
+ * (components/hackathon-card.tsx), mapped through
+ * `candidateToHackathonCardData` since a `hackathon_candidates` row isn't
+ * shaped like a `hackathons` row. The admin-only "how it was found" context
+ * (source/extraction-method/conflict badges, the query, the cleaned
+ * snippet, and the auto-publish-blocker text from issue #78) sits in a
+ * second, visually secondary card directly below it rather than being
+ * folded into the hackathon card itself - that context is about the
+ * candidate row, not about what the event will look like once published.
+ *
+ * The footer is an admin action bar (Approve, Reject-or-Delete) instead of
+ * the public site's Share/Calendar buttons, passed in via `HackathonCard`'s
+ * `actions` slot. An Edit button is included as a disabled placeholder -
+ * wiring it up is issue #94's scope, not this one's - so adding it later is
+ * just enabling this button and pointing it at a real form/dialog.
+ */
 function CandidateCard({
   candidate,
   status,
@@ -371,64 +392,11 @@ function CandidateCard({
   status: StatusFilter;
 }) {
   return (
-    <li>
-      <Card>
-        <CardContent>
-          <div className="mb-3 flex items-start justify-between gap-2">
-            <div>
-              <a
-                href={candidate.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium hover:underline"
-              >
-                {candidate.name}
-              </a>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {candidate.city && (
-                  <Badge variant="secondary">{candidate.city}</Badge>
-                )}
-                {candidate.country_code && (
-                  <Badge variant="secondary">{candidate.country_code}</Badge>
-                )}
-                <Badge variant="outline">{candidate.search_provider}</Badge>
-                <Badge
-                  variant={
-                    candidate.extraction_method === "jsonld-event"
-                      ? "default"
-                      : candidate.extraction_method === "og-meta"
-                        ? "secondary"
-                        : "outline"
-                  }
-                >
-                  {candidate.extraction_method}
-                </Badge>
-                {candidate.has_conflict && (
-                  <Badge variant="destructive">
-                    Conflicting title (issue #15) - check page before approving
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <p className="mb-2 text-xs text-muted-foreground">
-            Query: &ldquo;{candidate.query}&rdquo;
-            {candidate.date_start &&
-              ` · ${new Date(candidate.date_start).toLocaleDateString()}`}
-          </p>
-
-          {candidate.raw_snippet && (
-            <p className="mb-4 line-clamp-3 rounded-md bg-muted p-2 text-xs text-muted-foreground">
-              {cleanRawSnippet(candidate.raw_snippet)}
-            </p>
-          )}
-
-          {status === "pending" && (
-            <AutoPublishBlockers candidate={candidate} />
-          )}
-
-          <div className="flex gap-2">
+    <li className="space-y-2">
+      <SharedHackathonCard
+        hackathon={candidateToHackathonCardData(candidate)}
+        actions={
+          <div className="flex w-full flex-wrap items-center gap-2">
             {status !== "approved" && (
               <form action={approveCandidateAction.bind(null, candidate.id)}>
                 <Button type="submit" variant="default">
@@ -454,7 +422,60 @@ function CandidateCard({
                 confirmMessage={`Permanently delete "${candidate.name}"? This cannot be undone.`}
               />
             </form>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled
+              title="Editing a candidate before approval is issue #94, not yet wired up"
+            >
+              Edit
+            </Button>
           </div>
+        }
+      />
+
+      <Card className="border-dashed">
+        <CardContent className="space-y-2 text-xs text-muted-foreground">
+          <a
+            href={candidate.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block truncate hover:underline"
+          >
+            {candidate.url}
+          </a>
+
+          <div className="flex flex-wrap gap-1.5">
+            <Badge variant="outline">{candidate.search_provider}</Badge>
+            <Badge
+              variant={
+                candidate.extraction_method === "jsonld-event"
+                  ? "default"
+                  : candidate.extraction_method === "og-meta"
+                    ? "secondary"
+                    : "outline"
+              }
+            >
+              {candidate.extraction_method}
+            </Badge>
+            {candidate.has_conflict && (
+              <Badge variant="destructive">
+                Conflicting title (issue #15) - check page before approving
+              </Badge>
+            )}
+          </div>
+
+          <p>Query: &ldquo;{candidate.query}&rdquo;</p>
+
+          {candidate.raw_snippet && (
+            <p className="line-clamp-3 rounded-md bg-muted p-2">
+              {cleanRawSnippet(candidate.raw_snippet)}
+            </p>
+          )}
+
+          {status === "pending" && (
+            <AutoPublishBlockers candidate={candidate} />
+          )}
         </CardContent>
       </Card>
     </li>
