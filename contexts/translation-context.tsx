@@ -72,11 +72,22 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({
   const messages = useMemo(() => MESSAGES[locale] || MESSAGES["en"], [locale]);
 
   const value = useMemo(() => {
+    const interpolate = (
+      value: string,
+      vars?: Record<string, string | number>,
+    ) => {
+      if (!vars) return value;
+      return Object.keys(vars).reduce((acc, k) => {
+        const val = String(vars[k]);
+        return acc.split(`{${k}}`).join(val);
+      }, value);
+    };
+
     const t = (key: string, vars?: Record<string, string | number>) => {
       if (!key) return key;
       // direct lookup (works with flat JSON keys that include dots)
       const direct = (messages as Record<string, string>)[key];
-      if (typeof direct === "string") return direct;
+      if (typeof direct === "string") return interpolate(direct, vars);
 
       // try nested lookup: support for nested objects if JSON uses nested structure
       const parts = key.split(".");
@@ -94,14 +105,7 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
       const resolved = typeof cur === "string" ? cur : key;
-      if (vars && typeof resolved === "string") {
-        return Object.keys(vars).reduce((acc, k) => {
-          const val = String(vars[k]);
-          return acc.split(`{${k}}`).join(val);
-        }, resolved);
-      }
-
-      return resolved;
+      return interpolate(resolved, vars);
     };
 
     const formatDateRange = (
