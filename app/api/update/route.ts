@@ -665,12 +665,11 @@ export async function POST(request: Request) {
 
       const discordBot = new DiscordBot();
       const telegramBot = new TelegramBot();
-      const twitterBot = new TwitterBot();
 
       const notifications = await Promise.allSettled([
         discordBot.notifyNewHackathons(newHackathons),
         telegramBot.notifyNewHackathons(newHackathons),
-        twitterBot.notifyNewHackathons(newHackathons),
+        (async () => new TwitterBot().notifyNewHackathons(newHackathons))(),
       ]);
 
       notifications.forEach((result, index) => {
