@@ -121,7 +121,23 @@ export async function GET(request: Request) {
     try {
       const decoded = Buffer.from(cursorParam, "base64url").toString("utf-8");
       const [dateStart, id] = decoded.split("|");
-      if (!dateStart || !id) throw new Error("malformed cursor");
+
+      // Strict format validation, not just truthiness - `dateStart`/`id`
+      // are spliced directly into a raw PostgREST `.or()` filter string
+      // below. Without this, an attacker-crafted cursor could inject
+      // extra filter clauses (commas/parens/operators are all significant
+      // in PostgREST's filter syntax) instead of the intended opaque
+      // "resume point" value (found in review before this ever shipped).
+      const isValidTimestamp = !Number.isNaN(Date.parse(dateStart ?? ""));
+      const isValidId =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          id ?? "",
+        );
+
+      if (!isValidTimestamp || !isValidId) {
+        throw new Error("malformed cursor");
+      }
+
       cursor = { dateStart, id };
     } catch {
       return NextResponse.json(
