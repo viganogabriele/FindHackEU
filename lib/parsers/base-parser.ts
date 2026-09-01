@@ -119,7 +119,20 @@ export abstract class BaseParser implements Provider {
     try {
       if (start_date_str === "N/A") throw new Error("Invalid start date");
 
-      const start = new Date(start_date_str.replace("Z", "+00:00"));
+      const parseDateWithTimezone = (value: string, label: string): Date => {
+        if (!/(?:Z|[+-]\d{2}:\d{2})$/.test(value)) {
+          throw new Error(`${label} requires an explicit timezone`);
+        }
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+          throw new Error(`Invalid ${label.toLowerCase()}: ${value}`);
+        }
+
+        return date;
+      };
+
+      const start = parseDateWithTimezone(start_date_str, "Start date");
 
       // `new Date("garbage")` does NOT throw - it silently produces an
       // "Invalid Date" whose comparisons/`.toISOString()` calls fail (or
@@ -130,18 +143,10 @@ export abstract class BaseParser implements Provider {
       // event instead of an Invalid Date reaching route.ts's batch insert
       // and throwing there, which would fail the ENTIRE batch, not just
       // the one bad row (found in code review).
-      if (Number.isNaN(start.getTime())) {
-        throw new Error(`Invalid start date: ${start_date_str}`);
-      }
-
       const end =
         end_date_str && end_date_str !== "N/A"
-          ? new Date(end_date_str.replace("Z", "+00:00"))
+          ? parseDateWithTimezone(end_date_str, "End date")
           : undefined;
-
-      if (end && Number.isNaN(end.getTime())) {
-        throw new Error(`Invalid end date: ${end_date_str}`);
-      }
 
       return { start, end };
     } catch (error) {
@@ -149,8 +154,9 @@ export abstract class BaseParser implements Provider {
         `Error parsing dates: ${start_date_str}, ${end_date_str}`,
         error,
       );
+      const reason = error instanceof Error ? `: ${error.message}` : "";
       throw new Error(
-        `Error parsing dates: ${start_date_str}, ${end_date_str}`,
+        `Error parsing dates: ${start_date_str}, ${end_date_str}${reason}`,
       );
     }
   }

@@ -29,6 +29,7 @@ function buildResponse(items: MockDevfolioHackathon[], pages = 1) {
  */
 function mockFetchPerFilter(
   itemsByFilter: Record<string, MockDevfolioHackathon[]>,
+  options: { pagesByFilter?: Record<string, number> } = {},
 ) {
   const fetchMock = vi.fn(async (input: string | URL | Request) => {
     const url = new URL(input.toString());
@@ -38,7 +39,8 @@ function mockFetchPerFilter(
     return {
       ok: true,
       status: 200,
-      json: async () => buildResponse(items),
+      json: async () =>
+        buildResponse(items, options.pagesByFilter?.[filter] ?? 1),
       text: async () => "",
     } as Response;
   });
@@ -272,5 +274,31 @@ describe("DevfolioParser", () => {
 
     expect(result.status).toBe("partial");
     expect(result.success).toBe(true);
+  });
+
+  it("degrades status to 'partial' when the five-page safety cap truncates a filter", async () => {
+    mockFetchPerFilter(
+      {
+        upcoming: [
+          {
+            uuid: "truncated",
+            name: "Paginated Hackathon",
+            slug: "paginated-hackathon",
+            starts_at: FUTURE,
+            country: "Germany",
+          },
+        ],
+      },
+      { pagesByFilter: { upcoming: 6 } },
+    );
+
+    const result = await new DevfolioParser().parse();
+
+    expect(result.hackathons).toHaveLength(1);
+    expect(result.status).toBe("partial");
+    expect(result.success).toBe(true);
+    expect(result.errors).toContainEqual(
+      expect.stringContaining("[upcoming] stopped at the 5-page limit"),
+    );
   });
 });

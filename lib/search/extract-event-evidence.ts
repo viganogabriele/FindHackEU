@@ -1,4 +1,4 @@
-import { fetchWithRetry } from "@/lib/http/fetch-with-retry";
+import { fetchPublicUrl } from "@/lib/http/fetch-public-url";
 
 export interface EventEvidence {
   name: string;
@@ -22,26 +22,23 @@ export interface EventEvidence {
 }
 
 interface JsonLdEvent {
-  "@type"?: string | string[];
-  name?: string;
-  startDate?: string;
-  endDate?: string;
-  location?: {
-    "@type"?: string;
-    name?: string;
-    address?:
-      | string
-      | {
-          addressLocality?: string;
-          addressCountry?: string | { name?: string };
-        };
-  };
+  "@type"?: unknown;
+  name?: unknown;
+  startDate?: unknown;
+  endDate?: unknown;
+  location?: unknown;
 }
 
-function isEventType(type: string | string[] | undefined): boolean {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isEventType(type: unknown): boolean {
   if (!type) return false;
   const types = Array.isArray(type) ? type : [type];
-  return types.some((t) => t.toLowerCase() === "event");
+  return types.some(
+    (t) => typeof t === "string" && t.toLowerCase() === "event",
+  );
 }
 
 /**
@@ -59,10 +56,10 @@ function findEventNode(data: unknown): JsonLdEvent | null {
     return null;
   }
 
-  if (data && typeof data === "object") {
-    const obj = data as Record<string, unknown>;
+  if (isRecord(data)) {
+    const obj = data;
 
-    if (isEventType(obj["@type"] as string | string[] | undefined)) {
+    if (isEventType(obj["@type"])) {
       return obj as JsonLdEvent;
     }
 
@@ -75,6 +72,18 @@ function findEventNode(data: unknown): JsonLdEvent | null {
 }
 
 type RawEvidence = Omit<EventEvidence, "has_conflict">;
+
+function readNonEmptyString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function parseValidDate(value: unknown): Date | undefined {
+  const text = readNonEmptyString(value);
+  if (!text) return undefined;
+
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
 
 function extractJsonLdEvent(html: string): RawEvidence | null {
   const scriptRegex =
@@ -90,11 +99,14 @@ function extractJsonLdEvent(html: string): RawEvidence | null {
     }
 
     const event = findEventNode(parsed);
-    if (!event || !event.name || !event.startDate) {
+    const name = readNonEmptyString(event?.name);
+    const dateStart = parseValidDate(event?.startDate);
+    if (!event || !name || !dateStart) {
       continue;
     }
 
-    const address = event.location?.address;
+    const location = isRecord(event.location) ? event.location : undefined;
+    const address = location?.address;
     let city: string | undefined;
     let countryName: string | undefined;
 
@@ -102,18 +114,20 @@ function extractJsonLdEvent(html: string): RawEvidence | null {
       // Free-text address - leave city/country undetermined here; the
       // caller runs this through the same europeanCountries heuristics
       // every other parser uses.
-    } else if (address) {
-      city = address.addressLocality;
+    } else if (isRecord(address)) {
+      city = readNonEmptyString(address.addressLocality);
+      const addressCountry = address.addressCountry;
       countryName =
-        typeof address.addressCountry === "string"
-          ? address.addressCountry
-          : address.addressCountry?.name;
+        readNonEmptyString(addressCountry) ??
+        (isRecord(addressCountry)
+          ? readNonEmptyString(addressCountry.name)
+          : undefined);
     }
 
     return {
-      name: event.name,
-      date_start: new Date(event.startDate),
-      date_end: event.endDate ? new Date(event.endDate) : undefined,
+      name,
+      date_start: dateStart,
+      date_end: parseValidDate(event.endDate),
       city,
       country_code: countryName,
       extraction_method: "jsonld-event",
@@ -124,20 +138,41 @@ function extractJsonLdEvent(html: string): RawEvidence | null {
   return null;
 }
 
-function extractOgMeta(html: string): RawEvidence | null {
-  const titleMatch = html.match(
-    /<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']*)["']/i,
+function readHtmlAttribute(tag: string, attribute: string): string | undefined {
+  const match = tag.match(
+    new RegExp(
+      `\\b${attribute}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`,
+      "i",
+    ),
   );
-  const descriptionMatch = html.match(
-    /<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']*)["']/i,
-  );
+  return match?.[1] ?? match?.[2] ?? match?.[3];
+}
 
-  if (!titleMatch) {
-    return null;
+function extractMetaContent(
+  html: string,
+  property: string,
+): string | undefined {
+  const metaTags = html.match(/<meta\b[^>]*>/gi) ?? [];
+
+  for (const tag of metaTags) {
+    const tagProperty =
+      readHtmlAttribute(tag, "property") ?? readHtmlAttribute(tag, "name");
+    if (tagProperty?.toLowerCase() !== property.toLowerCase()) continue;
+
+    const content = readHtmlAttribute(tag, "content")?.trim();
+    if (content) return content;
   }
 
-  const name = titleMatch[1].trim();
-  const description = descriptionMatch?.[1]?.trim();
+  return undefined;
+}
+
+function extractOgMeta(html: string): RawEvidence | null {
+  const name = extractMetaContent(html, "og:title");
+  const description = extractMetaContent(html, "og:description");
+
+  if (!name) {
+    return null;
+  }
 
   return {
     name,
@@ -170,10 +205,7 @@ function extractTitleFallback(html: string): RawEvidence | null {
  * reached in the normal tier cascade.
  */
 function extractOgTitleRaw(html: string): string | undefined {
-  const titleMatch = html.match(
-    /<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']*)["']/i,
-  );
-  return titleMatch?.[1]?.trim();
+  return extractMetaContent(html, "og:title");
 }
 
 /**
@@ -182,15 +214,35 @@ function extractOgTitleRaw(html: string): string | undefined {
  * comparison - not real NLP, just enough to tell "same event, different
  * casing/wording" apart from "these are two different things".
  */
+const GENERIC_EVENT_WORDS = new Set([
+  "challenge",
+  "competition",
+  "conference",
+  "contest",
+  "event",
+  "events",
+  "festival",
+  "hackathon",
+  "hackathons",
+  "meetup",
+  "summit",
+  "workshop",
+]);
+
 function meaningfulWords(text: string): Set<string> {
   return new Set(
     text
       .normalize("NFKD")
       .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
       .split(/\s+/)
-      .filter((word) => word.length > 2),
+      .filter(
+        (word) =>
+          word.length > 2 &&
+          !/^\d{4}$/.test(word) &&
+          !GENERIC_EVENT_WORDS.has(word),
+      ),
   );
 }
 
@@ -198,10 +250,9 @@ function meaningfulWords(text: string): Set<string> {
  * Heuristic conflict check (issue #15): the JSON-LD event name and a
  * same-page Open Graph title "clearly refer to different things" when the
  * OG title is present, non-empty, and shares no meaningful word with the
- * JSON-LD name. This deliberately under-flags (any shared word, even a
- * generic one like "2026", suppresses a conflict) rather than over-flags -
- * a false "no conflict" just means normal review, while a false conflict
- * would make every reviewer distrust the flag.
+ * JSON-LD name. Generic event words and standalone years are ignored so that
+ * two different city editions do not look identical merely because both are
+ * called a "Hackathon 2026".
  */
 function titlesConflict(
   jsonLdName: string,
@@ -262,7 +313,7 @@ export function extractEvidenceFromHtml(html: string): EventEvidence | null {
  * before optionally running extraction on the same HTML (issue #16).
  */
 export async function fetchPageHtml(url: string): Promise<string> {
-  const response = await fetchWithRetry(
+  const response = await fetchPublicUrl(
     url,
     {
       headers: {

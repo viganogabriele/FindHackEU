@@ -63,10 +63,18 @@ async function main() {
   }
 
   const existingHackathons = await fetchAllRows<UrlRow>((from, to) =>
-    supabaseAdmin.from("hackathons").select("url").range(from, to),
+    supabaseAdmin
+      .from("hackathons")
+      .select("url")
+      .order("url", { ascending: true })
+      .range(from, to),
   );
   const existingCandidates = await fetchAllRows<UrlRow>((from, to) =>
-    supabaseAdmin.from("hackathon_candidates").select("url").range(from, to),
+    supabaseAdmin
+      .from("hackathon_candidates")
+      .select("url")
+      .order("url", { ascending: true })
+      .range(from, to),
   );
 
   const knownUrls = new Set([
@@ -111,7 +119,9 @@ async function main() {
   console.log(
     `Fetch outcomes (issue #16): ${stats.blockedByRobots} blocked by robots.txt, ` +
       `${stats.httpErrors} http-error, ${stats.timeouts} timeout, ` +
-      `${stats.requiresJs} requires-js (likely JS-rendered SPA).`,
+      `${stats.requiresJs} requires-js, ${stats.invalidUrls} unsafe URL, ` +
+      `${stats.extractionErrors} extraction-error, ${stats.fetchErrors} other ` +
+      `per-result errors.`,
   );
   if (stats.queriesSkippedForBudget > 0) {
     console.warn(

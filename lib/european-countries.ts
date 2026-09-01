@@ -639,6 +639,63 @@ export const EUROPEAN_CITY_TO_COUNTRY: Record<string, string> = {
   vitebsk: "BY",
 };
 
+// Full country names that can appear in structured-data feeds but are not
+// represented by the European-only table above. This is deliberately kept
+// separate from the European aliases: an unrecognized location fragment
+// must remain "unknown", while an explicit, well-known non-European country
+// should be filtered from a Europe-only discovery run.
+const KNOWN_NON_EUROPEAN_COUNTRY_NAMES = new Set([
+  "afghanistan",
+  "algeria",
+  "argentina",
+  "australia",
+  "bangladesh",
+  "brazil",
+  "canada",
+  "chile",
+  "china",
+  "colombia",
+  "costa rica",
+  "cuba",
+  "dominican republic",
+  "ecuador",
+  "egypt",
+  "hong kong",
+  "india",
+  "indonesia",
+  "iran",
+  "iraq",
+  "israel",
+  "japan",
+  "jordan",
+  "kenya",
+  "malaysia",
+  "mexico",
+  "morocco",
+  "new zealand",
+  "nigeria",
+  "pakistan",
+  "peru",
+  "philippines",
+  "qatar",
+  "saudi arabia",
+  "singapore",
+  "south africa",
+  "south korea",
+  "taiwan",
+  "thailand",
+  "tunisia",
+  "united arab emirates",
+  "united states",
+  "uruguay",
+  "venezuela",
+  "vietnam",
+]);
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export class EuropeanCountriesUtil {
   private countryMap: Map<string, string>;
   private countryCodeSet: Set<string>;
@@ -739,11 +796,45 @@ export class EuropeanCountriesUtil {
       return "european";
     }
 
+    if (KNOWN_NON_EUROPEAN_COUNTRY_NAMES.has(normalized)) {
+      return "non_european";
+    }
+
     if (/^[a-z]{2}$/.test(normalized)) {
       return "non_european";
     }
 
     return "unrecognized";
+  }
+
+  /**
+   * Infer a European country from a free-form search query. Unlike
+   * normalizeCountry(), this looks for a country alias as a token within the
+   * query, so "hackathon Germany 2026" can provide a low-confidence country
+   * fallback without treating arbitrary text as a country.
+   */
+  inferCountryFromText(input: string | undefined | null): string | undefined {
+    if (!input || typeof input !== "string") {
+      return undefined;
+    }
+
+    const folded = EuropeanCountriesUtil.foldDiacritics(input.toLowerCase());
+
+    const matches = EUROPEAN_COUNTRIES.filter((country) =>
+      [country.name, ...country.aliases]
+        .filter((alias) => alias.length > 2)
+        .some((alias) => {
+          const foldedAlias = EuropeanCountriesUtil.foldDiacritics(
+            alias.toLowerCase(),
+          );
+          return new RegExp(
+            `(^|[^\\p{L}])${escapeRegExp(foldedAlias)}([^\\p{L}]|$)`,
+            "u",
+          ).test(folded);
+        }),
+    );
+
+    return matches.length === 1 ? matches[0].code : undefined;
   }
 
   /**
