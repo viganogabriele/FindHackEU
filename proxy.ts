@@ -1,6 +1,23 @@
-import { NextResponse } from "next/server";
-export function proxy() {
-  const response = NextResponse.next();
+import { NextResponse, type NextRequest } from "next/server";
+import { updateSupabaseSession } from "@/lib/services/supabase-auth-middleware";
+
+/**
+ * Paths that need a fresh Supabase Auth session cookie on every request
+ * (issue #67). Scoped narrowly on purpose - the rest of the site has no
+ * login and must stay untouched by Supabase Auth's cookie handling.
+ */
+function needsSupabaseSession(pathname: string): boolean {
+  return (
+    pathname.startsWith("/admin/candidates") ||
+    pathname.startsWith("/auth/callback")
+  );
+}
+
+export async function proxy(request: NextRequest) {
+  const response = needsSupabaseSession(request.nextUrl.pathname)
+    ? await updateSupabaseSession(request)
+    : NextResponse.next();
+
   const vary = response.headers.get("Vary");
   if (vary) {
     if (!vary.includes("Cookie"))

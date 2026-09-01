@@ -2,9 +2,14 @@ import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import type { Database } from "@/types/database";
 import { approveCandidateAction, rejectCandidateAction } from "./actions";
 import { ManualSubmitForm } from "./manual-submit-form";
+import { GoogleSignInButton } from "./google-sign-in-button";
+import { SignOutButton } from "./sign-out-button";
+import { getAdminAuthStatus } from "@/lib/services/require-admin-auth";
 
 type CandidateRow = Database["public"]["Tables"]["hackathon_candidates"]["Row"];
 
@@ -19,13 +24,13 @@ const STATUSES: StatusFilter[] = ["pending", "approved", "rejected"];
  * "Approve" is the only path that copies a candidate into the real
  * `hackathons` table (lib/services/promote-candidate.ts).
  *
- * Dev-only for now (`notFound()` outside development, same pattern as
- * app/api/dev/trigger-update/route.ts) - this page can approve/reject
- * real data with no authentication check of its own, which is only
- * acceptable while nobody but the maintainer can reach it at all (local
- * dev, no public deployment of this route). Do not remove this gate
- * without adding real auth first - see issue #67 (Google sign-in via
- * Supabase Auth) before ever enabling this in production.
+ * Dev-only (`notFound()` outside development, same pattern as
+ * app/api/dev/trigger-update/route.ts) AND gated behind Google sign-in via
+ * Supabase Auth, restricted to a single allowlisted email
+ * (`ADMIN_ALLOWED_EMAIL` - issue #67). Both gates are defense in depth: the
+ * NODE_ENV check stays even though auth now exists, and the auth check is
+ * also re-verified server-side inside every server action in ./actions.ts,
+ * not just here.
  */
 export default async function CandidatesAdminPage({
   searchParams,
@@ -34,6 +39,12 @@ export default async function CandidatesAdminPage({
 }) {
   if (process.env.NODE_ENV === "production") {
     notFound();
+  }
+
+  const authStatus = await getAdminAuthStatus();
+
+  if (!authStatus.authorized) {
+    return <SignInGate email={authStatus.email} />;
   }
 
   const params = await searchParams;
@@ -56,11 +67,16 @@ export default async function CandidatesAdminPage({
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto max-w-4xl px-4 py-8">
-        <h1 className="mb-2 text-2xl font-bold">Hackathon candidates</h1>
-        <p className="mb-6 text-sm text-muted-foreground">
-          Web-search-discovered events awaiting review. Nothing here is public
-          until approved.
-        </p>
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="mb-2 text-2xl font-bold">Hackathon candidates</h1>
+            <p className="text-sm text-muted-foreground">
+              Web-search-discovered events awaiting review. Nothing here is
+              public until approved.
+            </p>
+          </div>
+          <SignOutButton email={authStatus.email!} />
+        </div>
 
         <ManualSubmitForm />
 
@@ -105,6 +121,35 @@ export default async function CandidatesAdminPage({
   );
 }
 
+/**
+ * Shown instead of the review queue when there is no session, or the
+ * session's email doesn't match `ADMIN_ALLOWED_EMAIL` (issue #67). This is
+ * a convenience gate, not the real security boundary - see
+ * app/admin/candidates/actions.ts's `assertAuthorized()`.
+ */
+function SignInGate({ email }: { email: string | null }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <Card className="w-full max-w-sm">
+        <CardContent className="flex flex-col items-center gap-4 text-center">
+          <h1 className="text-xl font-bold">Admin sign-in required</h1>
+          <p className="text-sm text-muted-foreground">
+            The candidate review queue is restricted to the project maintainer.
+          </p>
+          {email && (
+            <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+              Signed in as <span className="font-medium">{email}</span>, but
+              this account isn&apos;t authorized for admin access.
+            </p>
+          )}
+          <Separator />
+          <GoogleSignInButton />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function CandidateCard({
   candidate,
   status,
@@ -113,75 +158,83 @@ function CandidateCard({
   status: StatusFilter;
 }) {
   return (
-    <li className="rounded-lg border p-4">
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <div>
-          <a
-            href={candidate.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-medium hover:underline"
-          >
-            {candidate.name}
-          </a>
-          <div className="mt-1 flex flex-wrap gap-1 text-xs text-muted-foreground">
-            {candidate.city && (
-              <Badge variant="secondary">{candidate.city}</Badge>
+    <li>
+      <Card>
+        <CardContent>
+          <div className="mb-3 flex items-start justify-between gap-2">
+            <div>
+              <a
+                href={candidate.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium hover:underline"
+              >
+                {candidate.name}
+              </a>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {candidate.city && (
+                  <Badge variant="secondary">{candidate.city}</Badge>
+                )}
+                {candidate.country_code && (
+                  <Badge variant="secondary">{candidate.country_code}</Badge>
+                )}
+                <Badge variant="outline">{candidate.search_provider}</Badge>
+                <Badge
+                  variant={
+                    candidate.extraction_method === "jsonld-event"
+                      ? "default"
+                      : candidate.extraction_method === "og-meta"
+                        ? "secondary"
+                        : "outline"
+                  }
+                >
+                  {candidate.extraction_method}
+                </Badge>
+                {candidate.has_conflict && (
+                  <Badge variant="destructive">
+                    Conflicting title (issue #15) - check page before approving
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <p className="mb-2 text-xs text-muted-foreground">
+            Query: &ldquo;{candidate.query}&rdquo;
+            {candidate.date_start &&
+              ` · ${new Date(candidate.date_start).toLocaleDateString()}`}
+          </p>
+
+          {candidate.raw_snippet && (
+            <p className="mb-4 line-clamp-3 rounded-md bg-muted p-2 text-xs text-muted-foreground">
+              {candidate.raw_snippet}
+            </p>
+          )}
+
+          <div className="flex gap-2">
+            {status !== "approved" && (
+              <form action={approveCandidateAction.bind(null, candidate.id)}>
+                <Button type="submit" variant="default">
+                  {status === "rejected" ? "Approve anyway" : "Approve"}
+                </Button>
+              </form>
             )}
-            {candidate.country_code && (
-              <Badge variant="secondary">{candidate.country_code}</Badge>
-            )}
-            <Badge variant="outline">{candidate.search_provider}</Badge>
-            <Badge
-              variant={
-                candidate.extraction_method === "jsonld-event"
-                  ? "default"
-                  : candidate.extraction_method === "og-meta"
-                    ? "secondary"
-                    : "outline"
-              }
-            >
-              {candidate.extraction_method}
-            </Badge>
-            {candidate.has_conflict && (
-              <Badge variant="destructive">
-                Conflicting title (issue #15) - check page before approving
-              </Badge>
+            {status !== "rejected" && (
+              <form
+                action={rejectCandidateAction.bind(
+                  null,
+                  candidate.id,
+                  undefined,
+                )}
+              >
+                <Button type="submit" variant="outline">
+                  Reject
+                </Button>
+              </form>
             )}
           </div>
-        </div>
-      </div>
-
-      <p className="mb-2 text-xs text-muted-foreground">
-        Query: &ldquo;{candidate.query}&rdquo;
-        {candidate.date_start &&
-          ` · ${new Date(candidate.date_start).toLocaleDateString()}`}
-      </p>
-
-      {candidate.raw_snippet && (
-        <p className="mb-3 line-clamp-3 rounded bg-muted p-2 text-xs text-muted-foreground">
-          {candidate.raw_snippet}
-        </p>
-      )}
-
-      <div className="flex gap-2">
-        {status !== "approved" && (
-          <form action={approveCandidateAction.bind(null, candidate.id)}>
-            <Button type="submit" size="sm" variant="default">
-              {status === "rejected" ? "Approve anyway" : "Approve"}
-            </Button>
-          </form>
-        )}
-        {status !== "rejected" && (
-          <form
-            action={rejectCandidateAction.bind(null, candidate.id, undefined)}
-          >
-            <Button type="submit" size="sm" variant="outline">
-              Reject
-            </Button>
-          </form>
-        )}
-      </div>
+        </CardContent>
+      </Card>
     </li>
   );
 }

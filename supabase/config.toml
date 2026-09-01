@@ -333,6 +333,24 @@ skip_nonce_check = false
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
 email_optional = false
 
+# Google sign-in for /admin/candidates (issue #67 - single-maintainer admin
+# auth, not used anywhere else on the site). client_id/secret come from a
+# Google Cloud OAuth 2.0 Client ID (web application type) - see
+# docs/admin-auth-setup.md for the full setup walkthrough. Left disabled
+# with empty env var placeholders until the maintainer supplies real
+# credentials in their own .env.local.
+[auth.external.google]
+enabled = true
+client_id = "env(GOOGLE_CLIENT_ID)"
+# DO NOT commit your OAuth provider secret to git. Use environment variable substitution instead:
+secret = "env(GOOGLE_CLIENT_SECRET)"
+redirect_uri = ""
+url = ""
+# Recommended for local Supabase + Google sign-in - see the doc comment on
+# skip_nonce_check under [auth.external.apple] above.
+skip_nonce_check = true
+email_optional = false
+
 # Allow Solana wallet holders to sign in to your project via the Sign in with Solana (SIWS, EIP-4361) standard.
 # You can configure "web3" rate limit in the [auth.rate_limit] section and set up [auth.captcha] if self-hosting.
 [auth.web3.solana]
