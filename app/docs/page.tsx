@@ -1,6 +1,7 @@
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -44,27 +45,27 @@ export default function DocsPage() {
           <Separator className="my-6" />
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 not-prose mb-8">
-            <div className="border rounded-lg p-4">
+            <Card className="gap-0 rounded-lg p-4 shadow-none">
               <Search className="h-6 w-6 text-primary mb-2" />
               <h3 className="font-semibold mb-2">Browse Hackathons</h3>
               <p className="text-sm text-muted-foreground">
                 Discover and filter European hackathons with advanced search
               </p>
-            </div>
-            <div className="border rounded-lg p-4">
+            </Card>
+            <Card className="gap-0 rounded-lg p-4 shadow-none">
               <Code className="h-6 w-6 text-primary mb-2" />
               <h3 className="font-semibold mb-2">REST API</h3>
               <p className="text-sm text-muted-foreground">
                 Access hackathon data programmatically with our API
               </p>
-            </div>
-            <div className="border rounded-lg p-4">
+            </Card>
+            <Card className="gap-0 rounded-lg p-4 shadow-none">
               <Bot className="h-6 w-6 text-primary mb-2" />
               <h3 className="font-semibold mb-2">Notifications</h3>
               <p className="text-sm text-muted-foreground">
                 Get notified of new hackathons via Discord, Telegram, Twitter
               </p>
-            </div>
+            </Card>
           </div>
 
           <section className="mb-8">
@@ -177,36 +178,36 @@ export default function DocsPage() {
 
             <h3 className="mb-2 mt-6 text-xl font-medium">Filtering Options</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 not-prose">
-              <div className="border rounded-lg p-4">
+              <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <h4 className="font-semibold mb-2">Search</h4>
                 <p className="text-sm text-muted-foreground">
                   Find hackathons by name using the search box
                 </p>
-              </div>
-              <div className="border rounded-lg p-4">
+              </Card>
+              <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <h4 className="font-semibold mb-2">Status</h4>
                 <p className="text-sm text-muted-foreground">
                   Toggle between upcoming and past events
                 </p>
-              </div>
-              <div className="border rounded-lg p-4">
+              </Card>
+              <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <h4 className="font-semibold mb-2">Location</h4>
                 <p className="text-sm text-muted-foreground">
                   Filter by specific cities or countries
                 </p>
-              </div>
-              <div className="border rounded-lg p-4">
+              </Card>
+              <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <h4 className="font-semibold mb-2">Topics</h4>
                 <p className="text-sm text-muted-foreground">
                   Select multiple topics of interest
                 </p>
-              </div>
-              <div className="border rounded-lg p-4 md:col-span-2">
+              </Card>
+              <Card className="gap-0 rounded-lg p-4 shadow-none md:col-span-2">
                 <h4 className="font-semibold mb-2">Date Range</h4>
                 <p className="text-sm text-muted-foreground">
                   Choose specific date ranges for your search
                 </p>
-              </div>
+              </Card>
             </div>
           </section>
 
@@ -228,7 +229,7 @@ export default function DocsPage() {
             <h3 className="mb-2 mt-6 text-xl font-medium">Endpoints</h3>
 
             <div className="space-y-6 mt-4">
-              <div className="border rounded-lg p-4">
+              <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <div className="flex items-center gap-2 mb-3">
                   <Badge variant="default" className="bg-green-600">
                     GET
@@ -251,9 +252,9 @@ export default function DocsPage() {
                 <div className="bg-muted rounded-lg p-3 font-mono text-xs overflow-x-auto">
                   GET /api/hackathons?status=upcoming
                 </div>
-              </div>
+              </Card>
 
-              <div className="border rounded-lg p-4">
+              <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <h4 className="font-semibold mb-2">Response Format</h4>
                 <div className="bg-muted rounded-lg p-3 font-mono text-xs overflow-x-auto whitespace-pre-wrap">
                   {`{
@@ -275,7 +276,7 @@ export default function DocsPage() {
   ]
 }`}
                 </div>
-              </div>
+              </Card>
             </div>
 
             <h3 className="mb-2 mt-6 text-xl font-medium">Rate Limiting</h3>
@@ -296,7 +297,7 @@ export default function DocsPage() {
 
             <h3 className="mb-2 mt-6 text-xl font-medium">Error Codes</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 not-prose">
-              <div className="border rounded-lg p-4">
+              <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <Badge variant="destructive" className="mb-2">
                   400
                 </Badge>
@@ -304,8 +305,8 @@ export default function DocsPage() {
                 <p className="text-sm text-muted-foreground">
                   Invalid query parameters
                 </p>
-              </div>
-              <div className="border rounded-lg p-4">
+              </Card>
+              <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <Badge variant="destructive" className="mb-2">
                   429
                 </Badge>
@@ -313,8 +314,8 @@ export default function DocsPage() {
                 <p className="text-sm text-muted-foreground">
                   Rate limit exceeded
                 </p>
-              </div>
-              <div className="border rounded-lg p-4">
+              </Card>
+              <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <Badge variant="destructive" className="mb-2">
                   500
                 </Badge>
@@ -322,8 +323,8 @@ export default function DocsPage() {
                 <p className="text-sm text-muted-foreground">
                   Server-side error
                 </p>
-              </div>
-              <div className="border rounded-lg p-4">
+              </Card>
+              <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <Badge variant="destructive" className="mb-2">
                   503
                 </Badge>
@@ -331,7 +332,7 @@ export default function DocsPage() {
                 <p className="text-sm text-muted-foreground">
                   Temporary maintenance
                 </p>
-              </div>
+              </Card>
             </div>
           </section>
 
@@ -347,7 +348,7 @@ export default function DocsPage() {
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 not-prose">
-              <div className="border rounded-lg p-6 text-center flex flex-col">
+              <Card className="gap-0 rounded-lg p-6 text-center shadow-none">
                 <FaDiscord className="h-8 w-8 text-[#5865F2] mx-auto mb-3" />
                 <h3 className="font-semibold mb-2">Discord Bot</h3>
                 <p className="text-sm text-muted-foreground mb-4 flex-grow">
@@ -362,9 +363,9 @@ export default function DocsPage() {
                     Join Server <ExternalLink className="ml-1 h-3 w-3" />
                   </Link>
                 </Button>
-              </div>
+              </Card>
 
-              <div className="border rounded-lg p-6 text-center flex flex-col">
+              <Card className="gap-0 rounded-lg p-6 text-center shadow-none">
                 <FaTelegram className="h-8 w-8 text-[#0088cc] mx-auto mb-3" />
                 <h3 className="font-semibold mb-2">Telegram Channel</h3>
                 <p className="text-sm text-muted-foreground mb-4 flex-grow">
@@ -375,9 +376,9 @@ export default function DocsPage() {
                     Join Channel <ExternalLink className="ml-1 h-3 w-3" />
                   </Link>
                 </Button>
-              </div>
+              </Card>
 
-              <div className="border rounded-lg p-6 text-center flex flex-col">
+              <Card className="gap-0 rounded-lg p-6 text-center shadow-none">
                 <FaXTwitter className="h-8 w-8 text-foreground mx-auto mb-3" />
                 <h3 className="font-semibold mb-2">Twitter Updates</h3>
                 <p className="text-sm text-muted-foreground mb-4 flex-grow">
@@ -389,7 +390,7 @@ export default function DocsPage() {
                     <ExternalLink className="ml-1 h-3 w-3" />
                   </Link>
                 </Button>
-              </div>
+              </Card>
             </div>
 
             <h3 className="mb-2 mt-6 text-xl font-medium">
@@ -427,7 +428,7 @@ export default function DocsPage() {
 
             <h3 className="mb-2 mt-6 text-xl font-medium">Technology Stack</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4 not-prose">
-              <div className="border rounded-lg p-4">
+              <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <h4 className="font-semibold mb-2">Frontend</h4>
                 <ul className="text-sm space-y-1">
                   <li>Next.js 15 with App Router</li>
@@ -435,16 +436,16 @@ export default function DocsPage() {
                   <li>Tailwind CSS</li>
                   <li>shadcn/ui components</li>
                 </ul>
-              </div>
-              <div className="border rounded-lg p-4">
+              </Card>
+              <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <h4 className="font-semibold mb-2">Backend</h4>
                 <ul className="text-sm space-y-1">
                   <li>Next.js API Routes</li>
                   <li>Supabase (Postgr</li>
                   <li>Row Level Security</li>
                 </ul>
-              </div>
-              <div className="border rounded-lg p-4">
+              </Card>
+              <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <h4 className="font-semibold mb-2">Infrastructure</h4>
                 <ul className="text-sm space-y-1">
                   <li>Vercel deployment</li>
@@ -452,7 +453,7 @@ export default function DocsPage() {
                   <li>Cron job automation</li>
                   <li>Multiple bot integrations</li>
                 </ul>
-              </div>
+              </Card>
             </div>
 
             <h3 className="mb-2 mt-6 text-xl font-medium">Update Frequency</h3>
@@ -525,7 +526,7 @@ export default function DocsPage() {
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 not-prose">
-              <div className="border rounded-lg p-6">
+              <Card className="gap-0 rounded-lg p-6 shadow-none">
                 <FaGithub className="h-6 w-6 mb-3" />
                 <h3 className="font-semibold mb-2">GitHub Issues</h3>
                 <p className="text-sm text-muted-foreground mb-4">
@@ -540,9 +541,9 @@ export default function DocsPage() {
                     Open Issue <ExternalLink className="ml-1 h-3 w-3" />
                   </Link>
                 </Button>
-              </div>
+              </Card>
 
-              <div className="border rounded-lg p-6">
+              <Card className="gap-0 rounded-lg p-6 shadow-none">
                 <FaDiscord className="h-6 w-6 text-[#5865F2] mb-3" />
                 <h3 className="font-semibold mb-2">Discord Community</h3>
                 <p className="text-sm text-muted-foreground mb-4">
@@ -557,7 +558,7 @@ export default function DocsPage() {
                     Join Discord <ExternalLink className="ml-1 h-3 w-3" />
                   </Link>
                 </Button>
-              </div>
+              </Card>
             </div>
           </section>
 

@@ -613,9 +613,9 @@ function SidebarContent({
         <>
           <Separator />
           <Button asChild variant="outline" size="sm" className="w-full">
-            <a href="/admin" className="truncate">
+            <Link href="/admin" className="truncate">
               Admin dashboard
-            </a>
+            </Link>
           </Button>
         </>
       )}
