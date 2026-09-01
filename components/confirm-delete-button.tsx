@@ -1,7 +1,19 @@
 "use client";
 
+import { useRef } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 /**
  * A submit button for a server-action form that asks for confirmation
@@ -15,19 +27,38 @@ export function ConfirmDeleteButton({
 }: {
   confirmMessage: string;
 }) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
   return (
-    <Button
-      type="submit"
-      variant="ghost"
-      size="icon"
-      title="Delete permanently"
-      onClick={(e) => {
-        if (!confirm(confirmMessage)) {
-          e.preventDefault();
-        }
-      }}
-    >
-      <Trash2 className="h-4 w-4 text-destructive" />
-    </Button>
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          ref={triggerRef}
+          type="button"
+          variant="ghost"
+          size="icon"
+          title="Delete permanently"
+        >
+          <Trash2 className="h-4 w-4 text-destructive" />
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete permanently?</AlertDialogTitle>
+          <AlertDialogDescription>{confirmMessage}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60"
+            onClick={() => {
+              triggerRef.current?.form?.requestSubmit();
+            }}
+          >
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
