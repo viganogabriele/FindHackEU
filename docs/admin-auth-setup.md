@@ -1,6 +1,6 @@
-# Admin auth setup (`/admin`, `/admin/candidates`, and `/admin/hackathons`)
+# Admin auth setup (`/admin` and `/admin/candidates`)
 
-All three development-only admin pages (issue #67, and `/admin` itself added
+Both development-only admin pages (issue #67, and `/admin` itself added
 in issue #81) are gated behind Google sign-in
 via Supabase Auth, restricted to a single allowlisted email. This is defense in
 depth on top of the existing `NODE_ENV !== "production"` gate, not a
@@ -8,6 +8,11 @@ replacement for it - both checks still apply. Because Next.js sets
 `NODE_ENV=production` for Vercel Preview builds too, these pages are disabled
 in both production and Preview deployments; they are available only when the
 app runs with a non-production `NODE_ENV` (normally local development).
+
+`/admin/hackathons` used to be a third gated page (published-hackathon
+management); issue #82 merged that into `/admin/candidates`'s Approved tab
+and retired the standalone route - it now just redirects to
+`/admin/candidates?status=approved` and needs no auth session of its own.
 
 Nobody but the maintainer has real Google Cloud OAuth credentials, so this
 setup is a manual, one-time step you (the maintainer) need to do locally.
@@ -48,7 +53,7 @@ ADMIN_ALLOWED_EMAIL=<your own Google account email>
 
 `ADMIN_ALLOWED_EMAIL` is the only account allowed into any admin page -
 this is a single-maintainer project, not a multi-user allowlist. If this
-variable is unset, all three pages and their server actions deny everyone
+variable is unset, both pages and their server actions deny everyone
 (fail closed), not allow everyone.
 
 ## 3. Restart local Supabase
@@ -106,8 +111,7 @@ https://<your-app.example.com>/auth/callback
 The local `supabase/config.toml` allowlist does not carry over to hosted
 Supabase. Configure each real deployment domain separately, and do not add a
 catch-all production wildcard. The application callback validates `next`
-again against `/admin`, `/admin/candidates`, and `/admin/hackathons` before
-redirecting.
+again against `/admin` and `/admin/candidates` before redirecting.
 
 ## 5. Try it locally
 
@@ -115,12 +119,13 @@ redirecting.
 npm run dev
 ```
 
-Visit `http://localhost:3000/admin` (or either of the two pages it links to)
-and click "Sign in with Google". After Google's consent screen, you should
-return to the page you started from, signed in - the header shows "Signed in
-as {your email} · Sign out" and the corresponding admin view renders. Signing
-in with any other Google account should still show the "Admin sign-in
-required" gate (the account is authenticated but not authorized).
+Visit `http://localhost:3000/admin` (or `/admin/candidates`, which it links
+to) and click "Sign in with Google". After Google's consent screen, you
+should return to the page you started from, signed in - the header shows
+"Signed in as {your email} · Sign out" and the corresponding admin view
+renders. Signing in with any other Google account should still show the
+"Admin sign-in required" gate (the account is authenticated but not
+authorized).
 
 ## What was NOT verified by the agent that built this
 

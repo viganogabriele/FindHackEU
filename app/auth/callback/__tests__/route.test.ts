@@ -63,7 +63,7 @@ describe("GET /auth/callback", () => {
     );
   });
 
-  it("allows the published-hackathons admin page as a post-login destination", async () => {
+  it("falls back to the candidates page for the retired /admin/hackathons route (issue #82)", async () => {
     const response = await GET(
       new Request(
         "https://app.example.com/auth/callback?code=oauth-code&next=%2Fadmin%2Fhackathons%3Fstatus%3Dpast",
@@ -71,7 +71,7 @@ describe("GET /auth/callback", () => {
     );
 
     expect(response.headers.get("location")).toBe(
-      "https://app.example.com/admin/hackathons?status=past",
+      "https://app.example.com/admin/candidates",
     );
   });
 

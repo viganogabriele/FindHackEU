@@ -28,10 +28,11 @@ import { TriggerUpdateButton } from "./trigger-update-button";
  * `/admin/candidates`/`/admin/hackathons` had no shared landing page - a
  * maintainer had to already know either URL existed.
  *
- * This page doesn't replace or restructure those two pages (see issue #82,
- * a separate follow-up about merging published-hackathon management into
- * the candidates page's Approved tab) - it's just the one obvious starting
- * point that links to both, plus the trigger-update button moved here from
+ * Originally linked to two separate pages (/admin/candidates and
+ * /admin/hackathons); issue #82 merged published-hackathon management into
+ * the candidates page's Approved tab and retired /admin/hackathons as a
+ * standalone route (it now just redirects), so this dashboard links to
+ * /admin/candidates only, plus the trigger-update button moved here from
  * the sidebar.
  *
  * Same gating pattern as the other admin pages: dev-only (`notFound()`
@@ -119,7 +120,7 @@ export default async function AdminDashboardPage({
             </Card>
           </Link>
 
-          <Link href="/admin/hackathons" className="block">
+          <Link href="/admin/candidates?status=approved" className="block">
             <Card className="h-full transition-colors hover:bg-muted/50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -127,8 +128,8 @@ export default async function AdminDashboardPage({
                   Manage hackathons
                 </CardTitle>
                 <CardDescription>
-                  Already-published, public hackathons - delete a wrong or
-                  unwanted one.
+                  Already-published, public hackathons (Approved tab) - delete a
+                  wrong or unwanted one.
                 </CardDescription>
               </CardHeader>
               <CardContent>

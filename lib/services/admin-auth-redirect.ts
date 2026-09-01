@@ -1,7 +1,10 @@
+// "/admin/hackathons" was removed from this allowlist when issue #82
+// retired it as a standalone admin route - it now just redirects to
+// /admin/candidates?status=approved and needs no auth session of its own,
+// so it's no longer a meaningful post-login destination.
 export const ADMIN_AUTH_REDIRECT_PATHS = [
   "/admin",
   "/admin/candidates",
-  "/admin/hackathons",
 ] as const;
 
 export type AdminAuthRedirectPath = (typeof ADMIN_AUTH_REDIRECT_PATHS)[number];

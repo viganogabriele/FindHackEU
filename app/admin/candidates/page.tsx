@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -14,6 +15,7 @@ import {
   rejectCandidateAction,
   deleteCandidateAction,
 } from "./actions";
+import { deleteHackathonAction } from "../hackathons/actions";
 import { ManualSubmitForm } from "./manual-submit-form";
 import { GoogleSignInButton } from "./google-sign-in-button";
 import { SignOutButton } from "./sign-out-button";
@@ -22,10 +24,17 @@ import { cleanRawSnippet } from "@/lib/format-snippet";
 import { getAutoPublishBlockers } from "@/lib/discovery/web-search-candidates";
 
 type CandidateRow = Database["public"]["Tables"]["hackathon_candidates"]["Row"];
+type HackathonRow = Database["public"]["Tables"]["hackathons"]["Row"];
 
 type StatusFilter = "pending" | "approved" | "rejected";
+type HackathonStatusFilter = "upcoming" | "past" | "estimated";
 
 const STATUSES: StatusFilter[] = ["pending", "approved", "rejected"];
+const HACKATHON_STATUSES: HackathonStatusFilter[] = [
+  "upcoming",
+  "past",
+  "estimated",
+];
 
 /**
  * Review queue for web-search-discovered event candidates (issue #12,
@@ -34,18 +43,36 @@ const STATUSES: StatusFilter[] = ["pending", "approved", "rejected"];
  * "Approve" is the only path that copies a candidate into the real
  * `hackathons` table (lib/services/promote-candidate.ts).
  *
+ * The "Approved" tab (issue #82) is special: it does NOT list
+ * `hackathon_candidates` rows with `status = 'approved'`. Most published
+ * hackathons never went through the candidate-review flow at all - they
+ * came from the main scraping pipeline (app/api/update/route.ts, sources
+ * like luma/devfolio/mlh/ethglobal/eventbrite) - so scoping "Approved" to
+ * candidate-sourced rows would only ever surface a small minority of what's
+ * actually live. Instead, "Approved" queries the `hackathons` table
+ * directly (same shape /admin/hackathons used to: status/search filters,
+ * deleteHackathonAction for management) so every published hackathon,
+ * regardless of source, is manageable from one page. This makes the
+ * standalone /admin/hackathons route redundant - it now just redirects
+ * here (see app/admin/hackathons/page.tsx).
+ *
  * Dev-only (`notFound()` outside development, same pattern as
  * app/api/dev/trigger-update/route.ts) AND gated behind Google sign-in via
  * Supabase Auth, restricted to a single allowlisted email
  * (`ADMIN_ALLOWED_EMAIL` - issue #67). Both gates are defense in depth: the
  * NODE_ENV check stays even though auth now exists, and the auth check is
- * also re-verified server-side inside every server action in ./actions.ts,
- * not just here.
+ * also re-verified server-side inside every server action in ./actions.ts
+ * and ../hackathons/actions.ts, not just here.
  */
 export default async function CandidatesAdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; error?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    hstatus?: string;
+    q?: string;
+    error?: string;
+  }>;
 }) {
   if (process.env.NODE_ENV === "production") {
     notFound();
@@ -67,6 +94,71 @@ export default async function CandidatesAdminPage({
     ? (params.status as StatusFilter)
     : "pending";
   const query = params.q?.trim() ?? "";
+
+  if (status === "approved") {
+    const hackathonStatus: HackathonStatusFilter = HACKATHON_STATUSES.includes(
+      params.hstatus as HackathonStatusFilter,
+    )
+      ? (params.hstatus as HackathonStatusFilter)
+      : "upcoming";
+
+    let hackathonsQuery = supabaseAdmin
+      .from("hackathons")
+      .select("*")
+      .eq("status", hackathonStatus)
+      .order("date_start", { ascending: hackathonStatus !== "past" })
+      .limit(200);
+
+    if (query) {
+      hackathonsQuery = hackathonsQuery.ilike("name", `%${query}%`);
+    }
+
+    const { data: hackathonsData, error: hackathonsError } =
+      await hackathonsQuery;
+    const hackathons = hackathonsData as HackathonRow[] | null;
+
+    return (
+      <AdminShell authStatus={authStatus} status={status} query={query}>
+        <StatusNav status={status} query={query} />
+
+        <nav className="mb-6 flex gap-2">
+          {HACKATHON_STATUSES.map((s) => (
+            <Button
+              key={s}
+              asChild
+              variant={s === hackathonStatus ? "default" : "outline"}
+              size="sm"
+            >
+              <a
+                href={`/admin/candidates?status=approved&hstatus=${s}${query ? `&q=${encodeURIComponent(query)}` : ""}`}
+              >
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+              </a>
+            </Button>
+          ))}
+        </nav>
+
+        {hackathonsError && (
+          <p className="text-sm text-destructive">
+            Failed to load hackathons: {hackathonsError.message}
+          </p>
+        )}
+
+        {!hackathonsError && hackathons?.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            No {hackathonStatus} hackathons{query ? ` matching "${query}"` : ""}
+            .
+          </p>
+        )}
+
+        <ul className="space-y-3">
+          {hackathons?.map((hackathon) => (
+            <HackathonCard key={hackathon.id} hackathon={hackathon} />
+          ))}
+        </ul>
+      </AdminShell>
+    );
+  }
 
   let dbQuery = supabaseAdmin
     .from("hackathon_candidates")
@@ -97,6 +189,60 @@ export default async function CandidatesAdminPage({
   const candidates = candidatesData as CandidateRow[] | null;
 
   return (
+    <AdminShell
+      authStatus={authStatus}
+      status={status}
+      query={query}
+      showManualForm
+    >
+      <StatusNav status={status} query={query} />
+
+      {error && (
+        <p className="text-sm text-destructive">
+          Failed to load candidates: {error.message}
+        </p>
+      )}
+
+      {!error && candidates?.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No {status} candidates{query ? ` matching "${query}"` : ""}.
+        </p>
+      )}
+
+      <ul className="space-y-4">
+        {candidates?.map((candidate) => (
+          <CandidateCard
+            key={candidate.id}
+            candidate={candidate}
+            status={status}
+          />
+        ))}
+      </ul>
+    </AdminShell>
+  );
+}
+
+/**
+ * Shared chrome (back link, header, dashboard cross-link, sign-out, search
+ * form) for both the candidate-review tabs and the Approved tab's
+ * published-hackathons view - the two views differ in what's below the
+ * search form (a status sub-nav and CandidateCard/HackathonCard lists), not
+ * in this shell.
+ */
+function AdminShell({
+  authStatus,
+  status,
+  query,
+  showManualForm = false,
+  children,
+}: {
+  authStatus: Awaited<ReturnType<typeof getAdminAuthStatus>>;
+  status: StatusFilter;
+  query: string;
+  showManualForm?: boolean;
+  children: ReactNode;
+}) {
+  return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto max-w-4xl px-4 py-8">
         <Button asChild variant="ghost" size="sm" className="mb-4 -ml-2">
@@ -110,8 +256,8 @@ export default async function CandidatesAdminPage({
           <div>
             <h1 className="mb-2 text-2xl font-bold">Hackathon candidates</h1>
             <p className="text-sm text-muted-foreground">
-              Web-search-discovered events awaiting review. Nothing here is
-              public until approved.
+              Web-search-discovered events awaiting review, plus every published
+              hackathon under Approved. Nothing outside Approved is public.
             </p>
           </div>
           <SignOutButton email={authStatus.email!} />
@@ -121,12 +267,9 @@ export default async function CandidatesAdminPage({
           <Button asChild variant="link" size="sm">
             <Link href="/admin">← Admin dashboard</Link>
           </Button>
-          <Button asChild variant="link" size="sm">
-            <Link href="/admin/hackathons">Manage published hackathons →</Link>
-          </Button>
         </div>
 
-        <ManualSubmitForm />
+        {showManualForm && <ManualSubmitForm />}
 
         <form className="mb-6 flex gap-2" method="get">
           <input type="hidden" name="status" value={status} />
@@ -142,46 +285,35 @@ export default async function CandidatesAdminPage({
           </Button>
         </form>
 
-        <nav className="mb-6 flex gap-2">
-          {STATUSES.map((s) => (
-            <Button
-              key={s}
-              asChild
-              variant={s === status ? "default" : "outline"}
-              size="sm"
-            >
-              <a
-                href={`/admin/candidates?status=${s}${query ? `&q=${encodeURIComponent(query)}` : ""}`}
-              >
-                {s.charAt(0).toUpperCase() + s.slice(1)}
-              </a>
-            </Button>
-          ))}
-        </nav>
-
-        {error && (
-          <p className="text-sm text-destructive">
-            Failed to load candidates: {error.message}
-          </p>
-        )}
-
-        {!error && candidates?.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            No {status} candidates{query ? ` matching "${query}"` : ""}.
-          </p>
-        )}
-
-        <ul className="space-y-4">
-          {candidates?.map((candidate) => (
-            <CandidateCard
-              key={candidate.id}
-              candidate={candidate}
-              status={status}
-            />
-          ))}
-        </ul>
+        {children}
       </div>
     </div>
+  );
+}
+
+/**
+ * The Pending/Approved/Rejected tab selector. Kept separate from AdminShell
+ * because the Approved branch renders an additional status sub-nav (see
+ * above) between this and its list.
+ */
+function StatusNav({ status, query }: { status: StatusFilter; query: string }) {
+  return (
+    <nav className="mb-6 flex gap-2">
+      {STATUSES.map((s) => (
+        <Button
+          key={s}
+          asChild
+          variant={s === status ? "default" : "outline"}
+          size="sm"
+        >
+          <a
+            href={`/admin/candidates?status=${s}${query ? `&q=${encodeURIComponent(query)}` : ""}`}
+          >
+            {s.charAt(0).toUpperCase() + s.slice(1)}
+          </a>
+        </Button>
+      ))}
+    </nav>
   );
 }
 
@@ -347,5 +479,50 @@ function AutoPublishBlockers({ candidate }: { candidate: CandidateRow }) {
     <p className="mb-4 text-xs text-muted-foreground">
       Not auto-published: {blockers.join("; ")}.
     </p>
+  );
+}
+
+/**
+ * A published `hackathons` row, shown on the Approved tab (issue #82) -
+ * ported from the now-retired /admin/hackathons page, same shape and same
+ * `deleteHackathonAction`. Deliberately a different card than
+ * `CandidateCard`: a published hackathon has no approve/reject workflow,
+ * only delete.
+ */
+function HackathonCard({ hackathon }: { hackathon: HackathonRow }) {
+  return (
+    <li>
+      <Card>
+        <CardContent className="flex items-start justify-between gap-2">
+          <div>
+            <a
+              href={hackathon.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium hover:underline"
+            >
+              {hackathon.name}
+            </a>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {hackathon.city && (
+                <Badge variant="secondary">{hackathon.city}</Badge>
+              )}
+              {hackathon.country_code && (
+                <Badge variant="secondary">{hackathon.country_code}</Badge>
+              )}
+              <Badge variant="outline">{hackathon.source}</Badge>
+              <Badge variant="outline">
+                {new Date(hackathon.date_start).toLocaleDateString()}
+              </Badge>
+            </div>
+          </div>
+          <form action={deleteHackathonAction.bind(null, hackathon.id)}>
+            <ConfirmDeleteButton
+              confirmMessage={`Permanently delete "${hackathon.name}" from the live site? This cannot be undone.`}
+            />
+          </form>
+        </CardContent>
+      </Card>
+    </li>
   );
 }
