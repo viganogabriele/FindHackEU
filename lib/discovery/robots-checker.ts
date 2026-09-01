@@ -1,4 +1,7 @@
-import { fetchWithRetry } from "@/lib/http/fetch-with-retry";
+import {
+  assertPublicHttpUrl,
+  fetchPublicUrl,
+} from "@/lib/http/fetch-public-url";
 
 interface RobotsRules {
   disallow: string[];
@@ -6,7 +9,7 @@ interface RobotsRules {
 }
 
 /**
- * Per-host robots.txt cache (issue #16): a plain `Map` is enough since a
+ * Per-origin robots.txt cache (issue #16): a plain `Map` is enough since a
  * discovery run always constructs one via `createRobotsCache()` and passes
  * it through the whole run's candidate loop - "per discovery run" caching,
  * not a global/module-level cache that would leak across runs or grow
@@ -33,11 +36,32 @@ export function createRobotsCache(): RobotsCache {
  */
 export function parseRobotsTxt(text: string): RobotsRules {
   const rules: RobotsRules = { disallow: [], allow: [] };
-  let inWildcardGroup = false;
+  let agents: string[] = [];
+  let groupDisallow: string[] = [];
+  let groupAllow: string[] = [];
+  let hasDirective = false;
+
+  const flushGroup = () => {
+    if (agents.includes("*")) {
+      rules.disallow.push(...groupDisallow);
+      rules.allow.push(...groupAllow);
+    }
+
+    agents = [];
+    groupDisallow = [];
+    groupAllow = [];
+    hasDirective = false;
+  };
 
   for (const rawLine of text.split(/\r?\n/)) {
+    const trimmedRawLine = rawLine.trim();
     const line = rawLine.split("#")[0].trim();
-    if (!line) continue;
+    if (!line) {
+      if (trimmedRawLine && !trimmedRawLine.startsWith("#")) {
+        flushGroup();
+      }
+      continue;
+    }
 
     const separatorIndex = line.indexOf(":");
     if (separatorIndex === -1) continue;
@@ -46,18 +70,30 @@ export function parseRobotsTxt(text: string): RobotsRules {
     const value = line.slice(separatorIndex + 1).trim();
 
     if (key === "user-agent") {
-      inWildcardGroup = value === "*";
+      // Multiple User-agent lines before the first directive form one group.
+      // A wildcard must not be lost merely because another agent is listed in
+      // that same group.
+      if (hasDirective) {
+        flushGroup();
+      }
+      if (value) {
+        agents.push(value.toLowerCase());
+      }
       continue;
     }
 
-    if (!inWildcardGroup) continue;
+    if (key !== "disallow" && key !== "allow") continue;
+
+    hasDirective = true;
 
     if (key === "disallow" && value) {
-      rules.disallow.push(value);
+      groupDisallow.push(value);
     } else if (key === "allow" && value) {
-      rules.allow.push(value);
+      groupAllow.push(value);
     }
   }
+
+  flushGroup();
 
   return rules;
 }
@@ -101,7 +137,7 @@ export function isPathAllowed(rules: RobotsRules, path: string): boolean {
 }
 
 /**
- * Fetches (and caches, per `cache`) the robots.txt for `url`'s host, then
+ * Fetches (and caches, per `cache`) the robots.txt for `url`'s origin, then
  * checks whether `url`'s path is allowed for user-agent `*`. A robots.txt
  * that 404s, errors, or fails to fetch is treated as "no restrictions" -
  * the standard fail-open behavior when a robots.txt can't be retrieved at
@@ -113,20 +149,19 @@ export async function isAllowedByRobots(
 ): Promise<boolean> {
   let parsed: URL;
   try {
-    parsed = new URL(url);
+    parsed = assertPublicHttpUrl(url);
   } catch {
-    // Unparseable URL - not this function's job to decide; let the actual
-    // fetch attempt fail with a clearer error instead.
-    return true;
+    // Invalid/private URLs must never reach either robots.txt or page fetch.
+    return false;
   }
 
-  const host = parsed.host;
+  const origin = parsed.origin;
 
-  if (!cache.has(host)) {
-    const robotsUrl = `${parsed.protocol}//${host}/robots.txt`;
+  if (!cache.has(origin)) {
+    const robotsUrl = `${origin}/robots.txt`;
 
     try {
-      const response = await fetchWithRetry(
+      const response = await fetchPublicUrl(
         robotsUrl,
         {
           headers: {
@@ -137,16 +172,16 @@ export async function isAllowedByRobots(
       );
 
       if (!response.ok) {
-        cache.set(host, null);
+        cache.set(origin, null);
       } else {
-        cache.set(host, parseRobotsTxt(await response.text()));
+        cache.set(origin, parseRobotsTxt(await response.text()));
       }
     } catch {
-      cache.set(host, null);
+      cache.set(origin, null);
     }
   }
 
-  const rules = cache.get(host);
+  const rules = cache.get(origin);
   if (!rules) return true;
 
   return isPathAllowed(rules, parsed.pathname);

@@ -8,6 +8,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { Hackathon } from "@/types/hackathon";
 import { FilterProvider } from "@/contexts/filter-context";
 import { europeanCountries } from "@/lib/european-countries";
+import { dedupeByNormalizedUrl } from "@/lib/dedup/url-normalizer";
 import { useTranslation } from "@/contexts/translation-context";
 import LanguageSelect from "@/components/language-select";
 import { AlertCircle } from "lucide-react";
@@ -22,13 +23,27 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
-      const [upcomingRes, pastRes] = await Promise.all([
+      // "estimated" (a status a hackathon can hold when it was approved
+      // from a candidate with no recoverable structured date - see
+      // lib/services/promote-candidate.ts) was never fetched here, so any
+      // such hackathon was permanently invisible on the site despite being
+      // a real, approved, published row (found from a real approved
+      // event - Yellow Tech's "Hack The Peak" - not showing up after
+      // approval). Folded into the `upcoming` bucket: from a visitor's
+      // perspective "we know it's happening, just not exactly when" is a
+      // form of upcoming, not a separate status worth its own UI section.
+      const [upcomingRes, pastRes, estimatedRes] = await Promise.all([
         fetch("/api/hackathons?status=upcoming"),
         fetch("/api/hackathons?status=past"),
+        fetch("/api/hackathons?status=estimated"),
       ]);
 
-      if (!upcomingRes.ok || !pastRes.ok) {
-        const failedRes = !upcomingRes.ok ? upcomingRes : pastRes;
+      if (!upcomingRes.ok || !pastRes.ok || !estimatedRes.ok) {
+        const failedRes = !upcomingRes.ok
+          ? upcomingRes
+          : !pastRes.ok
+            ? pastRes
+            : estimatedRes;
         let message = `Request failed with status ${failedRes.status}`;
         try {
           const body = await failedRes.json();
@@ -43,8 +58,14 @@ export default function Home() {
 
       const upcomingData = await upcomingRes.json();
       const pastData = await pastRes.json();
+      const estimatedData = await estimatedRes.json();
 
-      setUpcoming(upcomingData.data || []);
+      setUpcoming(
+        dedupeByNormalizedUrl([
+          ...(upcomingData.data || []),
+          ...(estimatedData.data || []),
+        ]),
+      );
       setPast(pastData.data || []);
     } catch (err) {
       console.error("Error fetching hackathons:", err);

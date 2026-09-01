@@ -136,6 +136,31 @@ describe("EthGlobalParser", () => {
     expect(results[0].location_type).toBe("online");
   });
 
+  it("does not treat an unknown medium value as online and handles braces in strings", async () => {
+    mockFetchEvents([
+      {
+        id: 7,
+        name: "ETHGlobal {Future} Hackathon",
+        slug: "future-format",
+        type: "hackathon",
+        medium: "future-format",
+        startTime: FUTURE,
+        city: {
+          id: 700,
+          name: "Berlin",
+          country: { id: 1, name: "Germany" },
+          countryCode: "DE",
+        },
+      },
+    ]);
+
+    const results = (await new EthGlobalParser().parse()).hackathons;
+
+    expect(results).toHaveLength(1);
+    expect(results[0].name).toBe("ETHGlobal {Future} Hackathon");
+    expect(results[0].location_type).toBe("tbd");
+  });
+
   it("filters out an event whose start date is already in the past", async () => {
     mockFetchEvents([
       {

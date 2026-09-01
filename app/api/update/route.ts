@@ -6,6 +6,7 @@ import { LablabParser } from "@/lib/parsers/lablab-parser";
 import { DevfolioParser } from "@/lib/parsers/devfolio-parser";
 import { MlhParser } from "@/lib/parsers/mlh-parser";
 import { EthGlobalParser } from "@/lib/parsers/ethglobal-parser";
+import { EventbriteParser } from "@/lib/parsers/eventbrite-parser";
 import { ParsedHackathon } from "@/lib/parsers/base-parser";
 import type { Provider } from "@/lib/providers/provider.interface";
 import {
@@ -133,6 +134,7 @@ export async function POST(request: Request) {
       new DevfolioParser(),
       new MlhParser(),
       new EthGlobalParser(),
+      new EventbriteParser(),
     ];
 
     const sourceResults: Record<string, SourceResult> = {};
@@ -663,12 +665,11 @@ export async function POST(request: Request) {
 
       const discordBot = new DiscordBot();
       const telegramBot = new TelegramBot();
-      const twitterBot = new TwitterBot();
 
       const notifications = await Promise.allSettled([
         discordBot.notifyNewHackathons(newHackathons),
         telegramBot.notifyNewHackathons(newHackathons),
-        twitterBot.notifyNewHackathons(newHackathons),
+        (async () => new TwitterBot().notifyNewHackathons(newHackathons))(),
       ]);
 
       notifications.forEach((result, index) => {

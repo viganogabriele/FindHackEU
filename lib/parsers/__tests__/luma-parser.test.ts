@@ -154,6 +154,25 @@ describe("LumaParser", () => {
     expect(results[0].location_type).toBe("online");
   });
 
+  it("does not infer physical location from an unknown location_type", async () => {
+    mockFetchPerSlug({
+      tech: [
+        {
+          name: "Future Location Hackathon",
+          start_at: FUTURE,
+          url: "future-location-hackathon",
+          location_type: "remote",
+          geo_address_info: { city: "Berlin", country_code: "DE" },
+        },
+      ],
+    });
+
+    const results = (await new LumaParser().parse()).hackathons;
+
+    expect(results).toHaveLength(1);
+    expect(results[0].location_type).toBe("tbd");
+  });
+
   // Issue #21: no location_type field AND no resolved city/country must
   // fall back to "tbd" - never guessed as "online" without an explicit
   // signal.
@@ -581,5 +600,29 @@ describe("LumaParser", () => {
     } finally {
       process.env.LUMA_MAX_PAGES_PER_SLUG = originalEnv;
     }
+  });
+
+  it("degrades status to 'partial' when has_more is true but no next cursor is supplied", async () => {
+    mockFetchPerSlug(
+      {
+        tech: [
+          {
+            name: "Cursorless Pagination Hackathon",
+            start_at: FUTURE,
+            url: "cursorless-pagination",
+          },
+        ],
+      },
+      { has_more: true },
+    );
+
+    const result = await new LumaParser().parse();
+
+    expect(result.hackathons).toHaveLength(1);
+    expect(result.status).toBe("partial");
+    expect(result.success).toBe(true);
+    expect(result.errors).toContainEqual(
+      expect.stringContaining("has_more: true but no next_cursor"),
+    );
   });
 });

@@ -116,6 +116,50 @@ describe("extractEventEvidence", () => {
     expect(evidence?.name).toBe("Fallback After Bad JSON-LD");
   });
 
+  it("ignores JSON-LD nodes with non-string @type instead of throwing", async () => {
+    mockFetchHtml(`<html><head>
+      <script type="application/ld+json">
+        {"@type":123,"name":"Bad Type","startDate":"2026-11-01T00:00:00Z"}
+      </script>
+      <meta property="og:title" content="Fallback After Bad Type" />
+    </head></html>`);
+
+    const evidence = await extractEventEvidence("https://example.org/event");
+
+    expect(evidence?.extraction_method).toBe("og-meta");
+    expect(evidence?.name).toBe("Fallback After Bad Type");
+  });
+
+  it("skips an Event with an invalid start date without poisoning the fallback", async () => {
+    mockFetchHtml(`<html><head>
+      <script type="application/ld+json">
+        {"@type":"Event","name":"Invalid Date Event","startDate":"not-a-date"}
+      </script>
+      <meta property="og:title" content="Fallback After Invalid Date" />
+    </head></html>`);
+
+    const evidence = await extractEventEvidence("https://example.org/event");
+
+    expect(evidence?.extraction_method).toBe("og-meta");
+    expect(evidence?.name).toBe("Fallback After Invalid Date");
+  });
+
+  it("drops an invalid end date while retaining a valid Event start date", async () => {
+    mockFetchHtml(`<html><head>
+      <script type="application/ld+json">
+        {"@type":"Event","name":"Valid Start Event","startDate":"2026-11-01T00:00:00Z","endDate":"not-a-date"}
+      </script>
+    </head></html>`);
+
+    const evidence = await extractEventEvidence("https://example.org/event");
+
+    expect(evidence?.extraction_method).toBe("jsonld-event");
+    expect(evidence?.date_start?.toISOString()).toBe(
+      "2026-11-01T00:00:00.000Z",
+    );
+    expect(evidence?.date_end).toBeUndefined();
+  });
+
   it("sets has_conflict when the JSON-LD name and og:title share no meaningful words (issue #15)", async () => {
     mockFetchHtml(`<html><head>
       <script type="application/ld+json">
@@ -149,6 +193,32 @@ describe("extractEventEvidence", () => {
       <script type="application/ld+json">
         {"@type":"Event","name":"Berlin AI Hackathon","startDate":"2026-11-01T00:00:00Z"}
       </script>
+    </head></html>`);
+
+    const evidence = await extractEventEvidence("https://example.org/event");
+
+    expect(evidence?.has_conflict).toBe(false);
+  });
+
+  it("flags different location names even when generic event words overlap", async () => {
+    mockFetchHtml(`<html><head>
+      <script type="application/ld+json">
+        {"@type":"Event","name":"Berlin AI Hackathon 2026","startDate":"2026-11-01T00:00:00Z"}
+      </script>
+      <meta property="og:title" content="Paris AI Hackathon 2026" />
+    </head></html>`);
+
+    const evidence = await extractEventEvidence("https://example.org/event");
+
+    expect(evidence?.has_conflict).toBe(true);
+  });
+
+  it("reads Open Graph metadata regardless of property/content attribute order", async () => {
+    mockFetchHtml(`<html><head>
+      <script type="application/ld+json">
+        {"@type":"Event","name":"Berlin Hackathon","startDate":"2026-11-01T00:00:00Z"}
+      </script>
+      <meta content="Berlin Hackathon — register" property="og:title" />
     </head></html>`);
 
     const evidence = await extractEventEvidence("https://example.org/event");

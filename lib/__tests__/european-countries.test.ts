@@ -49,4 +49,25 @@ describe("europeanCountries.classifyCountryCode", () => {
       "unrecognized",
     );
   });
+
+  it("recognizes common full non-European country names", () => {
+    expect(europeanCountries.classifyCountryCode("India")).toBe("non_european");
+    expect(europeanCountries.classifyCountryCode("United States")).toBe(
+      "non_european",
+    );
+  });
+});
+
+describe("europeanCountries.inferCountryFromText", () => {
+  it("finds a European country embedded in a search query", () => {
+    expect(
+      europeanCountries.inferCountryFromText("hackathon Germany 2026"),
+    ).toBe("DE");
+  });
+
+  it("does not infer a country from unrelated text", () => {
+    expect(
+      europeanCountries.inferCountryFromText("hackathon 2026"),
+    ).toBeUndefined();
+  });
 });

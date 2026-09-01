@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { europeanCountries } from "@/lib/european-countries";
 import { HACKATHON_TOPICS, type HackathonTopic } from "@/lib/constants/topics";
+import { assertPublicHttpUrl } from "@/lib/http/fetch-public-url";
 
 export interface ManualCandidateInput {
   url: string;
@@ -50,15 +51,12 @@ export async function submitManualCandidate(
   }
 
   try {
-    const parsedUrl = new URL(url);
-    if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
-      return {
-        outcome: "invalid",
-        message: "A valid HTTP(S) URL is required.",
-      };
-    }
+    assertPublicHttpUrl(url);
   } catch {
-    return { outcome: "invalid", message: "A valid HTTP(S) URL is required." };
+    return {
+      outcome: "invalid",
+      message: "A public HTTP(S) URL is required.",
+    };
   }
 
   let country_code: string | null = null;

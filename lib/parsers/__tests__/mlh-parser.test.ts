@@ -85,7 +85,9 @@ describe("MlhParser", () => {
       ],
     });
 
-    const results = (await new MlhParser().parse()).hackathons;
+    const pendingParse = new MlhParser().parse();
+    await vi.runAllTimersAsync();
+    const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(1);
     expect(results[0].country_code).toBe("GB");
@@ -110,7 +112,9 @@ describe("MlhParser", () => {
       ],
     });
 
-    const results = (await new MlhParser().parse()).hackathons;
+    const pendingParse = new MlhParser().parse();
+    await vi.runAllTimersAsync();
+    const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(0);
   });
@@ -130,7 +134,9 @@ describe("MlhParser", () => {
       ],
     });
 
-    const results = (await new MlhParser().parse()).hackathons;
+    const pendingParse = new MlhParser().parse();
+    await vi.runAllTimersAsync();
+    const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(1);
     expect(results[0].country_code).toBeUndefined();
@@ -154,7 +160,9 @@ describe("MlhParser", () => {
       ],
     });
 
-    const results = (await new MlhParser().parse()).hackathons;
+    const pendingParse = new MlhParser().parse();
+    await vi.runAllTimersAsync();
+    const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(1);
     expect(results[0].location_type).toBe("hybrid");
@@ -175,7 +183,9 @@ describe("MlhParser", () => {
       [NEXT_SEASON]: [event],
     });
 
-    const results = (await new MlhParser().parse()).hackathons;
+    const pendingParse = new MlhParser().parse();
+    await vi.runAllTimersAsync();
+    const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(1);
   });
@@ -194,7 +204,9 @@ describe("MlhParser", () => {
       ],
     });
 
-    const results = (await new MlhParser().parse()).hackathons;
+    const pendingParse = new MlhParser().parse();
+    await vi.runAllTimersAsync();
+    const results = (await pendingParse).hackathons;
 
     expect(results).toHaveLength(0);
   });
@@ -234,7 +246,9 @@ describe("MlhParser", () => {
       ],
     });
 
-    const result = await new MlhParser().parse();
+    const pendingParse = new MlhParser().parse();
+    await vi.runAllTimersAsync();
+    const result = await pendingParse;
 
     expect(result.hackathons).toHaveLength(1);
     expect(result.dropped?.byDateWindow).toBe(1);
@@ -250,7 +264,7 @@ describe("MlhParser", () => {
     );
 
     const pendingParse = new MlhParser().parse();
-    await vi.advanceTimersByTimeAsync(30_000);
+    await vi.runAllTimersAsync();
     const result = await pendingParse;
 
     expect(result.hackathons).toEqual([]);
@@ -270,10 +284,39 @@ describe("MlhParser", () => {
     );
 
     const pendingParse = new MlhParser().parse();
-    await vi.advanceTimersByTimeAsync(30_000);
+    await vi.runAllTimersAsync();
     const result = await pendingParse;
 
     expect(result.status).toBe("failed");
     expect(result.errors[0]).toMatch(/embedded JSON/);
+  });
+
+  it("reports a malformed page without treating missing upcomingEvents as an empty success", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const season = Number(
+          new URL(input.toString()).pathname.match(/\d+/)?.[0],
+        );
+
+        return {
+          ok: true,
+          status: 200,
+          text: async () =>
+            season === CURRENT_SEASON
+              ? '<script type="application/json">{"props":{}}</script>'
+              : buildSeasonHtml([]),
+        } as Response;
+      }),
+    );
+
+    const pendingParse = new MlhParser().parse();
+    await vi.runAllTimersAsync();
+    const result = await pendingParse;
+
+    expect(result.hackathons).toEqual([]);
+    expect(result.status).toBe("partial");
+    expect(result.success).toBe(true);
+    expect(result.errors[0]).toMatch(/upcomingEvents array/);
   });
 });

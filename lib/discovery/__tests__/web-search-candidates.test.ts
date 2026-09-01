@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   discoverWebCandidates,
   generateQueries,
+  isAutoPublishEligible,
 } from "@/lib/discovery/web-search-candidates";
 import { createInMemoryQueryBudget } from "@/lib/discovery/query-budget";
 import type { SearchProvider } from "@/lib/search/search-provider";
@@ -198,6 +199,29 @@ describe("discoverWebCandidates", () => {
     expect(classifyAndFetchPage).not.toHaveBeenCalled();
   });
 
+  it("skips known URLs using the same normalized identity as the dedup layer", async () => {
+    const provider = stubProvider({
+      "hackathon Germany 2026": [
+        {
+          title: "Known Luma Hack",
+          url: "https://www.lu.ma/event/?utm_source=search",
+        },
+      ],
+    });
+
+    const { candidates, stats } = await discoverWebCandidates({
+      providers: [provider],
+      maxQueries: 1,
+      resultsPerQuery: 1,
+      knownUrls: new Set(["https://luma.com/event"]),
+      countries: ["Germany"],
+    });
+
+    expect(candidates).toHaveLength(0);
+    expect(stats.alreadyKnownSkipped).toBe(1);
+    expect(classifyAndFetchPage).not.toHaveBeenCalled();
+  });
+
   it("drops a result whose evidence names an explicit non-European country", async () => {
     const provider = stubProvider({
       "hackathon Germany 2026": [
@@ -349,6 +373,95 @@ describe("discoverWebCandidates", () => {
     expect(stats.requiresJs).toBe(1);
   });
 
+  it("counts an unsafe URL outcome without attempting to create a candidate", async () => {
+    const provider = stubProvider({
+      "hackathon Germany 2026": [
+        { title: "Private Page", url: "http://127.0.0.1/admin" },
+      ],
+    });
+
+    vi.mocked(classifyAndFetchPage).mockResolvedValue({
+      outcome: "invalid-url",
+      evidence: null,
+    });
+
+    const { candidates, stats } = await discoverWebCandidates({
+      providers: [provider],
+      maxQueries: 1,
+      resultsPerQuery: 1,
+      knownUrls: new Set(),
+      countries: ["Germany"],
+    });
+
+    expect(candidates).toHaveLength(0);
+    expect(stats.invalidUrls).toBe(1);
+  });
+
+  it("isolates a per-result extraction failure and continues the run", async () => {
+    const provider = stubProvider({
+      "hackathon Germany 2026": [
+        { title: "Broken Page", url: "https://broken.example" },
+        { title: "Good Page", url: "https://good.example" },
+      ],
+    });
+
+    vi.mocked(classifyAndFetchPage)
+      .mockRejectedValueOnce(new Error("malformed page"))
+      .mockResolvedValueOnce({
+        outcome: "ok",
+        evidence: {
+          name: "Good Hack 2026",
+          country_code: "Germany",
+          extraction_method: "og-meta",
+          raw_snippet: "snippet",
+          has_conflict: false,
+        },
+      });
+
+    const { candidates, stats } = await discoverWebCandidates({
+      providers: [provider],
+      maxQueries: 1,
+      resultsPerQuery: 2,
+      knownUrls: new Set(),
+      countries: ["Germany"],
+    });
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].name).toBe("Good Hack 2026");
+    expect(stats.fetchErrors).toBe(1);
+  });
+
+  it("keeps an unrecognized country value and falls back to the query country", async () => {
+    const provider = stubProvider({
+      "hackathon Germany 2026": [
+        { title: "Berlin Hack", url: "https://berlinhack.example" },
+      ],
+    });
+
+    vi.mocked(classifyAndFetchPage).mockResolvedValue({
+      outcome: "ok",
+      evidence: {
+        name: "Berlin Hack 2026",
+        country_code: "Some Garbled Text",
+        extraction_method: "og-meta",
+        raw_snippet: "snippet",
+        has_conflict: false,
+      },
+    });
+
+    const { candidates, stats } = await discoverWebCandidates({
+      providers: [provider],
+      maxQueries: 1,
+      resultsPerQuery: 1,
+      knownUrls: new Set(),
+      countries: ["Germany"],
+    });
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].country_code).toBe("DE");
+    expect(stats.nonEuropeanDropped).toBe(0);
+  });
+
   it("records a query error without stopping the remaining queries", async () => {
     const provider: SearchProvider = {
       name: "stub",
@@ -447,5 +560,35 @@ describe("discoverWebCandidates", () => {
     expect(stats.queriesRun).toBe(1);
     expect(stats.queriesSkippedForBudget).toBe(1);
     expect(provider.search).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("isAutoPublishEligible", () => {
+  const trustedCandidate = {
+    name: "Berlin Hack 2026",
+    url: "https://berlinhack.example",
+    query: "hackathon Germany 2026",
+    search_provider: "stub",
+    extraction_method: "jsonld-event" as const,
+    country_code: "DE",
+    date_start: "2026-11-01T00:00:00.000Z",
+    has_conflict: false,
+    source: "web-search",
+  };
+
+  it("accepts complete, non-conflicting JSON-LD web-search evidence", () => {
+    expect(isAutoPublishEligible(trustedCandidate)).toBe(true);
+  });
+
+  it.each([
+    ["Open Graph evidence", { extraction_method: "og-meta" as const }],
+    ["conflicting evidence", { has_conflict: true }],
+    ["missing country", { country_code: null }],
+    ["missing date", { date_start: null }],
+    ["manual source", { source: "manual" }],
+  ])("keeps %s in review", (_reason, override) => {
+    expect(isAutoPublishEligible({ ...trustedCandidate, ...override })).toBe(
+      false,
+    );
   });
 });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { fetchAllRows } from "@/lib/services/fetch-all-rows";
+import { parseHackathonsQuery } from "@/lib/api/hackathons-query";
 
 // Rate limiting storage (in production, use Redis or similar)
 const rateLimitMap = new Map<
@@ -85,67 +86,12 @@ export async function GET(request: Request) {
     );
   }
 
-  const { searchParams } = new URL(request.url);
-  const status = searchParams.get("status") || "upcoming";
-  const ascending = status === "upcoming";
-
-  // Opt-in bounded pagination (issue #62): `fetchAllRows` fixed the bug
-  // where an unpaginated query silently truncated past PostgREST's
-  // max_rows, but for this *public* endpoint fetching the entire matching
-  // dataset every time just moves the scaling problem from "silently
-  // truncates" to "an ever-growing single response". Omitting `limit`
-  // keeps the exact previous behavior (full dataset, same response shape)
-  // for backward compatibility - only passing `limit` opts into the new,
-  // smaller/paginated shape (adds `nextCursor`).
-  const limitParam = searchParams.get("limit");
-  const limit = limitParam ? Number.parseInt(limitParam, 10) : null;
-  const cursorParam = searchParams.get("cursor");
-
-  if (limitParam && (!Number.isFinite(limit) || limit! <= 0)) {
-    return NextResponse.json(
-      { error: "Invalid 'limit' query parameter" },
-      { status: 400 },
-    );
+  const parsedQuery = parseHackathonsQuery(request);
+  if (!parsedQuery.ok) {
+    return NextResponse.json({ error: parsedQuery.message }, { status: 400 });
   }
 
-  // Keyset ("after this row") cursor over the same (date_start, id) sort
-  // key `.order()` already uses below - chosen over offset-based paging
-  // per this issue's own tradeoff note: an offset shifts under concurrent
-  // inserts (a row landing in the previous page's covered range),
-  // whereas keyset pagination is stable regardless of writes happening
-  // between page fetches. The cursor is an opaque token, not meant to be
-  // constructed by API consumers directly.
-  let cursor: { dateStart: string; id: string } | null = null;
-
-  if (cursorParam) {
-    try {
-      const decoded = Buffer.from(cursorParam, "base64url").toString("utf-8");
-      const [dateStart, id] = decoded.split("|");
-
-      // Strict format validation, not just truthiness - `dateStart`/`id`
-      // are spliced directly into a raw PostgREST `.or()` filter string
-      // below. Without this, an attacker-crafted cursor could inject
-      // extra filter clauses (commas/parens/operators are all significant
-      // in PostgREST's filter syntax) instead of the intended opaque
-      // "resume point" value (found in review before this ever shipped).
-      const isValidTimestamp = !Number.isNaN(Date.parse(dateStart ?? ""));
-      const isValidId =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-          id ?? "",
-        );
-
-      if (!isValidTimestamp || !isValidId) {
-        throw new Error("malformed cursor");
-      }
-
-      cursor = { dateStart, id };
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid 'cursor' query parameter" },
-        { status: 400 },
-      );
-    }
-  }
+  const { status, ascending, limit, cursor } = parsedQuery.value;
 
   try {
     let query = supabase
@@ -174,7 +120,7 @@ export async function GET(request: Request) {
     let data;
     let nextCursor: string | null = null;
 
-    if (limit) {
+    if (limit !== null) {
       const { data: page, error } = await query.limit(limit + 1);
       if (error) throw error;
 
@@ -202,7 +148,7 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         data,
-        ...(limit ? { nextCursor } : {}),
+        ...(limit !== null ? { nextCursor } : {}),
       },
       {
         headers: {

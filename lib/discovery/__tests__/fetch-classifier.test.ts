@@ -60,6 +60,19 @@ describe("classifyAndFetchPage", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
+  it("classifies an unsafe URL without making a network request", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const result = await classifyAndFetchPage(
+      "http://169.254.169.254/latest/meta-data/",
+      createRobotsCache(),
+    );
+
+    expect(result).toEqual({ outcome: "invalid-url", evidence: null });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it("classifies a non-2xx response as http-error", async () => {
     mockFetchSequence([{ ok: false, status: 404 }]);
 
@@ -98,6 +111,26 @@ describe("classifyAndFetchPage", () => {
     );
 
     expect(result).toEqual({ outcome: "requires-js", evidence: null });
+  });
+
+  it("does not count application/ld+json as rendered page text or SPA script", async () => {
+    mockFetchSequence([
+      {
+        text: `<html><head><script type="application/ld+json">${JSON.stringify({
+          "@type": "Event",
+          name: "Static JSON-LD Hackathon",
+          startDate: "2026-11-01T00:00:00Z",
+        })}</script></head><body></body></html>`,
+      },
+    ]);
+
+    const result = await classifyAndFetchPage(
+      "https://example.org/static-event",
+      createRobotsCache(),
+    );
+
+    expect(result.outcome).toBe("ok");
+    expect(result.evidence?.name).toBe("Static JSON-LD Hackathon");
   });
 
   it("returns ok with extracted evidence for a normal server-rendered page", async () => {
