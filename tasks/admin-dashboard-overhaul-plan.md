@@ -25,43 +25,45 @@ issues described in the request.
 
 ### Phase 1: navigation, live filters, and moderation behavior
 
-- [ ] Route `/admin` directly to candidates while preserving the gate.
-- [ ] Move the manual trigger control into the candidates shell.
-- [ ] Add debounced URL-backed live search and reasons filtering.
-- [ ] Add rejected-candidate move-to-pending server action and UI.
-- [ ] Move edit-dialog result side effects into `useEffect`.
+- [x] Route `/admin` directly to candidates while preserving the gate.
+- [x] Move the manual trigger control into the candidates shell.
+- [x] Add debounced URL-backed live search and reasons filtering.
+- [x] Add rejected-candidate move-to-pending server action and UI.
+- [x] Move edit-dialog result side effects into `useEffect`.
 
 ### Checkpoint: behavior
 
-- [ ] Focused admin tests pass.
-- [ ] TypeScript and lint pass.
+- [x] Focused admin tests pass.
+- [x] TypeScript and lint pass.
 
 ### Phase 2: unified card layout and visual polish
 
-- [ ] Consolidate candidate and published cards onto the shared compact card
-  layout, including an explicit "Already published" marker for published rows
-  in Pending/Rejected.
-- [ ] Compact responsive spacing and clarify every action with icon, text, and
-  tooltip where needed.
-- [ ] Normalize admin colors and interactive cursors.
-- [ ] Add anti-autofill attributes and dark date-picker indicator styling.
+- [x] Consolidate candidate and published cards onto the shared compact card
+      layout, including an explicit "Already published" marker for published rows
+      in Pending/Rejected.
+- [x] Compact responsive spacing and clarify every action with icon, text, and
+      tooltip where needed.
+- [x] Normalize admin colors and interactive cursors.
+- [x] Add anti-autofill attributes and dark date-picker indicator styling.
 
 ### Checkpoint: UI
 
-- [ ] Responsive/admin component tests pass.
-- [ ] Runtime browser check at mobile and desktop widths, if browser tooling is
-  available.
+- [x] Responsive/admin component tests pass.
+- [x] Runtime browser check was not available because no browser MCP is
+      configured; Webpack production build completed successfully.
 
 ### Phase 3: final verification
 
-- [ ] Format, lint, typecheck, focused Vitest tests, and full build pass.
-- [ ] Worktree contains only intended changes and granular commits.
+- [x] Format, lint, typecheck, focused Vitest tests, and Webpack production build
+      pass. The requested Turbopack build was also attempted but is blocked by the
+      sandbox's process/port permission error.
+- [x] Worktree contains only intended changes and granular commits.
 
 ## Risks and mitigations
 
-| Risk | Impact | Mitigation |
-| --- | --- | --- |
+| Risk                                                                | Impact | Mitigation                                                                                         |
+| ------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------- |
 | Server-rendered filtering plus client debounce causes stale results | Medium | Keep URL as source of truth, cancel/replace pending debounce, and use the existing server queries. |
-| Shared card refactor regresses public card styling | High | Use the existing `HackathonCard` API and scope admin-only classes/metadata. |
-| Candidate/published row shapes diverge | Medium | Keep adapters and explicit source labels while sharing the presentation shell. |
-| Server action is callable with invalid state | Medium | Validate `pending` in the action/service path consistently with existing moderation actions. |
+| Shared card refactor regresses public card styling                  | High   | Use the existing `HackathonCard` API and scope admin-only classes/metadata.                        |
+| Candidate/published row shapes diverge                              | Medium | Keep adapters and explicit source labels while sharing the presentation shell.                     |
+| Server action is callable with invalid state                        | Medium | Validate `pending` in the action/service path consistently with existing moderation actions.       |
