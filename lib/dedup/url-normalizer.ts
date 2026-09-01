@@ -92,3 +92,23 @@ export function normalizeUrl(rawUrl: string): string {
 export function isSameNormalizedUrl(a: string, b: string): boolean {
   return normalizeUrl(a) === normalizeUrl(b);
 }
+
+/**
+ * Removes repeated records that point to the same normalized event URL while
+ * preserving the first record's data and ordering.
+ */
+export function dedupeByNormalizedUrl<T extends { url: string }>(
+  items: T[],
+): T[] {
+  const seen = new Set<string>();
+
+  return items.filter((item) => {
+    const key = normalizeUrl(item.url);
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
