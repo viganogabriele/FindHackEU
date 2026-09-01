@@ -1,36 +1,37 @@
 import { europeanCountries } from "@/lib/european-countries";
+import { fetchWithRetry } from "@/lib/http/fetch-with-retry";
 
 interface GeocodingResponse {
-  success: boolean;
-  message: string;
-  error: string | null;
   element: {
-    providedBy: string;
-    latitude: number;
-    longitude: number;
-    bounds: {
-      south: number;
-      west: number;
-      north: number;
-      east: number;
-    };
-    streetNumber: string | null;
-    streetName: string | null;
-    postalCode: string;
-    locality: string;
-    subLocality: string | null;
-    adminLevels: {
-      [key: string]: {
-        name: string;
-        code: string | null;
-        level: number;
-      };
-    };
-    country: string;
-    countryCode: string;
-    timezone: string | null;
-    id: string;
+    countryCode?: unknown;
   };
+}
+
+const GEOCODING_TIMEOUT_MS = 5_000;
+const GEOCODING_RETRIES = 2;
+const GEOCODING_BACKOFF_MS = 250;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Validate the part of the provider response consumed by this service.
+ * Fields unrelated to country resolution are intentionally not required:
+ * the API may add or omit provider metadata without changing this contract.
+ */
+function isGeocodingResponse(value: unknown): value is GeocodingResponse {
+  if (!isRecord(value) || !isRecord(value.element)) {
+    return false;
+  }
+
+  const countryCode = value.element.countryCode;
+
+  return (
+    countryCode === undefined ||
+    countryCode === null ||
+    typeof countryCode === "string"
+  );
 }
 
 /**
@@ -72,31 +73,40 @@ export class GeocodingService {
 
       const address = city.trim();
 
-      const response = await fetch(this.API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
+      const response = await fetchWithRetry(
+        this.API_URL,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({ address }),
         },
-        body: JSON.stringify({ address }),
-      });
+        {
+          timeoutMs: GEOCODING_TIMEOUT_MS,
+          retries: GEOCODING_RETRIES,
+          backoffMs: GEOCODING_BACKOFF_MS,
+        },
+      );
 
       if (!response.ok) {
-        console.error(`Authentication failed for city: ${city}`);
+        console.error(
+          `Geocoding API returned HTTP ${response.status} for city: ${city}`,
+        );
         return { status: "unavailable" };
       }
 
-      const data: GeocodingResponse = await response.json();
+      const data: unknown = await response.json();
 
-      // Controlla la struttura della risposta
-      if (!data || !data.element) {
+      if (!isGeocodingResponse(data)) {
         console.warn(`Invalid geocoding response structure for city: ${city}`);
         return { status: "unavailable" };
       }
 
       const countryCode = data.element.countryCode;
 
-      if (!countryCode) {
+      if (typeof countryCode !== "string" || !countryCode.trim()) {
         console.warn(
           `No country code found in geocoding response for city: ${city}`,
         );
@@ -124,7 +134,7 @@ export class GeocodingService {
           );
           return {
             status: "non_european",
-            countryCode: countryCode.toUpperCase(),
+            countryCode: countryCode.trim().toUpperCase(),
           };
         }
 
