@@ -1,7 +1,7 @@
 # Hackathon discovery research
 
-**Status:** research baseline for this fork  
-**Checked:** 2026-09-01  
+**Status:** research baseline for this fork
+**Checked:** 2026-09-01
 **Scope:** public GitHub implementations, first-party provider documentation, provider terms/robots files, and live read-only probes.
 
 ## Executive decision

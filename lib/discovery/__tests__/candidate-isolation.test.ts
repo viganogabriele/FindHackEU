@@ -77,19 +77,16 @@ describe("candidate isolation (issue #14)", () => {
     expect(files.length).toBeGreaterThanOrEqual(5);
   });
 
-  it('never references the "hackathons" table by name (only "hackathon_candidates")', () => {
+  it('never queries the "hackathons" table (only "hackathon_candidates")', () => {
     const offenders: string[] = [];
 
     for (const file of files) {
       const content = readFileSync(file, "utf-8");
 
-      // Look for the literal table-name string as Supabase code uses it -
-      // e.g. .from("hackathons") - while explicitly allowing
-      // "hackathon_candidates", which legitimately contains "hackathons"
-      // is NOT a substring of "hackathon_candidates" (no trailing "s"
-      // before "_candidates"), so a plain substring search already tells
-      // them apart; this regex just also tolerates single or double quotes.
-      const matches = content.match(/["']hackathons["']/g);
+      // Match actual Supabase table access rather than any use of the word
+      // "hackathons". The search evidence extractor legitimately filters
+      // generic event words, which is unrelated to a database write path.
+      const matches = content.match(/\.from\(\s*["']hackathons["']/g);
 
       if (matches) {
         offenders.push(`${file}: ${matches.join(", ")}`);
