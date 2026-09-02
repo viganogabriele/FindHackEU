@@ -17,6 +17,9 @@ import {
   Calendar as CalendarIcon,
   Heart,
   Sparkles,
+  Globe,
+  Shuffle,
+  CircleHelp,
 } from "lucide-react";
 import { europeanCountries } from "@/lib/european-countries";
 import { getTopicDisplay } from "@/lib/constants/topics";
@@ -47,6 +50,30 @@ export interface HackathonCardData {
   is_new?: boolean;
   preview_image_url?: string | null;
 }
+
+/**
+ * Icon + style per `location_type`. Deliberately not color-coded by
+ * "success/warning" semantics (issue: badge redesign) - a location type
+ * isn't good or bad, so `online` no longer maps to green. Each style uses
+ * the theme's own accent/secondary/muted tokens so it stays correct across
+ * every theme preset, and the icon carries the meaning so color is never
+ * the only signal (WCAG 1.4.1). `physical` isn't listed here: it's implied
+ * by the city/country text already shown next to it, so it gets no badge.
+ */
+const LOCATION_TYPE_BADGE = {
+  online: {
+    icon: Globe,
+    className: "border-transparent bg-accent text-accent-foreground",
+  },
+  hybrid: {
+    icon: Shuffle,
+    className: "border-transparent bg-secondary text-secondary-foreground",
+  },
+  tbd: {
+    icon: CircleHelp,
+    className: "border-dashed text-muted-foreground",
+  },
+} as const;
 
 interface HackathonCardProps {
   hackathon: HackathonCardData;
@@ -157,12 +184,8 @@ export function HackathonCard({
             )}
             {hackathon.is_new && (
               <Badge
-                variant="default"
-                className={cn(
-                  "shrink-0",
-                  !adminTheme &&
-                    "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm hover:from-emerald-600 hover:to-teal-700",
-                )}
+                variant="outline"
+                className="shrink-0 border-primary/30 bg-primary/10 text-primary"
               >
                 <Sparkles className="mr-1 h-3 w-3" />
                 {t("badge.new")}
@@ -222,19 +245,14 @@ export function HackathonCard({
               // Issue #21: no city/country resolved (online/hybrid/tbd
               // event) - show a badge explaining why instead of leaving
               // blank space where a location would normally be.
-              (locationType === "online" || locationType === "hybrid") && (
+              locationType !== "physical" && (
                 <div
                   className={cn(
                     "flex items-center gap-2 text-sm text-muted-foreground md:w-1/2",
                     compact && "text-xs leading-5",
                   )}
                 >
-                  <MapPin className="h-4 w-4 shrink-0" />
-                  <Badge variant="secondary" className="text-xs">
-                    {locationType === "online"
-                      ? t("location.online")
-                      : t("location.hybrid")}
-                  </Badge>
+                  <LocationTypeBadge type={locationType} />
                 </div>
               )
             )}
@@ -280,5 +298,22 @@ export function HackathonCard({
         </CardFooter>
       )}
     </Card>
+  );
+}
+
+function LocationTypeBadge({ type }: { type: "online" | "hybrid" | "tbd" }) {
+  const { t } = useTranslation();
+  const { icon: Icon, className } = LOCATION_TYPE_BADGE[type];
+  const label =
+    type === "online"
+      ? t("location.online")
+      : type === "hybrid"
+        ? t("location.hybrid")
+        : t("location.tbd");
+  return (
+    <Badge variant="outline" className={cn("text-xs", className)}>
+      <Icon className="size-3" aria-hidden="true" />
+      {label}
+    </Badge>
   );
 }

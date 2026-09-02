@@ -165,10 +165,67 @@
   border-color: var(--border);
 }
 
+/*
+ * Public-site topic tag colors (issue: badge redesign). Each cycles through
+ * a preset's own --chart-1..5 tokens instead of hardcoded hex values, so
+ * every theme preset gets a distinct-but-harmonious set of tag colors that
+ * were already curated for that theme's dataviz use - no ad-hoc palette to
+ * maintain per theme, and no literal color implies a topic's meaning.
+ */
+.topic-badge-1,
+.topic-badge-2,
+.topic-badge-3,
+.topic-badge-4,
+.topic-badge-5 {
+  border-width: 1px;
+}
+.topic-badge-1 {
+  background-color: color-mix(in oklch, var(--chart-1) 14%, transparent);
+  color: var(--chart-1);
+  border-color: color-mix(in oklch, var(--chart-1) 32%, transparent);
+}
+.topic-badge-2 {
+  background-color: color-mix(in oklch, var(--chart-2) 14%, transparent);
+  color: var(--chart-2);
+  border-color: color-mix(in oklch, var(--chart-2) 32%, transparent);
+}
+.topic-badge-3 {
+  background-color: color-mix(in oklch, var(--chart-3) 14%, transparent);
+  color: var(--chart-3);
+  border-color: color-mix(in oklch, var(--chart-3) 32%, transparent);
+}
+.topic-badge-4 {
+  background-color: color-mix(in oklch, var(--chart-4) 16%, transparent);
+  color: var(--chart-4);
+  border-color: color-mix(in oklch, var(--chart-4) 34%, transparent);
+}
+.topic-badge-5 {
+  background-color: color-mix(in oklch, var(--chart-5) 16%, transparent);
+  color: var(--chart-5);
+  border-color: color-mix(in oklch, var(--chart-5) 34%, transparent);
+}
+
 .admin-theme input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
   filter: invert(1);
   opacity: 0.85;
+}
+
+/*
+ * "Cosmic Glass" theme preset (see lib/theme-presets.ts /
+ * constants/additional-themes.js) pairs a near-black background with
+ * translucent card/popover/sidebar surfaces - the blur has to be applied
+ * here rather than baked into a CSS color, since backdrop-filter isn't a
+ * color value. Scoped to this one preset via the data-theme-id attribute
+ * ThemeProvider sets (lib/theme-utils.ts), so every other preset's opaque
+ * surfaces render exactly as before.
+ */
+[data-theme-id="cosmic-glass"] [data-slot="card"],
+[data-theme-id="cosmic-glass"] [data-slot="popover-content"],
+[data-theme-id="cosmic-glass"] [data-slot="sheet-content"],
+[data-theme-id="cosmic-glass"] [data-slot="dialog-content"] {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .hackathon-map-approximate-marker {

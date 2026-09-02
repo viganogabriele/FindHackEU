@@ -81,24 +81,36 @@ describe("HackathonCard", () => {
     expect(screen.getByText(/Berlin/)).toBeTruthy();
   });
 
-  it("shows an online badge instead of blank space when no city/country but location_type is online", () => {
+  it("shows an online badge (globe icon) instead of blank space when no city/country but location_type is online", () => {
     renderCard({
       ...base,
       city: null,
       country_code: null,
       location_type: "online",
     });
-    expect(document.querySelector(".lucide-map-pin")).toBeTruthy();
+    expect(document.querySelector(".lucide-globe")).toBeTruthy();
+    expect(screen.getByText("Online")).toBeTruthy();
   });
 
-  it("renders nothing for location when no city/country and location_type is tbd", () => {
+  it("shows a tbd badge (help icon) instead of blank space when no city/country and location_type is tbd", () => {
     renderCard({
       ...base,
       city: null,
       country_code: null,
       location_type: "tbd",
     });
+    expect(document.querySelector(".lucide-circle-question-mark")).toBeTruthy();
+  });
+
+  it("shows nothing for location when no city/country and location_type is physical", () => {
+    renderCard({
+      ...base,
+      city: null,
+      country_code: null,
+      location_type: "physical",
+    });
     expect(document.querySelector(".lucide-map-pin")).toBeNull();
+    expect(document.querySelector(".lucide-globe")).toBeNull();
   });
 
   it("caps topic badges at 4 and shows a +N more badge for the rest", () => {
