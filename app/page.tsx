@@ -209,19 +209,25 @@ function HomeContent({
                   <Button
                     variant={view === "list" ? "secondary" : "ghost"}
                     size="sm"
+                    // 32px clears WCAG 2.5.8's 24px minimum but is a
+                    // mean target for a thumb; 40px on touch, unchanged
+                    // from `sm:` up where a pointer is doing the aiming.
+                    className="h-10 sm:h-8"
                     aria-pressed={view === "list"}
                     aria-label={t("view.list")}
                     title={t("view.list")}
                     onClick={() => setView("list")}
                   >
                     <List />
-                    <span className="hidden sm:inline">
-                      {t("view.list")}
-                    </span>
+                    <span className="hidden sm:inline">{t("view.list")}</span>
                   </Button>
                   <Button
                     variant={view === "map" ? "secondary" : "ghost"}
                     size="sm"
+                    // 32px clears WCAG 2.5.8's 24px minimum but is a
+                    // mean target for a thumb; 40px on touch, unchanged
+                    // from `sm:` up where a pointer is doing the aiming.
+                    className="h-10 sm:h-8"
                     aria-pressed={view === "map"}
                     aria-label={t("view.map")}
                     title={t("view.map")}
@@ -233,6 +239,10 @@ function HomeContent({
                   <Button
                     variant={view === "calendar" ? "secondary" : "ghost"}
                     size="sm"
+                    // 32px clears WCAG 2.5.8's 24px minimum but is a
+                    // mean target for a thumb; 40px on touch, unchanged
+                    // from `sm:` up where a pointer is doing the aiming.
+                    className="h-10 sm:h-8"
                     aria-pressed={view === "calendar"}
                     aria-label={t("view.calendar")}
                     title={t("view.calendar")}

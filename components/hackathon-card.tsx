@@ -211,7 +211,13 @@ export function HackathonCard({
         <div className="space-y-2">
           <div
             className={cn(
-              "flex flex-row flex-nowrap items-center gap-x-3 gap-y-1.5",
+              // Was `flex-nowrap`: on a narrow card the date and the
+              // location stayed on one line and both truncated to about
+              // half ("10 Oct - 1..." / "Amster... IT"), which loses the
+              // two things the card exists to tell you. They now wrap when
+              // they don't fit and sit side by side again as soon as they
+              // do - `gap-y-1.5` was already here for exactly that case.
+              "flex flex-row flex-wrap items-center gap-x-3 gap-y-1.5",
               compact && "gap-x-2",
             )}
           >
