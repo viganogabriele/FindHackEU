@@ -30,7 +30,7 @@ npm run dev
 
 `npx supabase start` automatically applies the schema migrations and seeds the local database with realistic sample data — a mix of upcoming/past hackathons and pending/rejected candidates — so the site and the admin dashboard have something to show immediately.
 
-Speaking of which: **the admin dashboard (`/admin`, `/admin/candidates`) works locally with zero Google OAuth setup.** As long as `GOOGLE_CLIENT_ID`/`ADMIN_ALLOWED_EMAIL` are left unset in `.env.local`, a local no-auth bypass grants access automatically — no OAuth client to create just to poke around.
+Speaking of which: **the admin dashboard (`/admin`) works locally with zero Google OAuth setup.** As long as `GOOGLE_CLIENT_ID`/`ADMIN_ALLOWED_EMAIL` are left unset in `.env.local`, a local no-auth bypass grants access automatically — no OAuth client to create just to poke around.
 
 Everything else — real provider API keys for the scrapers, bot webhook tokens, a geocoding key, real Google OAuth for production-like admin auth testing, and so on — is optional for local exploration and documented in `.env.example`. For the full architecture, pipeline internals, and development conventions, see [`CLAUDE.md`](./CLAUDE.md) and [`AGENTS.md`](./AGENTS.md).
 

@@ -1,8 +1,9 @@
-# Admin auth setup (`/admin` and `/admin/candidates`)
+# Admin auth setup (`/admin`)
 
-Both development-only admin pages (issue #67, and `/admin` itself added
-in issue #81) are gated behind Google sign-in
-via Supabase Auth, restricted to a single allowlisted email. This is defense in
+The development-only `/admin` dashboard (issue #67; unified onto this single
+route, previously `/admin/candidates`, at the maintainer's request) is gated
+behind Google sign-in via Supabase Auth, restricted to a single allowlisted
+email. This is defense in
 depth on top of the existing `NODE_ENV !== "production"` gate, not a
 replacement for it - both checks still apply. Because Next.js sets
 `NODE_ENV=production` for Vercel Preview builds too, these pages are disabled
@@ -16,9 +17,9 @@ this doc (sections 1-5) is only for the maintainer setting up real Google
 sign-in, e.g. for a hosted deployment.
 
 `/admin/hackathons` used to be a third gated page (published-hackathon
-management); issue #82 merged that into `/admin/candidates`'s Approved tab
+management); issue #82 merged that into `/admin`'s Approved tab
 and retired the standalone route - it now just redirects to
-`/admin/candidates?status=approved` and needs no auth session of its own.
+`/admin?status=approved` and needs no auth session of its own.
 
 Nobody but the maintainer has real Google Cloud OAuth credentials, so this
 setup is a manual, one-time step you (the maintainer) need to do locally.
@@ -117,7 +118,7 @@ https://<your-app.example.com>/auth/callback
 The local `supabase/config.toml` allowlist does not carry over to hosted
 Supabase. Configure each real deployment domain separately, and do not add a
 catch-all production wildcard. The application callback validates `next`
-again against `/admin` and `/admin/candidates` before redirecting.
+again against `/admin` before redirecting.
 
 ## 5. Try it locally
 
@@ -125,10 +126,10 @@ again against `/admin` and `/admin/candidates` before redirecting.
 npm run dev
 ```
 
-Visit `http://localhost:3000/admin` (or `/admin/candidates`, which it links
-to) and click "Sign in with Google". After Google's consent screen, you
-should return to the page you started from, signed in - the header shows
-"Signed in as {your email} · Sign out" and the corresponding admin view
+Visit `http://localhost:3000/admin` and click "Sign in with Google". After
+Google's consent screen, you should return to the page you started from,
+signed in - the header shows "Signed in as {your email} · Sign out" and the
+corresponding admin view
 renders. Signing in with any other Google account should still show the
 "Admin sign-in required" gate (the account is authenticated but not
 authorized).
@@ -188,7 +189,7 @@ npm install
 npm run dev
 ```
 
-Then open `http://localhost:3000/admin/candidates` - it renders directly,
+Then open `http://localhost:3000/admin` - it renders directly,
 no sign-in gate, populated with the seed data. If Supabase was already
 running from a previous session and you want a clean re-seed:
 
