@@ -11,6 +11,10 @@ import type { Hackathon } from "@/types/hackathon";
 
 const EUROPE_CENTER: [number, number] = [50.5, 10.5];
 
+// Smaller than react-leaflet-cluster's 80px default so individual pins
+// separate out of a cluster at a more reasonable zoom level.
+const MAX_CLUSTER_RADIUS = 45;
+
 // Leaflet's image paths are not discoverable by Next's bundler on their own.
 // Keep the standard assets in public/leaflet so markers work in production too.
 L.Icon.Default.mergeOptions({
@@ -96,7 +100,10 @@ export default function HackathonMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapViewport hackathons={mappedHackathons} />
-        <MarkerClusterGroup chunkedLoading>
+        <MarkerClusterGroup
+          chunkedLoading
+          maxClusterRadius={MAX_CLUSTER_RADIUS}
+        >
           {mappedHackathons.map(({ hackathon, coordinates, approximate }) => (
             <Marker
               key={hackathon.id}
