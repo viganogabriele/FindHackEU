@@ -610,7 +610,9 @@ export function FiltersPanel({
           <Switch
             id="include-online"
             checked={filters.includeOnline}
-            onCheckedChange={(checked) => updateFilter("includeOnline", checked)}
+            onCheckedChange={(checked) =>
+              updateFilter("includeOnline", checked)
+            }
           />
         </div>
       </div>
