@@ -46,7 +46,18 @@ describe("FiltersPanel", () => {
     });
     fireEvent.click(removeLanguageFilter);
 
-    expect(languageSwitch.getAttribute("aria-checked")).toBe("true");
+    // The Sheet unmounts its content on close (real Radix behavior), so the
+    // `languageSwitch` reference captured above is now detached - reopen and
+    // re-query, matching what a real user would see, rather than asserting
+    // on a stale node that can never reflect this update.
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    expect(
+      screen
+        .getByRole("switch", {
+          name: /show non-.* hackathons/i,
+        })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
     expect(
       screen.queryByRole("button", {
         name: /remove non-english hackathons hidden filter/i,
@@ -81,7 +92,17 @@ describe("FiltersPanel", () => {
     });
     fireEvent.click(removeOnlineFilter);
 
-    expect(onlineSwitch.getAttribute("aria-checked")).toBe("true");
+    // Same reasoning as the language-filter test above: the Sheet unmounts
+    // on close, so re-open and re-query instead of asserting on the stale
+    // pre-close `onlineSwitch` reference.
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    expect(
+      screen
+        .getByRole("switch", {
+          name: /show online events/i,
+        })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
     expect(
       screen.queryByRole("button", {
         name: /remove online events hidden filter/i,
