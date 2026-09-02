@@ -97,8 +97,7 @@ export function buildMonthGrid(year: number, month: number): CalendarDay[] {
   const lastOfMonth = new Date(year, month + 1, 0);
   const lastWeekday = (lastOfMonth.getDay() + 6) % 7;
   const trailingDays = 6 - lastWeekday;
-  const totalDays =
-    firstWeekday + lastOfMonth.getDate() + trailingDays;
+  const totalDays = firstWeekday + lastOfMonth.getDate() + trailingDays;
 
   const today = startOfDay(new Date());
   const days: CalendarDay[] = [];

@@ -37,6 +37,7 @@
   "filters.includeOtherLanguages": "Afișează hackathoane non-{language}",
   "filters.showOnlineEvents": "Afișează evenimentele online",
   "filters.onlineHidden": "Evenimente online ascunse",
+  "filters.nonEnglishHidden": "Hackathoane care nu sunt în engleză ascunse",
   "dates.select": "Selectează date",
   "sorting": "Sortare",
   "sort.byDate": "Sortează după dată",

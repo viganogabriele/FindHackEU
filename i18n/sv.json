@@ -37,6 +37,7 @@
   "filters.includeOtherLanguages": "Visa hackathons utanför {language}",
   "filters.showOnlineEvents": "Visa onlineevenemang",
   "filters.onlineHidden": "Onlineevenemang dolda",
+  "filters.nonEnglishHidden": "Icke-engelska hackathons dolda",
   "dates.select": "Välj datum",
   "sorting": "Sortering",
   "sort.byDate": "Sortera efter datum",

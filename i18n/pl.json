@@ -37,6 +37,7 @@
   "filters.includeOtherLanguages": "Pokaż hackathony spoza {language}",
   "filters.showOnlineEvents": "Pokaż wydarzenia online",
   "filters.onlineHidden": "Wydarzenia online ukryte",
+  "filters.nonEnglishHidden": "Hackatony nieanglojęzyczne ukryte",
   "dates.select": "Wybierz daty",
   "sorting": "Sortowanie",
   "sort.byDate": "Sortuj według daty",

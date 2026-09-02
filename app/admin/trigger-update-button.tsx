@@ -33,8 +33,35 @@ import {
  * asks for confirmation first, via the same `AlertDialog` pattern
  * `ConfirmDeleteButton` (components/confirm-delete-button.tsx) already uses,
  * before calling `trigger()`.
+ *
+ * Unlike the rest of /admin, the backing route stays dev-only on purpose
+ * (it always forces test mode - a local convenience shortcut, not a
+ * production trigger mechanism). Now that /admin itself is reachable in
+ * production (maintainer request, 2026-09-02), this component disables
+ * itself there instead of letting a click fail against a route that 404s
+ * outside development - a real production run goes through the
+ * cron-secret-authenticated `POST /api/update` endpoint instead (see
+ * docs/production-deployment.md), not this button.
  */
 export function TriggerUpdateButton() {
+  if (process.env.NODE_ENV === "production") {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        disabled
+        title="Use POST /api/update with your CRON_SECRET to trigger a production run - see docs/production-deployment.md"
+      >
+        <RefreshCw className="mr-2 h-4 w-4 shrink-0" />
+        <span className="min-w-0 truncate">Trigger update (dev only)</span>
+      </Button>
+    );
+  }
+
+  return <TriggerUpdateButtonInner />;
+}
+
+function TriggerUpdateButtonInner() {
   const [state, setState] = useState<
     | { status: "idle" }
     | { status: "loading" }

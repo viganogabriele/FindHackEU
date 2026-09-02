@@ -11,7 +11,11 @@ import {
 } from "@/components/ui/popover";
 import { HackathonCard } from "@/components/hackathon-card";
 import { cn } from "@/lib/utils";
-import { bucketHackathonsByDay, buildMonthGrid, toDayKey } from "@/lib/calendar-hackathons";
+import {
+  bucketHackathonsByDay,
+  buildMonthGrid,
+  toDayKey,
+} from "@/lib/calendar-hackathons";
 import type { Hackathon } from "@/types/hackathon";
 
 /** Number of event indicators shown directly inside a day cell before the
@@ -151,8 +155,7 @@ export default function HackathonCalendar({
                             type="button"
                             className={cn(
                               "flex h-full w-full flex-col items-stretch gap-1 p-1.5 text-left transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-                              !day.inCurrentMonth &&
-                                "text-muted-foreground/50",
+                              !day.inCurrentMonth && "text-muted-foreground/50",
                             )}
                             aria-label={dayAriaLabel(
                               day.date,

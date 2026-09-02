@@ -16,14 +16,10 @@ import {
   type EditHackathonResult,
 } from "@/lib/services/edit-hackathon";
 
-function assertDevOnly() {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("Not available outside development");
-  }
-}
-
+// Admin is available in production too (maintainer request, 2026-09-02) -
+// requireAdminAuth() (real Google-OAuth-backed session check) is the
+// security boundary, not environment.
 async function assertAuthorized() {
-  assertDevOnly();
   await requireAdminAuth();
 }
 

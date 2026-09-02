@@ -30,26 +30,15 @@ import {
 import { supabaseAdmin } from "@/lib/supabase";
 
 /**
- * Server actions backing /admin. Every action re-checks both
- * NODE_ENV and admin auth itself (not just relying on the page being
+ * Server actions backing /admin. Admin is now available in production too
+ * (maintainer request, 2026-09-02) - the real security boundary is
+ * `requireAdminAuth()` (a genuine Google-OAuth-backed session check against
+ * `ADMIN_ALLOWED_EMAIL`/the `admin_users` table), not environment. Every
+ * action still re-checks auth itself (not just relying on the page being
  * unreachable/hiding its buttons) since a server action is its own callable
  * endpoint once the client has the page loaded.
  */
-function assertDevOnly() {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("Not available outside development");
-  }
-}
-
-/**
- * Real server-side authorization check (issue #67) - requires a Supabase
- * Auth session whose email matches `ADMIN_ALLOWED_EMAIL`. Hiding the
- * Approve/Reject buttons in the UI when signed out is not security on its
- * own; this is what actually stops an unauthenticated caller from invoking
- * these actions directly.
- */
 async function assertAuthorized() {
-  assertDevOnly();
   await requireAdminAuth();
 }
 

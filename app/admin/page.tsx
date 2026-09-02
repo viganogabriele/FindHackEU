@@ -1,5 +1,4 @@
 import { Suspense, use, type ReactNode } from "react";
-import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   Archive,
@@ -204,13 +203,15 @@ async function getTabCounts(query: string): Promise<TabCounts> {
  * what each of the five tabs shows, and ./queries.ts for the query that
  * backs each one.
  *
- * Dev-only (`notFound()` outside development, same pattern as
- * app/api/dev/trigger-update/route.ts) AND gated behind Google sign-in via
- * Supabase Auth, restricted to a single allowlisted email
- * (`ADMIN_ALLOWED_EMAIL` - issue #67). Both gates are defense in depth: the
- * NODE_ENV check stays even though auth now exists, and the auth check is
- * also re-verified server-side inside every server action in ./actions.ts
- * and ../hackathons/actions.ts, not just here.
+ * Available in production too (maintainer request, 2026-09-02) - gated
+ * behind Google sign-in via Supabase Auth, restricted to allowlisted emails
+ * (`ADMIN_ALLOWED_EMAIL`/the `admin_users` table - issues #67/#18). That
+ * auth check is the real security boundary and is re-verified server-side
+ * inside every server action in ./actions.ts and ../hackathons/actions.ts,
+ * not just here - hiding this page from an unauthenticated visitor is a UX
+ * courtesy, not what actually stops them. The local-dev no-auth bypass
+ * (see require-admin-auth.ts) still only ever activates outside
+ * production, unaffected by this page being reachable in prod now.
  */
 export default async function CandidatesAdminPage({
   searchParams,
@@ -222,10 +223,6 @@ export default async function CandidatesAdminPage({
     reason?: string | string[];
   }>;
 }) {
-  if (process.env.NODE_ENV === "production") {
-    notFound();
-  }
-
   const authStatus = await getAdminAuthStatus();
   const params = await searchParams;
 
@@ -323,9 +320,7 @@ function AdminShell({
               A
             </span>
             <div className="hidden min-w-0 leading-tight sm:block">
-              <p className="truncate text-sm font-semibold">
-                Admin dashboard
-              </p>
+              <p className="truncate text-sm font-semibold">Admin dashboard</p>
               <p className="truncate text-xs text-muted-foreground">
                 FindHackEU
               </p>
@@ -348,8 +343,8 @@ function AdminShell({
             Hackathon candidates
           </h1>
           <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
-            Review and manage events by moderation state. Only Approved and
-            Past are public.
+            Review and manage events by moderation state. Only Approved and Past
+            are public.
           </p>
         </div>
 
@@ -408,7 +403,8 @@ function StatusNav({
               aria-label={`${tabCounts[s] ?? "Unknown"} ${s} items`}
               className={cn(
                 "min-w-5 justify-center px-1.5",
-                s === status && "bg-primary-foreground/20 text-primary-foreground",
+                s === status &&
+                  "bg-primary-foreground/20 text-primary-foreground",
               )}
             >
               {tabCounts[s] ?? "—"}
@@ -880,7 +876,10 @@ async function AdminsTab({
       tabCounts={tabCounts}
     >
       <div className="mb-5 flex items-start gap-2.5">
-        <Users className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <Users
+          className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
         <div className="space-y-1">
           <h2 className="text-lg font-semibold">Manage admins</h2>
           <p className="text-sm text-muted-foreground">
@@ -894,7 +893,10 @@ async function AdminsTab({
       <Card className="mb-4">
         <CardContent className="space-y-3 pt-4">
           <div className="flex items-center gap-2 text-sm font-medium">
-            <UserPlus className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <UserPlus
+              className="h-4 w-4 text-muted-foreground"
+              aria-hidden="true"
+            />
             Add a new admin
           </div>
           <AddAdminForm />

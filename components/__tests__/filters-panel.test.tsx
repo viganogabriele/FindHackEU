@@ -17,7 +17,7 @@ vi.stubGlobal(
 );
 
 describe("FiltersPanel", () => {
-  it("removes the include-other-languages filter when its chip is dismissed", () => {
+  it("removes the hide-non-English filter when its chip is dismissed", () => {
     render(
       <TranslationProvider>
         <FilterProvider>
@@ -32,21 +32,24 @@ describe("FiltersPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Filters" }));
 
+    // includeNonEnglish defaults to true (opt-out) - toggling it off is what
+    // surfaces the "hidden" chip, matching includeOnline's existing pattern.
     const languageSwitch = screen.getByRole("switch", {
       name: /show non-.* hackathons/i,
     });
+    expect(languageSwitch.getAttribute("aria-checked")).toBe("true");
     fireEvent.click(languageSwitch);
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
     const removeLanguageFilter = screen.getByRole("button", {
-      name: /remove show non-english hackathons filter/i,
+      name: /remove non-english hackathons hidden filter/i,
     });
     fireEvent.click(removeLanguageFilter);
 
-    expect(languageSwitch.getAttribute("aria-checked")).toBe("false");
+    expect(languageSwitch.getAttribute("aria-checked")).toBe("true");
     expect(
       screen.queryByRole("button", {
-        name: /remove show non-english hackathons filter/i,
+        name: /remove non-english hackathons hidden filter/i,
       }),
     ).toBeNull();
   });

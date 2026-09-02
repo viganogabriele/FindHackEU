@@ -43,7 +43,10 @@ export function SignOutButton({ email }: { email: string }) {
         >
           {initial}
         </span>
-        <span className="max-w-40 truncate text-xs text-muted-foreground" title={email}>
+        <span
+          className="max-w-40 truncate text-xs text-muted-foreground"
+          title={email}
+        >
           {email}
         </span>
       </div>

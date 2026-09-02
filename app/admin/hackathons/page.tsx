@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 /**
  * Retired (issue #82): published-hackathon management now lives on
@@ -8,14 +8,10 @@ import { notFound, redirect } from "next/navigation";
  * somewhere useful instead of a bare 404; `deleteHackathonAction` (still in
  * ./actions.ts) is now called from the Approved tab, not from a page here.
  *
- * Same dev-only gate as every other admin route, kept for consistency even
- * though a redirect itself needs no auth - the destination re-checks auth
- * on its own.
+ * Available in production too, matching /admin (maintainer request,
+ * 2026-09-02) - a redirect itself needs no auth, and the destination
+ * re-checks auth on its own regardless.
  */
 export default function HackathonsAdminPage() {
-  if (process.env.NODE_ENV === "production") {
-    notFound();
-  }
-
   redirect("/admin?status=approved");
 }

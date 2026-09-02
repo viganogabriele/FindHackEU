@@ -211,19 +211,19 @@ export function HackathonCard({
         <div className="space-y-2">
           <div
             className={cn(
-              "flex flex-col items-start gap-4 md:flex-row md:items-center",
-              compact && "gap-2.5",
+              "flex flex-row flex-nowrap items-center gap-x-3 gap-y-1.5",
+              compact && "gap-x-2",
             )}
           >
             {hackathon.date_start && (
               <div
                 className={cn(
-                  "flex items-center gap-2 text-sm text-muted-foreground md:w-1/2",
+                  "flex min-w-0 shrink items-center gap-2 text-sm text-muted-foreground",
                   compact && "text-xs leading-5",
                 )}
               >
                 <CalendarIcon className="h-4 w-4 shrink-0" />
-                <span>
+                <span className="truncate">
                   {formatDateRange(hackathon.date_start, hackathon.date_end)}
                 </span>
               </div>
@@ -231,12 +231,12 @@ export function HackathonCard({
             {hackathon.city || hackathon.country_code ? (
               <div
                 className={cn(
-                  "flex items-center gap-2 text-sm text-muted-foreground md:w-1/2",
+                  "flex min-w-0 shrink items-center gap-2 text-sm text-muted-foreground",
                   compact && "text-xs leading-5",
                 )}
               >
                 <MapPin className="h-4 w-4 shrink-0" />
-                <span>
+                <span className="truncate">
                   {europeanCountries.formatLocation(
                     hackathon.city,
                     hackathon.country_code,
@@ -252,7 +252,7 @@ export function HackathonCard({
               locationType !== "physical" && (
                 <div
                   className={cn(
-                    "flex items-center gap-2 text-sm text-muted-foreground md:w-1/2",
+                    "flex min-w-0 shrink items-center gap-2 text-sm text-muted-foreground",
                     compact && "text-xs leading-5",
                   )}
                 >

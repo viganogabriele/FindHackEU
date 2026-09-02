@@ -15,12 +15,14 @@ export interface FilterState {
   sort: "asc" | "desc";
   // Whether to include hackathons whose title looks like a language other
   // than English or the active site locale (see lib/detect-non-english.ts).
-  // Defaults to false so the active locale and English are the default set.
+  // Defaults to true: the underlying heuristic is a best-effort guess (found
+  // live to have false negatives - a German title slipping through while the
+  // toggle was off), so hiding results by default on an unreliable signal
+  // was more confusing than helpful. It's an opt-out filter now, not opt-in.
   includeNonEnglish: boolean;
   // Whether to include hackathons whose location_type is "online". Defaults
-  // to true (unlike includeNonEnglish's false default) so this new filter
-  // doesn't hide anything that was previously always shown - it's an
-  // opt-out, not an opt-in.
+  // to true so this filter doesn't hide anything that was previously always
+  // shown - it's an opt-out, not an opt-in.
   includeOnline: boolean;
   showBookmarked: boolean;
 }
@@ -45,7 +47,7 @@ const initialFilters: FilterState = {
   dateRange: undefined,
   status: "upcoming",
   sort: "asc",
-  includeNonEnglish: false,
+  includeNonEnglish: true,
   includeOnline: true,
   showBookmarked: false,
 };

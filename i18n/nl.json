@@ -37,6 +37,7 @@
   "filters.includeOtherLanguages": "Toon hackathons niet in {language}",
   "filters.showOnlineEvents": "Online evenementen tonen",
   "filters.onlineHidden": "Online evenementen verborgen",
+  "filters.nonEnglishHidden": "Niet-Engelse hackathons verborgen",
   "dates.select": "Selecteer data",
   "sorting": "Sortering",
   "sort.byDate": "Sorteer op datum",

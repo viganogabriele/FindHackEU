@@ -53,7 +53,7 @@ this doc defers entirely to [`docs/admin-auth-setup.md`](./admin-auth-setup.md)
 3. **Set up Google OAuth for admin sign-in.** Follow
    [`docs/admin-auth-setup.md`](./admin-auth-setup.md) sections 1 and 4
    specifically for this: create the Google Cloud OAuth client (section 1),
-   then, for the *hosted* project you just created (section 4), configure
+   then, for the _hosted_ project you just created (section 4), configure
    Google as an auth provider in the Supabase Dashboard under
    **Authentication → Providers**, add
 
@@ -102,11 +102,11 @@ this doc defers entirely to [`docs/admin-auth-setup.md`](./admin-auth-setup.md)
 2. **Review `vercel.json`'s function settings before your first deploy.**
    The repo currently configures:
 
-   | Route | `maxDuration` | `memory` |
-   | --- | --- | --- |
-   | `app/api/update/route.ts` | 300s | 1024 MB |
-   | `app/api/hackathons/route.ts` | 30s | 512 MB |
-   | `app/api/preview/route.ts` | 15s | 512 MB |
+   | Route                         | `maxDuration` | `memory` |
+   | ----------------------------- | ------------- | -------- |
+   | `app/api/update/route.ts`     | 300s          | 1024 MB  |
+   | `app/api/hackathons/route.ts` | 30s           | 512 MB   |
+   | `app/api/preview/route.ts`    | 15s           | 512 MB   |
 
    **This is a real, flagged concern, not a formality:** as of writing, the
    Vercel **Hobby** (free) plan's serverless function maximum execution
@@ -147,7 +147,7 @@ this doc defers entirely to [`docs/admin-auth-setup.md`](./admin-auth-setup.md)
    status in the next section) in the Vercel project's **Settings →
    Environment Variables**, scoped to "Production" (and "Preview"/
    "Development" too, if you want preview deployments to also talk to a
-   real — ideally a *separate* — Supabase project; using the same
+   real — ideally a _separate_ — Supabase project; using the same
    production Supabase project for Preview builds means preview traffic can
    write real data, which is usually not what you want).
 
@@ -162,12 +162,12 @@ current state, not a reconstruction from memory.
 
 ### Required for a minimal production deploy
 
-| Variable | Where to get it | Notes |
-| --- | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Settings → API | Public, safe to expose to the browser. |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Settings → API | Public, safe to expose to the browser. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API | **Server-only secret.** Used by API routes/scripts (`supabaseAdmin` client). |
-| `CRON_SECRET` | You choose this value | Shared secret the `/api/update` route requires via `Authorization: Bearer`. Auth is fail-closed if unset — the route returns 500 rather than allowing an implicit bypass. Also needed as a GitHub Actions secret (step 4). |
+| Variable                        | Where to get it           | Notes                                                                                                                                                                                                                      |
+| ------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Supabase → Settings → API | Public, safe to expose to the browser.                                                                                                                                                                                     |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Settings → API | Public, safe to expose to the browser.                                                                                                                                                                                     |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Supabase → Settings → API | **Server-only secret.** Used by API routes/scripts (`supabaseAdmin` client).                                                                                                                                               |
+| `CRON_SECRET`                   | You choose this value     | Shared secret the `/api/update` route requires via `Authorization: Bearer`. Auth is fail-closed if unset — the route returns 500 rather than allowing an implicit bypass. Also needed as a GitHub Actions secret (step 4). |
 
 The app will build and serve the public listing/API with just these four
 set. Everything below is optional and degrades gracefully when absent —
@@ -175,68 +175,68 @@ each is independently gated in the code, not an all-or-nothing bundle.
 
 ### Optional — geocoding
 
-| Variable | Where to get it | Notes |
-| --- | --- | --- |
+| Variable                | Where to get it                                                            | Notes                                                                                                                                                                                                                                                                                                          |
+| ----------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `OPENAPI_GEOCODING_KEY` | Your geocoding provider (see `lib/services/geocode.ts`/`geocode-cache.ts`) | Powers both pipeline-time coordinate enhancement and the public `/api/geocode` radius-filter proxy. Without it, new rows won't get geocoded (falls back to Nominatim per `CLAUDE.md`, but with reduced reliability/rate limits) and the radius filter has less to work with. Never expose via `NEXT_PUBLIC_*`. |
 
 ### Optional — discovery pipeline tuning
 
-| Variable | Default if unset | Notes |
-| --- | --- | --- |
-| `MAX_FUTURE_DAYS` | `180` (per `.env.example` comment / `lib/config/discovery-config.ts`) | How far into the future a discovered event may start before being excluded. |
-| `LUMA_MAX_PAGES_PER_SLUG` | 5 | Luma pagination depth per category slug. Relevant to the Hobby-tier duration concern above — lowering this reduces `/api/update`'s runtime. |
-| `MIN_UPDATE_INTERVAL_MINUTES` | 5 | Minimum cooldown between `/api/update` runs; `0` disables it. The daily cron fires hours apart and is unaffected in normal operation. |
+| Variable                      | Default if unset                                                      | Notes                                                                                                                                       |
+| ----------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MAX_FUTURE_DAYS`             | `180` (per `.env.example` comment / `lib/config/discovery-config.ts`) | How far into the future a discovered event may start before being excluded.                                                                 |
+| `LUMA_MAX_PAGES_PER_SLUG`     | 5                                                                     | Luma pagination depth per category slug. Relevant to the Hobby-tier duration concern above — lowering this reduces `/api/update`'s runtime. |
+| `MIN_UPDATE_INTERVAL_MINUTES` | 5                                                                     | Minimum cooldown between `/api/update` runs; `0` disables it. The daily cron fires hours apart and is unaffected in normal operation.       |
 
 ### Optional — web-search discovery (`scripts/discover-web-candidates.ts` only, not the main cron pipeline)
 
-| Variable | Where to get it | Notes |
-| --- | --- | --- |
-| `TAVILY_API_KEY` | [tavily.com](https://tavily.com) free tier | Tried first in the fallback chain. |
-| `SERPAPI_API_KEY` | [serpapi.com](https://serpapi.com) free tier | Tried second. |
-| `SERPER_API_KEY` | [serper.dev](https://serper.dev) free tier | Tried third. |
+| Variable          | Where to get it                              | Notes                              |
+| ----------------- | -------------------------------------------- | ---------------------------------- |
+| `TAVILY_API_KEY`  | [tavily.com](https://tavily.com) free tier   | Tried first in the fallback chain. |
+| `SERPAPI_API_KEY` | [serpapi.com](https://serpapi.com) free tier | Tried second.                      |
+| `SERPER_API_KEY`  | [serper.dev](https://serper.dev) free tier   | Tried third.                       |
 
 At least one of the three is needed only if you intend to run the
 web-search candidate discovery script; none are required for the core
 scraping pipeline or the public site.
 
-| Variable | Default if unset | Notes |
-| --- | --- | --- |
-| `DISCOVERY_DAILY_QUERY_BUDGET` | 30 | Daily cap on search queries `discover-web-candidates.ts` issues, tracked in a local `.discovery-budget.json` file (not Supabase) — irrelevant unless you run that script. |
-| `GEMINI_API_KEY` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) free tier | Optional LLM-assisted suggestion badge on the admin Pending tab. Never auto-approves/rejects anything. Admin pages are dev-only regardless (see step 1.3), so this only matters for local moderation. |
+| Variable                       | Default if unset                                                           | Notes                                                                                                                                                                                                 |
+| ------------------------------ | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DISCOVERY_DAILY_QUERY_BUDGET` | 30                                                                         | Daily cap on search queries `discover-web-candidates.ts` issues, tracked in a local `.discovery-budget.json` file (not Supabase) — irrelevant unless you run that script.                             |
+| `GEMINI_API_KEY`               | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) free tier | Optional LLM-assisted suggestion badge on the admin Pending tab. Never auto-approves/rejects anything. Admin pages are dev-only regardless (see step 1.3), so this only matters for local moderation. |
 
 ### Optional — admin auth (`/admin`, dev-only — see step 1.3)
 
-| Variable | Where to get it | Notes |
-| --- | --- | --- |
-| `GOOGLE_CLIENT_ID` | Google Cloud OAuth client (`docs/admin-auth-setup.md`) | Only meaningful for local moderation against this Supabase project — the admin UI itself is unreachable on Vercel because of the `NODE_ENV=production` gate. |
-| `GOOGLE_CLIENT_SECRET` | Same as above | Same caveat. |
-| `ADMIN_ALLOWED_EMAIL` | Your own Google account email | Guaranteed-fallback admin; day-to-day admin list lives in the `admin_users` table instead once at least one admin can sign in. If unset and `admin_users` is empty/unreachable, admin pages deny everyone. |
-| `ADMIN_LOCAL_NO_AUTH` | You choose (`true`/unset) | Only ever honored when `NODE_ENV !== "production"` — cannot affect the real Vercel deployment. Leave unset in a production `.env`/Vercel config; harmless either way given the hard `NODE_ENV` gate, but there's no reason to set it there. |
+| Variable               | Where to get it                                        | Notes                                                                                                                                                                                                                                       |
+| ---------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GOOGLE_CLIENT_ID`     | Google Cloud OAuth client (`docs/admin-auth-setup.md`) | Only meaningful for local moderation against this Supabase project — the admin UI itself is unreachable on Vercel because of the `NODE_ENV=production` gate.                                                                                |
+| `GOOGLE_CLIENT_SECRET` | Same as above                                          | Same caveat.                                                                                                                                                                                                                                |
+| `ADMIN_ALLOWED_EMAIL`  | Your own Google account email                          | Guaranteed-fallback admin; day-to-day admin list lives in the `admin_users` table instead once at least one admin can sign in. If unset and `admin_users` is empty/unreachable, admin pages deny everyone.                                  |
+| `ADMIN_LOCAL_NO_AUTH`  | You choose (`true`/unset)                              | Only ever honored when `NODE_ENV !== "production"` — cannot affect the real Vercel deployment. Leave unset in a production `.env`/Vercel config; harmless either way given the hard `NODE_ENV` gate, but there's no reason to set it there. |
 
 ### Optional — notification bots
 
-| Variable | Where to get it | Notes |
-| --- | --- | --- |
-| `DISCORD_WEBHOOK_URL` | A Discord server's channel webhook settings | Per `README.md`, bots are "currently unconfigured and inactive" for this project — only set these up if you want to (re-)enable notifications. |
-| `TELEGRAM_BOT_TOKEN` | [@BotFather](https://t.me/BotFather) on Telegram | |
-| `TELEGRAM_CHANNEL_ID` | Your Telegram channel | |
-| `TWITTER_API_KEY` / `TWITTER_API_SECRET` / `TWITTER_ACCESS_TOKEN` / `TWITTER_ACCESS_TOKEN_SECRET` | Twitter/X Developer Portal | All four are needed together for the Twitter bot to function. |
+| Variable                                                                                          | Where to get it                                  | Notes                                                                                                                                          |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DISCORD_WEBHOOK_URL`                                                                             | A Discord server's channel webhook settings      | Per `README.md`, bots are "currently unconfigured and inactive" for this project — only set these up if you want to (re-)enable notifications. |
+| `TELEGRAM_BOT_TOKEN`                                                                              | [@BotFather](https://t.me/BotFather) on Telegram |                                                                                                                                                |
+| `TELEGRAM_CHANNEL_ID`                                                                             | Your Telegram channel                            |                                                                                                                                                |
+| `TWITTER_API_KEY` / `TWITTER_API_SECRET` / `TWITTER_ACCESS_TOKEN` / `TWITTER_ACCESS_TOKEN_SECRET` | Twitter/X Developer Portal                       | All four are needed together for the Twitter bot to function.                                                                                  |
 
 Each bot fails independently (`Promise.allSettled`) — missing credentials
 for one platform never block the others or the pipeline run.
 
 ### Optional — GitHub README auto-commit
 
-| Variable | Where to get it | Notes |
-| --- | --- | --- |
+| Variable       | Where to get it                                                                                                       | Notes                                                                                                                                                                                                                                                                    |
+| -------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `GITHUB_TOKEN` | A GitHub [fine-grained personal access token](https://github.com/settings/tokens) with `contents: write` on this repo | Used by `ReadmeUpdater` to commit `README.md` changes straight to GitHub via the Octokit REST API when the pipeline changes data. Without it, that stage will fail (non-fatally — see the pipeline's per-stage error wrapping) and `README.md` simply won't auto-update. |
 
 ### Optional — error tracking
 
-| Variable | Where to get it | Notes |
-| --- | --- | --- |
-| `SENTRY_DSN` | [sentry.io](https://sentry.io) free tier, server/edge DSN | Sentry is fully disabled (no-op) when absent. Error capture only — no session replay, analytics, performance tracing, or default PII, per `CLAUDE.md`. |
-| `NEXT_PUBLIC_SENTRY_DSN` | Same Sentry project, browser DSN | Public by design (client-side error capture). |
+| Variable                 | Where to get it                                           | Notes                                                                                                                                                  |
+| ------------------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SENTRY_DSN`             | [sentry.io](https://sentry.io) free tier, server/edge DSN | Sentry is fully disabled (no-op) when absent. Error capture only — no session replay, analytics, performance tracing, or default PII, per `CLAUDE.md`. |
+| `NEXT_PUBLIC_SENTRY_DSN` | Same Sentry project, browser DSN                          | Public by design (client-side error capture).                                                                                                          |
 
 ---
 
@@ -255,7 +255,7 @@ deployment, not localhost:
    (`https://hacktrack-eu.vercel.app/api/update`), not the `APP_URL`
    repository variable that `CLAUDE.md` describes it as using and that
    `uptime.yml` (below) actually does use. If you're deploying to a
-   *different* Vercel domain (a fork, a renamed project, or before a custom
+   _different_ Vercel domain (a fork, a renamed project, or before a custom
    domain is attached), **you must edit the hardcoded URL in
    `.github/workflows/update.yml` to your real deployment URL** — the
    workflow will otherwise silently keep hitting the old project's domain
@@ -307,10 +307,10 @@ the deployment done:
 - [ ] **Manually trigger `/api/update` once** to populate real data and
       confirm the pipeline works end-to-end against the hosted Supabase
       project:
-      ```bash
-      curl -X POST https://<your-domain>/api/update \
-        -H "Authorization: Bearer $CRON_SECRET"
-      ```
+      `bash
+    curl -X POST https://<your-domain>/api/update \
+      -H "Authorization: Bearer $CRON_SECRET"
+    `
       Check the JSON response body for per-source `status`, `insertedCount`,
       any `updateErrors`, and the top-level `degraded` flag — per
       `CLAUDE.md`, the route always returns a detailed diagnostic body
@@ -333,7 +333,7 @@ the deployment done:
 - [ ] **Admin sign-in works, if you set it up.** Since `/admin` is
       unreachable on the Vercel deployment itself by design (`NODE_ENV`
       gate — see step 1.3), test this locally: run `npm run dev` against
-      your `.env.local` pointed at the *hosted* Supabase project's
+      your `.env.local` pointed at the _hosted_ Supabase project's
       credentials, visit `http://localhost:3000/admin`, and confirm Google
       sign-in with your `ADMIN_ALLOWED_EMAIL` account works end-to-end (this
       is the "not verified by the agent that built this" step called out in

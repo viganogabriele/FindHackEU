@@ -119,7 +119,7 @@ export function FiltersPanel({
     Number(Boolean(filters.radius)) +
     filters.topics.length +
     Number(Boolean(filters.dateRange?.from || filters.dateRange?.to)) +
-    Number(filters.includeNonEnglish) +
+    Number(!filters.includeNonEnglish) +
     Number(!filters.includeOnline) +
     Number(filters.showBookmarked);
 
@@ -222,14 +222,12 @@ export function FiltersPanel({
           },
         ]
       : []),
-    ...(filters.includeNonEnglish
+    ...(!filters.includeNonEnglish
       ? [
           {
             id: "language",
-            label: t("filters.includeOtherLanguages", {
-              language: languageName,
-            }),
-            onRemove: () => updateFilter("includeNonEnglish", false),
+            label: t("filters.nonEnglishHidden"),
+            onRemove: () => updateFilter("includeNonEnglish", true),
           },
         ]
       : []),
