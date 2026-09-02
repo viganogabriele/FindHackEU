@@ -509,8 +509,8 @@ export default function DocsPage() {
                 <Send className="h-6 w-6 mb-3" />
                 <h3 className="font-semibold mb-2">Email the Maintainer</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  FindHackEU is maintained by Gabriele Viganò &mdash; reach
-                  out for anything else
+                  FindHackEU is maintained by Gabriele Viganò &mdash; reach out
+                  for anything else
                 </p>
                 <Button asChild variant="outline" size="sm">
                   <Link href="mailto:info@viganogabriele.com">
@@ -590,9 +590,8 @@ export default function DocsPage() {
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   FindHackEU is maintained by Gabriele Viganò. It&apos;s an
-                  independent, MIT-licensed project,
-                  originally inspired by and born from HackTrack EU by Lorenzo
-                  Palaia.
+                  independent, MIT-licensed project, originally inspired by and
+                  born from HackTrack EU by Lorenzo Palaia.
                 </p>
               </div>
             </div>
