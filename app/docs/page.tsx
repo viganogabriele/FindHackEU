@@ -8,16 +8,18 @@ import {
   BookOpen,
   Code,
   Database,
-  Bot,
+  Map,
   Search,
   Calendar,
   ExternalLink,
+  Heart,
+  Send,
 } from "lucide-react";
-import { FaDiscord, FaTelegram, FaXTwitter, FaGithub } from "react-icons/fa6";
+import { FaGithub } from "react-icons/fa6";
 
 export const metadata = {
-  title: "Documentation - HackTrack EU",
-  description: "Complete documentation for HackTrack EU platform and API",
+  title: "Documentation - FindHackEU",
+  description: "Complete documentation for FindHackEU platform and API",
 };
 
 export default function DocsPage() {
@@ -39,7 +41,7 @@ export default function DocsPage() {
             <h1 className="mb-0 text-3xl font-bold">Documentation</h1>
           </div>
           <p className="text-muted-foreground mb-6">
-            Complete guide to using HackTrack EU platform, API, and services
+            Complete guide to using the FindHackEU platform, API, and services
           </p>
 
           <Separator className="my-6" />
@@ -60,10 +62,10 @@ export default function DocsPage() {
               </p>
             </Card>
             <Card className="gap-0 rounded-lg p-4 shadow-none">
-              <Bot className="h-6 w-6 text-primary mb-2" />
-              <h3 className="font-semibold mb-2">Notifications</h3>
+              <Map className="h-6 w-6 text-primary mb-2" />
+              <h3 className="font-semibold mb-2">Interactive Map</h3>
               <p className="text-sm text-muted-foreground">
-                Get notified of new hackathons via Discord, Telegram, Twitter
+                Explore hackathons on a map with location-based clustering
               </p>
             </Card>
           </div>
@@ -74,25 +76,33 @@ export default function DocsPage() {
               Getting Started
             </h2>
             <p>
-              HackTrack EU is a comprehensive platform for discovering
-              hackathons across Europe. Our system automatically scans and
-              aggregates hackathon information, providing you with the most
-              up-to-date listings.
+              FindHackEU is a comprehensive platform for discovering hackathons
+              across Europe. Our system automatically scans and aggregates
+              hackathon information, providing you with the most up-to-date
+              listings.
             </p>
 
             <h3 className="mb-2 mt-6 text-xl font-medium">Key Features</h3>
             <ul className="space-y-2">
               <li>
                 🔄 <strong>Automated Updates:</strong> New hackathons discovered
-                3-4 times daily
+                daily
               </li>
               <li>
-                🔍 <strong>Advanced Filtering:</strong> Search by location,
-                topics, dates, and status
+                🔍 <strong>Advanced Filtering:</strong> Search by location
+                (including a radius search), topics, dates, and status
               </li>
               <li>
-                🤖 <strong>Real-time Notifications:</strong> Discord, Telegram,
-                and Twitter bots
+                🗺️ <strong>Interactive Map:</strong> Browse hackathons visually
+                with clustering
+              </li>
+              <li>
+                ❤️ <strong>Bookmarks:</strong> Save your favorite hackathons
+                locally in your browser
+              </li>
+              <li>
+                📮 <strong>Community Submissions:</strong> Suggest a hackathon
+                that&apos;s missing through our public submission form
               </li>
               <li>
                 📊 <strong>RESTful API:</strong> Access data programmatically
@@ -111,7 +121,7 @@ export default function DocsPage() {
             </h2>
 
             <p>
-              HackTrack EU supports multiple interface languages. The main
+              FindHackEU supports multiple interface languages. The main
               application UI loads translations from the <code>i18n/</code>
               directory; documentation pages are currently kept in English.
             </p>
@@ -193,7 +203,8 @@ export default function DocsPage() {
               <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <h4 className="font-semibold mb-2">Location</h4>
                 <p className="text-sm text-muted-foreground">
-                  Filter by specific cities or countries
+                  Filter by specific cities, countries, or a distance radius
+                  from a place you choose
                 </p>
               </Card>
               <Card className="gap-0 rounded-lg p-4 shadow-none">
@@ -223,8 +234,12 @@ export default function DocsPage() {
 
             <h3 className="mb-2 mt-6 text-xl font-medium">Base URL</h3>
             <div className="bg-muted rounded-lg p-4 font-mono text-sm">
-              https://hacktrack-eu.vercel.app/api
+              https://your-findhackeu-deployment.example/api
             </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Replace the host above with wherever FindHackEU is deployed (for
+              example, your Vercel deployment URL).
+            </p>
 
             <h3 className="mb-2 mt-6 text-xl font-medium">Endpoints</h3>
 
@@ -338,82 +353,40 @@ export default function DocsPage() {
 
           <section className="mb-8">
             <h2 className="mb-4 flex items-center gap-2 text-2xl font-semibold">
-              <Bot className="h-6 w-6" />
-              Notification Services
+              <Heart className="h-6 w-6" />
+              Bookmarks &amp; Submitting Hackathons
             </h2>
             <p>
-              Stay updated with new hackathons through our automated
-              notification services. We support multiple platforms to reach you
-              wherever you are.
+              Two lightweight ways to make the platform your own, no account
+              required.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 not-prose">
-              <Card className="gap-0 rounded-lg p-6 text-center shadow-none">
-                <FaDiscord className="h-8 w-8 text-[#5865F2] mx-auto mb-3" />
-                <h3 className="font-semibold mb-2">Discord Bot</h3>
-                <p className="text-sm text-muted-foreground mb-4 flex-grow">
-                  Join our Discord server for real-time hackathon notifications
-                  with rich embeds
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 not-prose">
+              <Card className="gap-0 rounded-lg p-6 shadow-none">
+                <Heart className="h-6 w-6 text-primary mb-3" />
+                <h3 className="font-semibold mb-2">Bookmarks</h3>
+                <p className="text-sm text-muted-foreground">
+                  Tap the heart icon on any hackathon card to save it. Bookmarks
+                  are stored only in your browser&apos;s local storage &mdash;
+                  they never leave your device &mdash; and you can filter the
+                  listing to show only your favorites.
                 </p>
-                <Button asChild size="sm" className="w-full">
-                  <Link
-                    href="https://discord.com/invite/SmygTckVez"
-                    target="_blank"
-                  >
-                    Join Server <ExternalLink className="ml-1 h-3 w-3" />
-                  </Link>
-                </Button>
               </Card>
-
-              <Card className="gap-0 rounded-lg p-6 text-center shadow-none">
-                <FaTelegram className="h-8 w-8 text-[#0088cc] mx-auto mb-3" />
-                <h3 className="font-semibold mb-2">Telegram Channel</h3>
-                <p className="text-sm text-muted-foreground mb-4 flex-grow">
-                  Follow our Telegram channel for mobile-friendly notifications
+              <Card className="gap-0 rounded-lg p-6 shadow-none">
+                <Send className="h-6 w-6 text-primary mb-3" />
+                <h3 className="font-semibold mb-2">Submit a Hackathon</h3>
+                <p className="text-sm text-muted-foreground">
+                  Missing an event? Use the submission form (in the site footer)
+                  to suggest a URL. Every submission is reviewed by a maintainer
+                  before it appears in the public listing.
                 </p>
-                <Button asChild size="sm" className="w-full">
-                  <Link href="https://t.me/hacktrackeu" target="_blank">
-                    Join Channel <ExternalLink className="ml-1 h-3 w-3" />
-                  </Link>
-                </Button>
-              </Card>
-
-              <Card className="gap-0 rounded-lg p-6 text-center shadow-none">
-                <FaXTwitter className="h-8 w-8 text-foreground mx-auto mb-3" />
-                <h3 className="font-semibold mb-2">Twitter Updates</h3>
-                <p className="text-sm text-muted-foreground mb-4 flex-grow">
-                  Follow us on Twitter for hackathon announcements and updates
-                </p>
-                <Button asChild size="sm" className="w-full">
-                  <Link href="https://x.com/hacktrackeu" target="_blank">
-                    Follow @HackTrackEU{" "}
-                    <ExternalLink className="ml-1 h-3 w-3" />
-                  </Link>
-                </Button>
               </Card>
             </div>
 
-            <h3 className="mb-2 mt-6 text-xl font-medium">
-              Notification Features
-            </h3>
-            <ul className="space-y-2">
-              <li>
-                ⚡ <strong>Real-time alerts:</strong> Get notified within
-                minutes of discovery
-              </li>
-              <li>
-                📋 <strong>Rich information:</strong> Complete event details in
-                notifications
-              </li>
-              <li>
-                🏷️ <strong>Topic filtering:</strong> Discord server supports
-                topic-based channels
-              </li>
-              <li>
-                🔗 <strong>Direct links:</strong> One-click access to
-                registration pages
-              </li>
-            </ul>
+            <p className="mt-4 text-sm text-muted-foreground">
+              Note: Discord, Telegram, and X (Twitter) notification channels are
+              not currently active. They may return in the future.
+            </p>
           </section>
 
           <section className="mb-8">
@@ -422,7 +395,7 @@ export default function DocsPage() {
               Technical Architecture
             </h2>
             <p>
-              HackTrack EU is built with modern technologies to ensure
+              FindHackEU is built with modern technologies to ensure
               reliability, performance, and scalability.
             </p>
 
@@ -431,7 +404,7 @@ export default function DocsPage() {
               <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <h4 className="font-semibold mb-2">Frontend</h4>
                 <ul className="text-sm space-y-1">
-                  <li>Next.js 15 with App Router</li>
+                  <li>Next.js 16 with App Router</li>
                   <li>TypeScript</li>
                   <li>Tailwind CSS</li>
                   <li>shadcn/ui components</li>
@@ -441,7 +414,7 @@ export default function DocsPage() {
                 <h4 className="font-semibold mb-2">Backend</h4>
                 <ul className="text-sm space-y-1">
                   <li>Next.js API Routes</li>
-                  <li>Supabase (Postgr</li>
+                  <li>Supabase (PostgreSQL)</li>
                   <li>Row Level Security</li>
                 </ul>
               </Card>
@@ -451,31 +424,22 @@ export default function DocsPage() {
                   <li>Vercel deployment</li>
                   <li>GitHub Actions CI/CD</li>
                   <li>Cron job automation</li>
-                  <li>Multiple bot integrations</li>
                 </ul>
               </Card>
             </div>
 
             <h3 className="mb-2 mt-6 text-xl font-medium">Update Frequency</h3>
             <p>
-              Our automated system runs multiple times daily to ensure fresh
-              data:
+              Our automated pipeline runs once daily via a scheduled cron job to
+              discover new hackathons and keep listings up to date.
             </p>
-            <ul className="mt-2 space-y-1 list-disc pl-5">
-              <li>
-                <strong>Weekdays:</strong> 4 times daily
-              </li>
-              <li>
-                <strong>Weekends:</strong> 3 times daily
-              </li>
-            </ul>
           </section>
 
           <section className="mb-8">
             <h2 className="mb-4 text-2xl font-semibold">Contributing</h2>
             <p>
-              HackTrack EU is an open-source project and we welcome
-              contributions from the community!
+              FindHackEU is an open-source project and we welcome contributions
+              from the community!
             </p>
 
             <h3 className="mb-2 mt-6 text-xl font-medium">How to Contribute</h3>
@@ -484,7 +448,7 @@ export default function DocsPage() {
                 <strong>Report Issues:</strong> Found a bug or missing
                 hackathon?{" "}
                 <Link
-                  href="https://github.com/lorenzopalaia/hacktrack-eu/issues"
+                  href="https://github.com/viganogabriele/FindHackEU/issues"
                   className="text-primary hover:underline"
                 >
                   Open an issue
@@ -504,7 +468,7 @@ export default function DocsPage() {
             <div className="bg-muted rounded-lg p-4 font-mono text-sm space-y-2">
               <div># Clone the repository</div>
               <div>
-                git clone https://github.com/lorenzopalaia/hacktrack-eu.git
+                git clone https://github.com/viganogabriele/FindHackEU.git
               </div>
               <div></div>
               <div># Install dependencies</div>
@@ -520,10 +484,7 @@ export default function DocsPage() {
 
           <section className="mb-8">
             <h2 className="mb-4 text-2xl font-semibold">Support & Community</h2>
-            <p>
-              Need help or have questions? Here&qpos;s how to get in touch with
-              our community:
-            </p>
+            <p>Need help or have questions? Here&apos;s how to get in touch:</p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 not-prose">
               <Card className="gap-0 rounded-lg p-6 shadow-none">
@@ -535,7 +496,7 @@ export default function DocsPage() {
                 </p>
                 <Button asChild variant="outline" size="sm">
                   <Link
-                    href="https://github.com/lorenzopalaia/hacktrack-eu/issues"
+                    href="https://github.com/viganogabriele/FindHackEU/issues"
                     target="_blank"
                   >
                     Open Issue <ExternalLink className="ml-1 h-3 w-3" />
@@ -544,22 +505,24 @@ export default function DocsPage() {
               </Card>
 
               <Card className="gap-0 rounded-lg p-6 shadow-none">
-                <FaDiscord className="h-6 w-6 text-[#5865F2] mb-3" />
-                <h3 className="font-semibold mb-2">Discord Community</h3>
+                <Send className="h-6 w-6 mb-3" />
+                <h3 className="font-semibold mb-2">Email the Maintainer</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Join our community for general discussions and real-time
-                  support
+                  FindHackEU is maintained by Gabriele Viganò (Politecnico di
+                  Milano) &mdash; reach out for anything else
                 </p>
                 <Button asChild variant="outline" size="sm">
-                  <Link
-                    href="https://discord.com/invite/SmygTckVez"
-                    target="_blank"
-                  >
-                    Join Discord <ExternalLink className="ml-1 h-3 w-3" />
+                  <Link href="mailto:info@viganogabriele.com">
+                    info@viganogabriele.com
                   </Link>
                 </Button>
               </Card>
             </div>
+
+            <p className="mt-4 text-sm text-muted-foreground">
+              Discord, Telegram, and X (Twitter) channels are not currently
+              active. They may return in the future.
+            </p>
           </section>
 
           <section className="mb-8">
@@ -573,9 +536,7 @@ export default function DocsPage() {
                   How often is the data updated?
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Our automated system scans for new hackathons 3-4 times daily.
-                  The exact schedule varies between weekdays and weekends to
-                  optimize for when new events are typically announced.
+                  Our automated pipeline scans for new hackathons once daily.
                 </p>
               </div>
 
@@ -584,9 +545,10 @@ export default function DocsPage() {
                   Can I submit a hackathon that&apos;s missing?
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Yes! Please open an issue on our GitHub repository with the
-                  hackathon details, and we&apos;ll add it manually to our
-                  database.
+                  Yes! Use the submission form in the site footer, or open an
+                  issue on our GitHub repository with the hackathon details.
+                  Every submission is reviewed by a maintainer before it goes
+                  live.
                 </p>
               </div>
 
@@ -616,8 +578,20 @@ export default function DocsPage() {
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   Yes! Our API is designed for this purpose. Please respect our
-                  rate limits and consider mentioning HackTrack EU as your data
+                  rate limits and consider mentioning FindHackEU as your data
                   source.
+                </p>
+              </div>
+
+              <div className="border-l-4 border-primary pl-4">
+                <h3 className="font-semibold mb-2">
+                  Who maintains FindHackEU?
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  FindHackEU is maintained by Gabriele Viganò (Politecnico di
+                  Milano). It&apos;s an independent, MIT-licensed project,
+                  originally inspired by and born from HackTrack EU by Lorenzo
+                  Palaia.
                 </p>
               </div>
             </div>
@@ -626,8 +600,7 @@ export default function DocsPage() {
           <div className="border-t pt-6 text-center text-muted-foreground">
             <p>
               For additional questions or support, don&apos;t hesitate to reach
-              out through any of our community channels. We&apos;re here to
-              help! 🚀
+              out via GitHub or email. We&apos;re here to help! 🚀
             </p>
           </div>
         </div>

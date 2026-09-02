@@ -4,8 +4,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 export const metadata = {
-  title: "Terms of Service - HackTrack EU",
-  description: "Terms of Service for HackTrack EU platform",
+  title: "Terms of Service - FindHackEU",
+  description: "Terms of Service for FindHackEU platform",
 };
 
 export default function TermsPage() {
@@ -39,7 +39,7 @@ export default function TermsPage() {
               1. Acceptance of Terms
             </h2>
             <p>
-              By accessing and using HackTrack EU (&quot;the Service&quot;), you
+              By accessing and using FindHackEU (&quot;the Service&quot;), you
               accept and agree to be bound by the terms and provision of this
               agreement. If you do not agree to abide by the above, please do
               not use this service.
@@ -51,26 +51,29 @@ export default function TermsPage() {
               2. Description of Service
             </h2>
             <p>
-              HackTrack EU is a free platform that aggregates and displays
+              FindHackEU is a free platform that aggregates and displays
               information about hackathons happening across Europe. We provide:
             </p>
             <ul className="mt-2 space-y-1 list-disc pl-5">
               <li>Listing of European hackathons</li>
-              <li>
-                Real-time notifications through Discord, Telegram, and Twitter
-              </li>
-              <li>Advanced filtering and search capabilities</li>
+              <li>An interactive map and advanced filtering and search</li>
+              <li>Bookmarks, saved locally in your browser</li>
+              <li>A public form to submit hackathons that are missing</li>
               <li>RESTful API access to hackathon data</li>
             </ul>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Discord, Telegram, and X (Twitter) notification channels are not
+              currently active; they may return in the future.
+            </p>
           </section>
 
           <section className="mb-8">
             <h2 className="mb-4 text-2xl font-semibold">3. Use License</h2>
             <p>
-              Permission is granted to temporarily access and use Euro
-              Hackathons for personal, non-commercial transitory viewing only.
-              This is the grant of a license, not a transfer of title, and under
-              this license you may not:
+              Permission is granted to temporarily access and use FindHackEU for
+              personal, non-commercial transitory viewing only. This is the
+              grant of a license, not a transfer of title, and under this
+              license you may not:
             </p>
             <ul className="mt-2 space-y-1 list-disc pl-5">
               <li>Modify or copy the materials</li>
@@ -114,11 +117,11 @@ export default function TermsPage() {
               5. API Access and Usage
             </h2>
             <p>
-              HackTrack EU may provide you with access to the Application
+              FindHackEU may provide you with access to the Application
               Programming Interface (&quot;API&quot;) to enable you to access
               certain data and functionality of the Service. Your use of the API
               is subject to these Terms and any additional terms and conditions
-              provided by HackTrack EU.
+              provided by FindHackEU.
             </p>
             <p>
               You agree to use the API only for purposes that are permitted by
@@ -126,45 +129,42 @@ export default function TermsPage() {
               accepted practices or guidelines in the relevant jurisdictions.
             </p>
             <p>
-              HackTrack EU reserves the right to suspend or terminate your
-              access to the API at any time, with or without cause, and with or
-              without notice.
+              FindHackEU reserves the right to suspend or terminate your access
+              to the API at any time, with or without cause, and with or without
+              notice.
             </p>
             <p>
               You are responsible for maintaining the confidentiality of your
               API key and for all activities that occur under your API key. You
-              agree to notify HackTrack EU immediately of any unauthorized use
-              of your API key or any other breach of security.
+              agree to notify FindHackEU immediately of any unauthorized use of
+              your API key or any other breach of security.
             </p>
             <p>
-              HackTrack EU may impose limitations on the use of the API,
-              including but not limited to the frequency and volume of requests,
-              and the amount of data accessed or retrieved. These limitations
-              may be updated from time to time at HackTrack EU&apos; sole
-              discretion.
+              FindHackEU may impose limitations on the use of the API, including
+              but not limited to the frequency and volume of requests, and the
+              amount of data accessed or retrieved. These limitations may be
+              updated from time to time at FindHackEU&apos;s sole discretion.
             </p>
           </section>
 
           <section className="mb-8">
             <h2 className="mb-4 text-2xl font-semibold">What&apos;s New</h2>
             <p>
-              Recent updates include expanded filtering options, a theme
-              management system (with presets and light/dark mode stored in
-              localStorage), and a revamped scheduling pipeline for the data
-              ingestion jobs which now runs multiple times per day with
-              staggered cron windows to reduce load. The API rate limits have
-              also been clarified in the API section.
+              The site now includes an interactive map, bookmarks saved locally
+              in your browser, and a public form to submit hackathons that are
+              missing from our listings. Hackathon data is refreshed by an
+              automated pipeline that runs on a daily schedule.
             </p>
           </section>
 
           <section className="mb-8">
             <h2 className="mb-4 text-2xl font-semibold">6. Changes to Terms</h2>
             <p>
-              HackTrack EU reserves the right, at its sole discretion, to modify
+              FindHackEU reserves the right, at its sole discretion, to modify
               or replace these Terms at any time. If the alteration is material,
-              HackTrack EU will provide notice via the Service or by some other
+              FindHackEU will provide notice via the Service or by some other
               means. What constitutes a &quot;material&quot; change will be
-              determined at HackTrack EU&apos; sole discretion.
+              determined at FindHackEU&apos;s sole discretion.
             </p>
             <p>
               By continuing to access or use the Service after revisions become
@@ -178,28 +178,45 @@ export default function TermsPage() {
             <h2 className="mb-4 text-2xl font-semibold">7. Governing Law</h2>
             <p>
               These Terms shall be governed by and construed in accordance with
-              the laws of the jurisdiction in which HackTrack EU is established,
+              the laws of the jurisdiction in which FindHackEU is established,
               without regard to its conflict of law principles.
             </p>
             <p>
               Any legal action or proceeding arising out of or relating to these
               Terms or the Service shall be brought exclusively in the courts
-              located in the jurisdiction in which HackTrack EU is established,
+              located in the jurisdiction in which FindHackEU is established,
               and you consent to the jurisdiction of such courts.
             </p>
           </section>
 
           <section className="mb-8">
+            <h2 className="mb-4 text-2xl font-semibold">8. Maintainer</h2>
+            <p>
+              FindHackEU is maintained by Gabriele Viganò (Politecnico di
+              Milano). Originally inspired by and born from HackTrack EU by
+              Lorenzo Palaia, it is now an independent, MIT-licensed project
+              with its own infrastructure and development direction.
+            </p>
+          </section>
+
+          <section className="mb-8">
             <h2 className="mb-4 text-2xl font-semibold">
-              8. Contact Information
+              9. Contact Information
             </h2>
             <p>
               For any questions about these Terms, please contact us at{" "}
               <Link
-                href="https://discord.com/invite/SmygTckVez"
+                href="mailto:info@viganogabriele.com"
                 className="text-primary hover:underline"
               >
-                Discord server
+                info@viganogabriele.com
+              </Link>{" "}
+              or open an issue on{" "}
+              <Link
+                href="https://github.com/viganogabriele/FindHackEU"
+                className="text-primary hover:underline"
+              >
+                GitHub
               </Link>
               .
             </p>
