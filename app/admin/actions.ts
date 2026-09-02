@@ -17,7 +17,16 @@ import {
   moveCandidateToPending,
   type MoveCandidateToPendingResult,
 } from "@/lib/services/candidate-moderation";
-import { requireAdminAuth } from "@/lib/services/require-admin-auth";
+import {
+  requireAdminAuth,
+  getAdminAuthStatus,
+} from "@/lib/services/require-admin-auth";
+import {
+  addAdminUser,
+  removeAdminUser,
+  type AddAdminResult,
+  type RemoveAdminResult,
+} from "@/lib/services/admin-users";
 import { supabaseAdmin } from "@/lib/supabase";
 
 /**
@@ -156,6 +165,60 @@ export async function submitManualCandidateFormAction(
   });
 
   if (result.outcome === "created") {
+    revalidatePath("/admin");
+  }
+
+  return result;
+}
+
+/**
+ * Adds a new admin to the `admin_users` table (issue #18) - the "Manage
+ * admins" tab's Add form. Any currently-authorized admin can add another
+ * (there is no separate "super-admin" tier - the `ADMIN_ALLOWED_EMAIL`
+ * fallback account is what's structurally protected, not a role
+ * distinction between admins). `added_by` is the acting admin's own email,
+ * read fresh from the current session rather than trusted from the form,
+ * so it can't be spoofed by a client-controlled field.
+ */
+export async function addAdminFormAction(
+  _prevState: AddAdminResult | null,
+  formData: FormData,
+): Promise<AddAdminResult> {
+  await assertAuthorized();
+
+  const { email: actingAdminEmail } = await getAdminAuthStatus();
+
+  const result = await addAdminUser(
+    supabaseAdmin,
+    String(formData.get("email") ?? ""),
+    actingAdminEmail,
+  );
+
+  if (result.outcome === "added") {
+    revalidatePath("/admin");
+  }
+
+  return result;
+}
+
+/**
+ * Removes an admin from the `admin_users` table (issue #18). Self-removal
+ * is blocked inside `removeAdminUser` itself (not just in the UI) - see its
+ * doc comment in lib/services/admin-users.ts for why. The acting admin's
+ * email is read fresh from the current session, same as
+ * `addAdminFormAction`, so the self-removal check can't be bypassed by a
+ * spoofed form field.
+ */
+export async function removeAdminAction(
+  email: string,
+): Promise<RemoveAdminResult> {
+  await assertAuthorized();
+
+  const { email: actingAdminEmail } = await getAdminAuthStatus();
+
+  const result = await removeAdminUser(supabaseAdmin, email, actingAdminEmail);
+
+  if (result.outcome === "removed") {
     revalidatePath("/admin");
   }
 

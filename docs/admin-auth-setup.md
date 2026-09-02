@@ -58,10 +58,19 @@ GOOGLE_CLIENT_SECRET=<the client secret from step 1>
 ADMIN_ALLOWED_EMAIL=<your own Google account email>
 ```
 
-`ADMIN_ALLOWED_EMAIL` is the only account allowed into any admin page -
-this is a single-maintainer project, not a multi-user allowlist. If this
-variable is unset, both pages and their server actions deny everyone
-(fail closed), not allow everyone.
+`ADMIN_ALLOWED_EMAIL` is a **guaranteed fallback** admin account (issue #18)
+
+- not the only admin anymore. Day-to-day admin management now happens from
+  inside `/admin`'s "Manage admins" tab, backed by the `admin_users` Supabase
+  table: any authorized admin can add or remove other Google accounts there,
+  with no env var edits or redeploys needed. `ADMIN_ALLOWED_EMAIL` still
+  always works regardless of what's in that table (even if the table is
+  empty, unreachable, or this email was never added to / was removed from
+  it) - this is what guarantees a fresh deploy always has one working way in,
+  and that the maintainer can never accidentally lock themselves out by
+  mismanaging the table. If this variable is unset AND the `admin_users`
+  table is empty/unreachable, admin pages and their server actions deny
+  everyone (fail closed), not allow everyone.
 
 ## 3. Restart local Supabase
 

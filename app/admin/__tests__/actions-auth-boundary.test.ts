@@ -2,17 +2,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   requireAdminAuth: vi.fn(),
+  getAdminAuthStatus: vi.fn(),
   promoteCandidate: vi.fn(),
   rejectCandidate: vi.fn(),
   moveCandidateToPending: vi.fn(),
   submitManualCandidate: vi.fn(),
   editHackathon: vi.fn(),
+  addAdminUser: vi.fn(),
+  removeAdminUser: vi.fn(),
   revalidatePath: vi.fn(),
   from: vi.fn(),
 }));
 
 vi.mock("@/lib/services/require-admin-auth", () => ({
   requireAdminAuth: mocks.requireAdminAuth,
+  getAdminAuthStatus: mocks.getAdminAuthStatus,
+}));
+vi.mock("@/lib/services/admin-users", () => ({
+  addAdminUser: mocks.addAdminUser,
+  removeAdminUser: mocks.removeAdminUser,
 }));
 vi.mock("@/lib/services/promote-candidate", () => ({
   promoteCandidate: mocks.promoteCandidate,
@@ -38,6 +46,8 @@ import {
   rejectCandidateAction,
   moveCandidateToPendingAction,
   submitManualCandidateFormAction,
+  addAdminFormAction,
+  removeAdminAction,
 } from "../actions";
 import {
   deleteHackathonAction,
@@ -80,6 +90,19 @@ const protectedActions = [
     "setHackathonModerationStateAction",
     () => setHackathonModerationStateAction("hackathon-id", "pending"),
   ],
+  // Issue #18: the new Manage Admins actions must re-check auth themselves
+  // too, same as every other action here - a signed-out (or unauthorized)
+  // caller must never be able to add or remove an admin by calling the
+  // server action directly.
+  [
+    "addAdminFormAction",
+    () => {
+      const formData = new FormData();
+      formData.set("email", "new-admin@example.com");
+      return addAdminFormAction(null, formData);
+    },
+  ],
+  ["removeAdminAction", () => removeAdminAction("someone@example.com")],
 ] as const;
 
 describe("admin server actions", () => {
@@ -100,6 +123,8 @@ describe("admin server actions", () => {
       expect(mocks.rejectCandidate).not.toHaveBeenCalled();
       expect(mocks.submitManualCandidate).not.toHaveBeenCalled();
       expect(mocks.editHackathon).not.toHaveBeenCalled();
+      expect(mocks.addAdminUser).not.toHaveBeenCalled();
+      expect(mocks.removeAdminUser).not.toHaveBeenCalled();
       expect(mocks.from).not.toHaveBeenCalled();
       expect(mocks.revalidatePath).not.toHaveBeenCalled();
     },
@@ -152,6 +177,87 @@ describe("admin server actions", () => {
     );
 
     expect(result).toEqual({ outcome: "invalid", message: "Invalid date." });
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("adds an admin using the acting admin's own session email, not a client-supplied field", async () => {
+    mocks.requireAdminAuth.mockResolvedValue(undefined);
+    mocks.getAdminAuthStatus.mockResolvedValue({
+      authorized: true,
+      email: "maintainer@example.com",
+    });
+    mocks.addAdminUser.mockResolvedValue({ outcome: "added" });
+
+    const formData = new FormData();
+    formData.set("email", "new-admin@example.com");
+
+    const result = await addAdminFormAction(null, formData);
+
+    expect(result).toEqual({ outcome: "added" });
+    expect(mocks.addAdminUser).toHaveBeenCalledWith(
+      expect.anything(),
+      "new-admin@example.com",
+      "maintainer@example.com",
+    );
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin");
+  });
+
+  it("does not revalidate when adding an admin fails validation", async () => {
+    mocks.requireAdminAuth.mockResolvedValue(undefined);
+    mocks.getAdminAuthStatus.mockResolvedValue({
+      authorized: true,
+      email: "maintainer@example.com",
+    });
+    mocks.addAdminUser.mockResolvedValue({
+      outcome: "invalid",
+      message: "Enter a valid email address.",
+    });
+
+    const formData = new FormData();
+    formData.set("email", "not-an-email");
+
+    const result = await addAdminFormAction(null, formData);
+
+    expect(result).toEqual({
+      outcome: "invalid",
+      message: "Enter a valid email address.",
+    });
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("removes an admin using the acting admin's own session email for the self-removal check", async () => {
+    mocks.requireAdminAuth.mockResolvedValue(undefined);
+    mocks.getAdminAuthStatus.mockResolvedValue({
+      authorized: true,
+      email: "maintainer@example.com",
+    });
+    mocks.removeAdminUser.mockResolvedValue({ outcome: "removed" });
+
+    const result = await removeAdminAction("teammate@example.com");
+
+    expect(result).toEqual({ outcome: "removed" });
+    expect(mocks.removeAdminUser).toHaveBeenCalledWith(
+      expect.anything(),
+      "teammate@example.com",
+      "maintainer@example.com",
+    );
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin");
+  });
+
+  it("does not revalidate when a removal is blocked as self-removal", async () => {
+    mocks.requireAdminAuth.mockResolvedValue(undefined);
+    mocks.getAdminAuthStatus.mockResolvedValue({
+      authorized: true,
+      email: "maintainer@example.com",
+    });
+    mocks.removeAdminUser.mockResolvedValue({
+      outcome: "self_removal_blocked",
+      message: "You can't remove your own admin access.",
+    });
+
+    const result = await removeAdminAction("maintainer@example.com");
+
+    expect(result.outcome).toBe("self_removal_blocked");
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });
 });
