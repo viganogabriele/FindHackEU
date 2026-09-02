@@ -1,3 +1,4 @@
+import { decode } from "he";
 import { fetchPublicUrl } from "@/lib/http/fetch-public-url";
 
 export interface EventEvidence {
@@ -77,6 +78,17 @@ function readNonEmptyString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+/**
+ * Decodes HTML entities (named like `&amp;`/`&quot;`/`&#x27;`, and numeric
+ * decimal/hex forms) in extracted title/name text (issue #12). Without
+ * this, an apostrophe/ampersand/quote in a page's `og:title`, JSON-LD
+ * `name`, or bare `<title>` survives into `hackathon_candidates` as the
+ * raw escaped entity instead of the actual character.
+ */
+function decodeEntities(text: string): string {
+  return decode(text);
+}
+
 function parseValidDate(value: unknown): Date | undefined {
   const text = readNonEmptyString(value);
   if (!text) return undefined;
@@ -99,7 +111,8 @@ function extractJsonLdEvent(html: string): RawEvidence | null {
     }
 
     const event = findEventNode(parsed);
-    const name = readNonEmptyString(event?.name);
+    const rawName = readNonEmptyString(event?.name);
+    const name = rawName ? decodeEntities(rawName) : undefined;
     const dateStart = parseValidDate(event?.startDate);
     if (!event || !name || !dateStart) {
       continue;
@@ -167,12 +180,15 @@ function extractMetaContent(
 }
 
 function extractOgMeta(html: string): RawEvidence | null {
-  const name = extractMetaContent(html, "og:title");
-  const description = extractMetaContent(html, "og:description");
+  const rawName = extractMetaContent(html, "og:title");
+  const rawDescription = extractMetaContent(html, "og:description");
 
-  if (!name) {
+  if (!rawName) {
     return null;
   }
+
+  const name = decodeEntities(rawName);
+  const description = rawDescription ? decodeEntities(rawDescription) : undefined;
 
   return {
     name,
@@ -188,7 +204,7 @@ function extractTitleFallback(html: string): RawEvidence | null {
     return null;
   }
 
-  const name = titleMatch[1].trim();
+  const name = decodeEntities(titleMatch[1].trim());
 
   return {
     name,
@@ -205,7 +221,8 @@ function extractTitleFallback(html: string): RawEvidence | null {
  * reached in the normal tier cascade.
  */
 function extractOgTitleRaw(html: string): string | undefined {
-  return extractMetaContent(html, "og:title");
+  const rawTitle = extractMetaContent(html, "og:title");
+  return rawTitle ? decodeEntities(rawTitle) : undefined;
 }
 
 /**
