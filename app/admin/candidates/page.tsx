@@ -1,4 +1,4 @@
-import { Suspense, type ReactNode } from "react";
+import { Suspense, use, type ReactNode } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
@@ -444,6 +444,18 @@ async function PendingTab({
     matchesAutoPublishBlockerFilter(candidate, blockerCodes),
   );
 
+  // Deliberately not awaited (issue: locale hydration-mismatch fix). Kicking
+  // this off as a plain promise and threading it down as a prop - instead of
+  // awaiting it in an async child component wrapped in <Suspense> - keeps
+  // the ENTIRE candidate list (including HackathonCard's locale-dependent
+  // date formatting) in the same synchronous render pass as the rest of the
+  // page. Only the tiny AI-badge slot below subscribes to this promise via
+  // `use()`, inside its own tight Suspense boundary - see
+  // `PrescreenBadgeResolver`. `getPrescreenSuggestions` is still only called
+  // once for the whole batch: every card's badge reads the same shared
+  // promise instance.
+  const suggestionsPromise = getPrescreenSuggestions(visibleCandidates ?? []);
+
   return (
     <AdminShell
       authStatus={authStatus}
@@ -475,16 +487,14 @@ async function PendingTab({
         )}
 
       <ul className="space-y-2">
-        <Suspense
-          fallback={
-            <PendingCandidateListItems
-              candidates={visibleCandidates ?? []}
-              suggestions={null}
-            />
-          }
-        >
-          <PendingCandidateList candidates={visibleCandidates ?? []} />
-        </Suspense>
+        {visibleCandidates?.map((candidate) => (
+          <CandidateCard
+            key={candidate.id}
+            candidate={candidate}
+            status="pending"
+            suggestionsPromise={suggestionsPromise}
+          />
+        ))}
         {hackathons?.map((hackathon) => (
           <PublishedHackathonCard
             key={hackathon.id}
@@ -504,56 +514,6 @@ async function PendingTab({
 }
 
 /**
- * Renders the `<CandidateCard>` list shared by the Suspense fallback and the
- * resolved `PendingCandidateList` below - passing `suggestions={null}` (the
- * fallback case) renders every card immediately with no AI badge, so
- * candidates never wait on Gemini to appear; the resolved case (a `Map`)
- * fills the badges back in without changing the list's shape or order, so
- * there's no layout jump between the two renders.
- */
-function PendingCandidateListItems({
-  candidates,
-  suggestions,
-}: {
-  candidates: CandidateRow[];
-  suggestions: Map<string, PrescreenSuggestion> | null;
-}) {
-  return (
-    <>
-      {candidates.map((candidate) => (
-        <CandidateCard
-          key={candidate.id}
-          candidate={candidate}
-          status="pending"
-          suggestion={suggestions?.get(candidate.id) ?? null}
-        />
-      ))}
-    </>
-  );
-}
-
-/**
- * Streams in the LLM pre-screening badges (issue #17) via React Suspense
- * instead of blocking `PendingTab`'s whole render on `getPrescreenSuggestions`
- * - the candidate list itself (fetched eagerly in `PendingTab`, independent
- * of Gemini) renders immediately via the Suspense fallback above, and this
- * component's `await` only delays the AI badges popping in on top of it.
- */
-async function PendingCandidateList({
-  candidates,
-}: {
-  candidates: CandidateRow[];
-}) {
-  const suggestions = await getPrescreenSuggestions(candidates);
-  return (
-    <PendingCandidateListItems
-      candidates={candidates}
-      suggestions={suggestions}
-    />
-  );
-}
-
-/**
  * Best-effort LLM pre-screening (issue #17): for each pending candidate,
  * asks Gemini Flash for a suggested verdict + short rationale, shown next
  * to the Approve/Reject actions as a "suggestion only" badge - it never
@@ -562,11 +522,30 @@ async function PendingCandidateList({
  * Skips the whole exercise (no few-shot query, no Gemini calls) when
  * `GEMINI_API_KEY` isn't configured, since `prescreenCandidate` would
  * resolve to `null` for every candidate anyway - this just avoids the
- * pointless round trip for the few-shot examples query. Every per-candidate
- * call already degrades to `null` on its own (missing key, network error,
- * timeout, malformed response - see lib/services/llm-prescreen.ts), so a
- * `Promise.all` here can never reject and never blocks the page on a slow
- * or failing Gemini response beyond that per-call timeout.
+ * pointless round trip for the few-shot examples query.
+ *
+ * Called from `PendingTab` WITHOUT `await` and threaded down as a plain
+ * promise prop (see `PrescreenBadgeResolver`'s `use()` call) instead of
+ * being awaited inside an async Server Component wrapped in `<Suspense>`.
+ * That prior shape put the whole `<CandidateCard>` tree - including
+ * `HackathonCard`'s locale-dependent date formatting - inside a
+ * Suspense-streamed subtree, which could resolve/reconcile on the client
+ * after the initial hydration pass had already picked up a rehydrated
+ * locale from `localStorage` (see `lib/locale-store.ts`), producing a
+ * server/client text mismatch. Scoping the Suspense boundary down to just
+ * the tiny AI-badge slot means only that one small subtree can ever
+ * resolve out-of-band; everything else renders synchronously in the single
+ * initial pass and can never hydrate against a different locale.
+ *
+ * This function itself must never reject - `use()` on a rejected promise
+ * throws to the nearest error boundary, which would take down the whole
+ * Pending tab rather than just one badge - so the entire body is wrapped
+ * in a top-level try/catch that resolves to an empty `Map` on any failure
+ * (a Supabase network error on the few-shot query, for instance). Every
+ * per-candidate `prescreenCandidate` call already degrades to `null` on
+ * its own (missing key, network error, timeout, malformed response - see
+ * lib/services/llm-prescreen.ts), so the `Promise.all` below can't reject
+ * either; the outer try/catch is defense in depth for the examples query.
  *
  * v1 caches nothing across page loads - a re-render re-calls Gemini for
  * every visible pending candidate. That's an accepted tradeoff for this
@@ -583,32 +562,40 @@ async function getPrescreenSuggestions(
     return suggestions;
   }
 
-  const { data: examplesData } =
-    await recentCandidateDecisionsQuery(supabaseAdmin);
-  const examples: PrescreenExample[] = (examplesData ??
-    []) as PrescreenExample[];
+  try {
+    const { data: examplesData } =
+      await recentCandidateDecisionsQuery(supabaseAdmin);
+    const examples: PrescreenExample[] = (examplesData ??
+      []) as PrescreenExample[];
 
-  const results = await Promise.all(
-    candidates.map(async (candidate) => {
-      const suggestion = await prescreenCandidate(
-        {
-          name: candidate.name,
-          raw_snippet: candidate.raw_snippet,
-          extraction_method: candidate.extraction_method,
-          query: candidate.query,
-          has_conflict: candidate.has_conflict,
-          blockers: getAutoPublishBlockers(candidate),
-        },
-        examples,
-      );
-      return [candidate.id, suggestion] as const;
-    }),
-  );
+    const results = await Promise.all(
+      candidates.map(async (candidate) => {
+        const suggestion = await prescreenCandidate(
+          {
+            name: candidate.name,
+            raw_snippet: candidate.raw_snippet,
+            extraction_method: candidate.extraction_method,
+            query: candidate.query,
+            has_conflict: candidate.has_conflict,
+            blockers: getAutoPublishBlockers(candidate),
+          },
+          examples,
+        );
+        return [candidate.id, suggestion] as const;
+      }),
+    );
 
-  for (const [id, suggestion] of results) {
-    if (suggestion) {
-      suggestions.set(id, suggestion);
+    for (const [id, suggestion] of results) {
+      if (suggestion) {
+        suggestions.set(id, suggestion);
+      }
     }
+  } catch (error) {
+    console.warn(
+      `LLM pre-screening batch failed, continuing with no AI suggestions: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
   }
 
   return suggestions;
@@ -829,11 +816,11 @@ async function ArchivedTab({
 function CandidateCard({
   candidate,
   status,
-  suggestion = null,
+  suggestionsPromise,
 }: {
   candidate: CandidateRow;
   status: "pending" | "rejected";
-  suggestion?: PrescreenSuggestion | null;
+  suggestionsPromise?: Promise<Map<string, PrescreenSuggestion>>;
 }) {
   return (
     <li>
@@ -846,7 +833,7 @@ function CandidateCard({
           <CandidateContext
             candidate={candidate}
             status={status}
-            suggestion={suggestion}
+            suggestionsPromise={suggestionsPromise}
           />
         }
         actions={
@@ -914,19 +901,24 @@ function CandidateCard({
 function CandidateContext({
   candidate,
   status,
-  suggestion = null,
+  suggestionsPromise,
 }: {
   candidate: CandidateRow;
   status: "pending" | "rejected";
-  suggestion?: PrescreenSuggestion | null;
+  suggestionsPromise?: Promise<Map<string, PrescreenSuggestion>>;
 }) {
   return (
     <div
       className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground"
       aria-label="Candidate source details"
     >
-      {status === "pending" && suggestion && (
-        <PrescreenBadge suggestion={suggestion} />
+      {status === "pending" && suggestionsPromise && (
+        <Suspense fallback={null}>
+          <PrescreenBadgeResolver
+            candidateId={candidate.id}
+            suggestionsPromise={suggestionsPromise}
+          />
+        </Suspense>
       )}
       <span title={`Source: ${candidate.source}`}>
         Source: {candidate.source}
@@ -966,6 +958,29 @@ function CandidateContext({
       {status === "pending" && <AutoPublishBlockers candidate={candidate} />}
     </div>
   );
+}
+
+/**
+ * Reads the shared `suggestionsPromise` via React's `use()` hook and renders
+ * this one candidate's badge, if any. This is the ONLY thing inside the tight
+ * `<Suspense fallback={null}>` boundary in `CandidateContext` - deliberately
+ * not the whole card - so a slow/pending Gemini batch can only ever delay
+ * this small badge-sized subtree, never the candidate's name/date/location,
+ * which render synchronously in the same pass as the rest of the page (see
+ * `getPrescreenSuggestions`'s doc comment for the full hydration-mismatch
+ * rationale). Every candidate's resolver reads the SAME promise instance, so
+ * `getPrescreenSuggestions` is still only invoked once per batch.
+ */
+function PrescreenBadgeResolver({
+  candidateId,
+  suggestionsPromise,
+}: {
+  candidateId: string;
+  suggestionsPromise: Promise<Map<string, PrescreenSuggestion>>;
+}) {
+  const suggestions = use(suggestionsPromise);
+  const suggestion = suggestions.get(candidateId) ?? null;
+  return suggestion ? <PrescreenBadge suggestion={suggestion} /> : null;
 }
 
 /**
