@@ -188,7 +188,9 @@ function extractOgMeta(html: string): RawEvidence | null {
   }
 
   const name = decodeEntities(rawName);
-  const description = rawDescription ? decodeEntities(rawDescription) : undefined;
+  const description = rawDescription
+    ? decodeEntities(rawDescription)
+    : undefined;
 
   return {
     name,

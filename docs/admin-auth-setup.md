@@ -163,7 +163,7 @@ inferred from an outer gate) **and** either:
 
 - `GOOGLE_CLIENT_ID`/`ADMIN_ALLOWED_EMAIL` are both left unset (the default
   for a fresh clone - real sign-in couldn't work without them anyway), or
-- you explicitly set `ADMIN_LOCAL_NO_AUTH=true` (useful if you *do* have
+- you explicitly set `ADMIN_LOCAL_NO_AUTH=true` (useful if you _do_ have
   `ADMIN_ALLOWED_EMAIL` configured, e.g. because you're also testing real
   sign-in, but want to temporarily skip it).
 
