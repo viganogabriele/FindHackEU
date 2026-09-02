@@ -39,6 +39,7 @@ function mapHackathons(hackathons: Hackathon[]): MappedHackathon[] {
       latitude: hackathon.latitude,
       longitude: hackathon.longitude,
       countryCode: hackathon.country_code,
+      city: hackathon.city,
     });
 
     return resolved
