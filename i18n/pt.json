@@ -89,6 +89,7 @@
   "action.viewEvent": "Ver evento",
   "map.markers": "{count} eventos com localização no mapa",
   "map.approximateLocation": "Localização aproximada do país",
+  "map.tapToActivate": "Toque no mapa para o mover",
   "error.loadFailed": "Falha ao carregar os hackathons",
   "error.retry": "Tentar novamente",
   "aria.register": "Inscrever-se em {name}",

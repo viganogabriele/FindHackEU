@@ -89,6 +89,7 @@
   "action.viewEvent": "Visa evenemang",
   "map.markers": "{count} evenemang med kartposition",
   "map.approximateLocation": "Ungefärlig plats i landet",
+  "map.tapToActivate": "Tryck på kartan för att flytta den",
   "error.loadFailed": "Det gick inte att läsa in hackathons",
   "error.retry": "Försök igen",
   "aria.register": "Registrera dig för {name}",

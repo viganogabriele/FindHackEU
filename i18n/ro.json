@@ -89,6 +89,7 @@
   "action.viewEvent": "Vezi evenimentul",
   "map.markers": "{count} evenimente cu locație pe hartă",
   "map.approximateLocation": "Locația aproximativă a țării",
+  "map.tapToActivate": "Atinge harta pentru a o muta",
   "error.loadFailed": "Încărcarea hackathoanelor a eșuat",
   "error.retry": "Reîncearcă",
   "aria.register": "Înregistrează-te pentru {name}",

@@ -89,6 +89,7 @@
   "action.viewEvent": "Evenement bekijken",
   "map.markers": "{count} evenementen met een kaartlocatie",
   "map.approximateLocation": "Geschatte locatie van het land",
+  "map.tapToActivate": "Tik op de kaart om te verschuiven",
   "error.loadFailed": "Laden van hackathons mislukt",
   "error.retry": "Opnieuw proberen",
   "aria.register": "Inschrijven voor {name}",
