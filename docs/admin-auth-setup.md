@@ -1,14 +1,23 @@
 # Admin auth setup (`/admin`)
 
-The development-only `/admin` dashboard (issue #67; unified onto this single
-route, previously `/admin/candidates`, at the maintainer's request) is gated
-behind Google sign-in via Supabase Auth, restricted to a single allowlisted
-email. This is defense in
-depth on top of the existing `NODE_ENV !== "production"` gate, not a
-replacement for it - both checks still apply. Because Next.js sets
-`NODE_ENV=production` for Vercel Preview builds too, these pages are disabled
-in both production and Preview deployments; they are available only when the
-app runs with a non-production `NODE_ENV` (normally local development).
+The `/admin` dashboard (issue #67; unified onto this single route,
+previously `/admin/candidates`, at the maintainer's request) is gated behind
+Google sign-in via Supabase Auth, restricted to an allowlist: the
+`ADMIN_ALLOWED_EMAIL` fallback account plus whatever is in the `admin_users`
+table.
+
+**This gate is the whole security boundary, and `/admin` is reachable in
+production.** It used to sit behind a `NODE_ENV !== "production"` check as
+well, which made it unreachable on any Vercel deployment; commit `6f06300`
+removed that at the maintainer's request so the dashboard can be used from
+the hosted deployment. Nothing else stands in front of it now - if
+`ADMIN_ALLOWED_EMAIL` is unset _and_ `admin_users` is empty or unreachable,
+every admin page denies everyone (fail closed), which is safe but also
+means you can't get in. Set `ADMIN_ALLOWED_EMAIL` on the real deployment.
+
+The local no-auth bypass described at the end of this doc is a separate
+thing and is _still_ categorically unreachable in production - it re-checks
+`NODE_ENV` itself rather than trusting any outer gate.
 
 **If you just want to poke at the admin dashboard locally, skip straight to
 ["Skip auth entirely for local development"](#skip-auth-entirely-for-local-development)
@@ -178,7 +187,11 @@ inferred from an outer gate) **and** either:
   sign-in, but want to temporarily skip it).
 
 This bypass is categorically unreachable when `NODE_ENV=production`
-(including Vercel Preview builds) - see the doc comment on
+(including Vercel Preview builds). That `NODE_ENV` check is now the _only_
+one of its kind left in the admin path - the pages themselves no longer
+have one - so it is what keeps a misconfigured production deploy
+(`ADMIN_LOCAL_NO_AUTH` accidentally set, or the Google/allowlist vars left
+empty) from handing the dashboard to anyone. See the doc comment on
 `isLocalNoAuthBypassEnabled()` in `lib/services/require-admin-auth.ts` for
 the exact reasoning, and CLAUDE.md's "Local no-auth admin bypass" entry for
 how this was verified live.
