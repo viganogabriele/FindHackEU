@@ -102,7 +102,7 @@ export default function HackathonMap({
               key={hackathon.id}
               position={coordinates}
               title={hackathon.name}
-              icon={approximate ? APPROXIMATE_MARKER_ICON : undefined}
+              {...(approximate ? { icon: APPROXIMATE_MARKER_ICON } : {})}
             >
               <Popup>
                 <div className="space-y-1.5 text-sm">
