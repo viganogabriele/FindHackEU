@@ -239,7 +239,7 @@ export class GeocodingService {
         {
           headers: {
             "User-Agent":
-              "HackTrack-EU/1.0 (https://github.com/viganogabriele/HackTrack-EU)",
+              "FindHackEU/1.0 (https://github.com/viganogabriele/FindHackEU)",
           },
         },
         { timeoutMs: NOMINATIM_TIMEOUT_MS, retries: 0 },

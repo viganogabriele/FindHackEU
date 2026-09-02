@@ -88,7 +88,7 @@ describe("GeocodingService.getCountryCodeFromCity", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1][1]?.headers).toEqual({
-      "User-Agent": expect.stringContaining("HackTrack-EU"),
+      "User-Agent": expect.stringContaining("FindHackEU"),
     });
   });
 
