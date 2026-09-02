@@ -260,10 +260,23 @@
  * Scope overrides to popups holding our card so they don't affect other
  * Leaflet popups, and let the card supply its own border/background/padding
  * instead of stacking Leaflet's on top of it.
+ *
+ * Leaflet's own CSS hardcodes `.leaflet-popup-content-wrapper,
+ * .leaflet-popup-tip { background: white; color: #333; }` regardless of the
+ * site's theme - a real dark-mode bug found via live testing (a bright
+ * white popup with dark text over an otherwise dark-themed page). Both
+ * are overridden here to theme tokens so the popup matches whichever
+ * theme/mode is active, same as every other card on the site.
  */
 .leaflet-popup-content-wrapper:has(.hackathon-map-popup-card) {
   padding: 0;
   overflow: hidden;
+  background: var(--card);
+  color: var(--card-foreground);
+}
+
+.leaflet-popup:has(.hackathon-map-popup-card) .leaflet-popup-tip {
+  background: var(--card);
 }
 
 .leaflet-popup-content:has(.hackathon-map-popup-card) {
