@@ -32,24 +32,34 @@ export function SignOutButton({ email }: { email: string }) {
     }
   }
 
+  const initial = email.trim().charAt(0).toUpperCase() || "?";
+
   return (
-    <div className="flex shrink-0 flex-col items-end gap-1 text-xs text-muted-foreground">
-      <div className="flex items-center gap-1.5">
-        <span className="hidden max-w-48 truncate sm:inline" title={email}>
-          Signed in as <span className="font-medium">{email}</span>
-        </span>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 px-2 text-xs"
-          onClick={handleSignOut}
-          disabled={isPending}
+    <div className="relative flex shrink-0 items-center gap-2">
+      <div className="hidden items-center gap-2 rounded-full border bg-muted/40 py-1 pr-3 pl-1 sm:flex">
+        <span
+          className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary"
+          aria-hidden="true"
         >
-          {isPending ? "Signing out…" : "Sign out"}
-        </Button>
+          {initial}
+        </span>
+        <span className="max-w-40 truncate text-xs text-muted-foreground" title={email}>
+          {email}
+        </span>
       </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={handleSignOut}
+        disabled={isPending}
+      >
+        {isPending ? "Signing out…" : "Sign out"}
+      </Button>
       {errorMessage && (
-        <p role="alert" className="text-destructive">
+        <p
+          role="alert"
+          className="absolute top-full right-0 mt-1.5 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-xs text-destructive shadow-md"
+        >
           {errorMessage}
         </p>
       )}

@@ -7,9 +7,12 @@ import {
   ArrowLeft,
   Check,
   Clock3,
+  UserPlus,
+  Users,
   X,
 } from "lucide-react";
 import { CopyLinkButton } from "@/components/copy-link-button";
+import { cn } from "@/lib/utils";
 import { supabaseAdmin } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -310,29 +313,47 @@ function AdminShell({
 }) {
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto max-w-5xl px-4 py-6">
-        <header className="mb-5 flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <Button asChild variant="link" size="sm" className="mb-2 -ml-3">
+      <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
+        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-4 px-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <span
+              className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground"
+              aria-hidden="true"
+            >
+              A
+            </span>
+            <div className="hidden min-w-0 leading-tight sm:block">
+              <p className="truncate text-sm font-semibold">
+                Admin dashboard
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                FindHackEU
+              </p>
+            </div>
+            <Separator orientation="vertical" className="hidden h-6 sm:block" />
+            <Button asChild variant="ghost" size="sm" className="shrink-0">
               <Link href="/">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to site
               </Link>
             </Button>
-            <h1 className="text-xl font-bold tracking-tight">
-              Hackathon candidates
-            </h1>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              Review and manage events by moderation state. Only Approved and
-              Past are public.
-            </p>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <SignOutButton email={authStatus.email!} />
-          </div>
-        </header>
+          <SignOutButton email={authStatus.email!} />
+        </div>
+      </header>
 
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="container mx-auto max-w-5xl px-4 py-6">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold tracking-tight">
+            Hackathon candidates
+          </h1>
+          <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
+            Review and manage events by moderation state. Only Approved and
+            Past are public.
+          </p>
+        </div>
+
+        <div className="mb-6 flex flex-col gap-3 rounded-lg border bg-card/40 p-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-1">
             <AdminSearchInput
               status={status}
@@ -367,7 +388,7 @@ function StatusNav({
   return (
     <nav
       aria-label="Moderation status"
-      className="mb-5 flex gap-1 overflow-x-auto border-b pb-2"
+      className="mb-6 flex flex-wrap items-center gap-1.5 border-b pb-3"
     >
       {STATUSES.map((s) => (
         <Button
@@ -375,7 +396,7 @@ function StatusNav({
           asChild
           variant={s === status ? "default" : "ghost"}
           size="sm"
-          className="shrink-0 px-2.5"
+          className="h-9 shrink-0 gap-2 px-3.5 font-medium"
         >
           <Link
             href={`/admin?status=${s}${query ? `&q=${encodeURIComponent(query)}` : ""}`}
@@ -383,9 +404,12 @@ function StatusNav({
           >
             {s.charAt(0).toUpperCase() + s.slice(1)}
             <Badge
-              variant={s === status ? "secondary" : "outline"}
+              variant="secondary"
               aria-label={`${tabCounts[s] ?? "Unknown"} ${s} items`}
-              className="min-w-5 justify-center px-1.5"
+              className={cn(
+                "min-w-5 justify-center px-1.5",
+                s === status && "bg-primary-foreground/20 text-primary-foreground",
+              )}
             >
               {tabCounts[s] ?? "—"}
             </Badge>
@@ -855,34 +879,57 @@ async function AdminsTab({
       query=""
       tabCounts={tabCounts}
     >
-      <div className="mb-4 space-y-1">
-        <h2 className="text-lg font-semibold">Manage admins</h2>
-        <p className="text-sm text-muted-foreground">
-          Anyone listed below can sign in with their own Google account and get
-          full access to this dashboard. Removing someone here takes effect on
-          their next sign-in check.
-        </p>
+      <div className="mb-5 flex items-start gap-2.5">
+        <Users className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold">Manage admins</h2>
+          <p className="text-sm text-muted-foreground">
+            Anyone listed below can sign in with their own Google account and
+            get full access to this dashboard. Removing someone here takes
+            effect on their next sign-in check.
+          </p>
+        </div>
       </div>
 
       <Card className="mb-4">
-        <CardContent className="pt-4">
+        <CardContent className="space-y-3 pt-4">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <UserPlus className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            Add a new admin
+          </div>
           <AddAdminForm />
         </CardContent>
       </Card>
 
       {fallbackEmail && (
-        <div className="mb-3 flex items-center justify-between gap-3 rounded-md border bg-muted/40 px-3 py-2">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium" title={fallbackEmail}>
-              {fallbackEmail}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Fallback admin (ADMIN_ALLOWED_EMAIL) - always allowed, can only be
-              changed via the deployment&apos;s environment variables.
-            </p>
-          </div>
-          <Badge variant="secondary">Fallback</Badge>
-        </div>
+        <Card className="mb-3">
+          <CardContent className="flex flex-wrap items-start justify-between gap-3 py-3 sm:flex-nowrap sm:items-center">
+            <div className="flex min-w-0 items-start gap-3 sm:items-center">
+              <span
+                className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground"
+                aria-hidden="true"
+              >
+                {fallbackEmail.charAt(0).toUpperCase()}
+              </span>
+              <div className="min-w-0">
+                <p
+                  className="truncate text-sm font-medium"
+                  title={fallbackEmail}
+                >
+                  {fallbackEmail}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Fallback admin (ADMIN_ALLOWED_EMAIL) - always allowed, can
+                  only be changed via the deployment&apos;s environment
+                  variables.
+                </p>
+              </div>
+            </div>
+            <Badge variant="secondary" className="shrink-0">
+              Fallback
+            </Badge>
+          </CardContent>
+        </Card>
       )}
 
       {error && (
@@ -908,22 +955,30 @@ async function AdminsTab({
             <li key={admin.email}>
               <Card>
                 <CardContent className="flex items-center justify-between gap-3 py-3">
-                  <div className="min-w-0">
-                    <p
-                      className="truncate text-sm font-medium"
-                      title={admin.email}
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span
+                      className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary"
+                      aria-hidden="true"
                     >
-                      {admin.email}
-                      {isSelf && (
-                        <span className="ml-2 text-xs font-normal text-muted-foreground">
-                          (you)
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Added {new Date(admin.added_at).toLocaleDateString()}
-                      {admin.added_by ? ` by ${admin.added_by}` : ""}
-                    </p>
+                      {admin.email.charAt(0).toUpperCase()}
+                    </span>
+                    <div className="min-w-0">
+                      <p
+                        className="truncate text-sm font-medium"
+                        title={admin.email}
+                      >
+                        {admin.email}
+                        {isSelf && (
+                          <span className="ml-2 text-xs font-normal text-muted-foreground">
+                            (you)
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Added {new Date(admin.added_at).toLocaleDateString()}
+                        {admin.added_by ? ` by ${admin.added_by}` : ""}
+                      </p>
+                    </div>
                   </div>
                   <RemoveAdminButton email={admin.email} isSelf={isSelf} />
                 </CardContent>
