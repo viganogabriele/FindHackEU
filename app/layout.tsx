@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { TranslationProvider } from "@/contexts/translation-context";
 import { cookies } from "next/headers";
 import { AVAILABLE_THEMES, DEFAULT_THEME_ID } from "@/lib/theme-store";
+import { SITE_URL } from "@/lib/site-url";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -42,16 +43,21 @@ export const metadata: Metadata = {
     "startup events",
     "developer events",
   ],
-  authors: [{ name: "Lorenzo Palaia" }],
-  creator: "Lorenzo Palaia",
+  // FindHackEU is an independent project (see CLAUDE.md / README): it was
+  // inspired by and forked from HackTrack EU, but is maintained separately.
+  // The author/creator fields still credited the upstream maintainer.
+  authors: [{ name: "Gabriele Viganò" }],
+  creator: "Gabriele Viganò",
   publisher: "FindHackEU",
+  // Needed for the relative `images` paths below to resolve to absolute URLs.
+  metadataBase: new URL(SITE_URL),
   alternates: {
-    canonical: "https://hacktrack-eu.vercel.app",
+    canonical: SITE_URL,
   },
   openGraph: {
     type: "website",
     locale: "en_GB",
-    url: "https://hacktrack-eu.vercel.app",
+    url: SITE_URL,
     title: "FindHackEU - Discover European Hackathons",
     description:
       "Comprehensive list of hackathons happening across Europe. Real-time updates, advanced filtering, and notifications.",
@@ -69,7 +75,6 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "FindHackEU - Discover European Hackathons",
     description: "Comprehensive list of hackathons happening across Europe",
-    creator: "@HackTrackEU",
     images: ["/images/preview.png"],
   },
   robots: {
