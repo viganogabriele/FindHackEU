@@ -139,4 +139,67 @@ describe("filterAndSortHackathons", () => {
       filterAndSortHackathons([baseHackathon, onlineHackathon], filters, "en"),
     ).toEqual([baseHackathon]);
   });
+  // react-day-picker hands back both ends of a picked range at local
+  // midnight. Comparing `date_start` against `to` directly dropped every
+  // event on the last day the visitor picked: "1 Oct - 10 Oct" excluded a
+  // hackathon starting 10 Oct at 09:00, which reads as the filter simply
+  // losing events.
+  describe("date range", () => {
+    const rangeFilters = (from: Date | undefined, to: Date | undefined) => ({
+      search: "",
+      locations: [],
+      radius: null,
+      topics: [],
+      dateRange: { from, to },
+      status: "upcoming" as const,
+      sort: "asc" as const,
+      includeNonEnglish: false,
+      includeOnline: true,
+      showBookmarked: false,
+    });
+
+    // baseHackathon starts 2026-10-10T09:00:00Z.
+    const lastDay = new Date(2026, 9, 10);
+    const firstDay = new Date(2026, 9, 1);
+
+    it("includes an event starting on the last day of the range", () => {
+      expect(
+        filterAndSortHackathons(
+          [baseHackathon],
+          rangeFilters(firstDay, lastDay),
+          "en",
+        ),
+      ).toEqual([baseHackathon]);
+    });
+
+    it("includes an event on a single-day range covering only that day", () => {
+      expect(
+        filterAndSortHackathons(
+          [baseHackathon],
+          rangeFilters(lastDay, lastDay),
+          "en",
+        ),
+      ).toEqual([baseHackathon]);
+    });
+
+    it("still excludes an event starting after the range ends", () => {
+      expect(
+        filterAndSortHackathons(
+          [baseHackathon],
+          rangeFilters(firstDay, new Date(2026, 9, 9)),
+          "en",
+        ),
+      ).toEqual([]);
+    });
+
+    it("still excludes an event starting before the range begins", () => {
+      expect(
+        filterAndSortHackathons(
+          [baseHackathon],
+          rangeFilters(new Date(2026, 9, 11), undefined),
+          "en",
+        ),
+      ).toEqual([]);
+    });
+  });
 });

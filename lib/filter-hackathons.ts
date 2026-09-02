@@ -7,6 +7,13 @@ import {
 import { filterBookmarkedHackathons } from "@/lib/bookmarks-store";
 import type { Hackathon } from "@/types/hackathon";
 
+/** Last instant of `date`'s local calendar day. */
+function endOfDay(date: Date): Date {
+  const end = new Date(date);
+  end.setHours(23, 59, 59, 999);
+  return end;
+}
+
 export function filterAndSortHackathons(
   hackathons: Hackathon[],
   filters: FilterState,
@@ -59,7 +66,15 @@ export function filterAndSortHackathons(
       if (filters.dateRange.from && hackathonDate < filters.dateRange.from) {
         return false;
       }
-      if (filters.dateRange.to && hackathonDate > filters.dateRange.to) {
+      // `to` comes from react-day-picker as that day at local midnight, so
+      // comparing against it directly excluded every event on the last day
+      // the visitor picked - a range ending "10 Oct" dropped a hackathon
+      // starting 10 Oct at 09:00. Both ends of a picked range are
+      // inclusive in the UI, so the upper bound is the end of that day.
+      if (
+        filters.dateRange.to &&
+        hackathonDate > endOfDay(filters.dateRange.to)
+      ) {
         return false;
       }
     }
