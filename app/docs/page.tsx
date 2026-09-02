@@ -13,7 +13,7 @@ import {
   Calendar,
   ExternalLink,
 } from "lucide-react";
-import { FaDiscord, FaTelegram, FaXTwitter, FaGithub } from "react-icons/fa6";
+import { FaGithub } from "react-icons/fa6";
 
 export const metadata = {
   title: "Documentation - HackTrack EU",
@@ -338,86 +338,6 @@ export default function DocsPage() {
 
           <section className="mb-8">
             <h2 className="mb-4 flex items-center gap-2 text-2xl font-semibold">
-              <Bot className="h-6 w-6" />
-              Notification Services
-            </h2>
-            <p>
-              Stay updated with new hackathons through our automated
-              notification services. We support multiple platforms to reach you
-              wherever you are.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 not-prose">
-              <Card className="gap-0 rounded-lg p-6 text-center shadow-none">
-                <FaDiscord className="h-8 w-8 text-[#5865F2] mx-auto mb-3" />
-                <h3 className="font-semibold mb-2">Discord Bot</h3>
-                <p className="text-sm text-muted-foreground mb-4 flex-grow">
-                  Join our Discord server for real-time hackathon notifications
-                  with rich embeds
-                </p>
-                <Button asChild size="sm" className="w-full">
-                  <Link
-                    href="https://discord.com/invite/SmygTckVez"
-                    target="_blank"
-                  >
-                    Join Server <ExternalLink className="ml-1 h-3 w-3" />
-                  </Link>
-                </Button>
-              </Card>
-
-              <Card className="gap-0 rounded-lg p-6 text-center shadow-none">
-                <FaTelegram className="h-8 w-8 text-[#0088cc] mx-auto mb-3" />
-                <h3 className="font-semibold mb-2">Telegram Channel</h3>
-                <p className="text-sm text-muted-foreground mb-4 flex-grow">
-                  Follow our Telegram channel for mobile-friendly notifications
-                </p>
-                <Button asChild size="sm" className="w-full">
-                  <Link href="https://t.me/hacktrackeu" target="_blank">
-                    Join Channel <ExternalLink className="ml-1 h-3 w-3" />
-                  </Link>
-                </Button>
-              </Card>
-
-              <Card className="gap-0 rounded-lg p-6 text-center shadow-none">
-                <FaXTwitter className="h-8 w-8 text-foreground mx-auto mb-3" />
-                <h3 className="font-semibold mb-2">Twitter Updates</h3>
-                <p className="text-sm text-muted-foreground mb-4 flex-grow">
-                  Follow us on Twitter for hackathon announcements and updates
-                </p>
-                <Button asChild size="sm" className="w-full">
-                  <Link href="https://x.com/hacktrackeu" target="_blank">
-                    Follow @HackTrackEU{" "}
-                    <ExternalLink className="ml-1 h-3 w-3" />
-                  </Link>
-                </Button>
-              </Card>
-            </div>
-
-            <h3 className="mb-2 mt-6 text-xl font-medium">
-              Notification Features
-            </h3>
-            <ul className="space-y-2">
-              <li>
-                ⚡ <strong>Real-time alerts:</strong> Get notified within
-                minutes of discovery
-              </li>
-              <li>
-                📋 <strong>Rich information:</strong> Complete event details in
-                notifications
-              </li>
-              <li>
-                🏷️ <strong>Topic filtering:</strong> Discord server supports
-                topic-based channels
-              </li>
-              <li>
-                🔗 <strong>Direct links:</strong> One-click access to
-                registration pages
-              </li>
-            </ul>
-          </section>
-
-          <section className="mb-8">
-            <h2 className="mb-4 flex items-center gap-2 text-2xl font-semibold">
               <Database className="h-6 w-6" />
               Technical Architecture
             </h2>
@@ -525,7 +445,7 @@ export default function DocsPage() {
               our community:
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 not-prose">
+            <div className="grid grid-cols-1 gap-6 mt-6 not-prose">
               <Card className="gap-0 rounded-lg p-6 shadow-none">
                 <FaGithub className="h-6 w-6 mb-3" />
                 <h3 className="font-semibold mb-2">GitHub Issues</h3>
@@ -535,27 +455,10 @@ export default function DocsPage() {
                 </p>
                 <Button asChild variant="outline" size="sm">
                   <Link
-                    href="https://github.com/lorenzopalaia/hacktrack-eu/issues"
+                    href="https://github.com/viganogabriele/FindHackEU/issues"
                     target="_blank"
                   >
                     Open Issue <ExternalLink className="ml-1 h-3 w-3" />
-                  </Link>
-                </Button>
-              </Card>
-
-              <Card className="gap-0 rounded-lg p-6 shadow-none">
-                <FaDiscord className="h-6 w-6 text-[#5865F2] mb-3" />
-                <h3 className="font-semibold mb-2">Discord Community</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Join our community for general discussions and real-time
-                  support
-                </p>
-                <Button asChild variant="outline" size="sm">
-                  <Link
-                    href="https://discord.com/invite/SmygTckVez"
-                    target="_blank"
-                  >
-                    Join Discord <ExternalLink className="ml-1 h-3 w-3" />
                   </Link>
                 </Button>
               </Card>

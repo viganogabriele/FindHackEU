@@ -2,35 +2,11 @@
 
 import Link from "next/link";
 import { Github } from "lucide-react";
-import { FaDiscord, FaTelegram, FaXTwitter } from "react-icons/fa6";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Button } from "@/components/ui/button";
 import LanguageSelect from "@/components/language-select";
 import { PublicSubmitForm } from "@/components/public-submit-form";
 import { useTranslation } from "@/contexts/translation-context";
-
-const socialLinks = [
-  {
-    href: "https://discord.com/invite/SmygTckVez",
-    icon: FaDiscord,
-    labelKey: "external.discord",
-  },
-  {
-    href: "https://t.me/hacktrackeu",
-    icon: FaTelegram,
-    labelKey: "external.telegram",
-  },
-  {
-    href: "https://x.com/hacktrackeu",
-    icon: FaXTwitter,
-    labelKey: "external.twitter",
-  },
-  {
-    href: "https://github.com/lorenzopalaia/hacktrack-eu",
-    icon: Github,
-    labelKey: "external.github",
-  },
-] as const;
 
 export function SiteHeader() {
   const { t } = useTranslation();
@@ -43,29 +19,21 @@ export function SiteHeader() {
         </Link>
         <div className="flex items-center gap-2">
           <PublicSubmitForm />
-          <nav className="flex items-center gap-1" aria-label={t("socials")}>
-            {socialLinks.map(({ href, icon: Icon, labelKey }) => (
-              <Button
-                key={href}
-                asChild
-                variant="ghost"
-                size="icon"
-                className="size-9"
+          <div className="flex items-center gap-1">
+            <Button asChild variant="ghost" size="icon" className="size-9">
+              <Link
+                href="https://github.com/viganogabriele/FindHackEU"
+                target="_blank"
+                rel="noreferrer"
+                aria-label={t("external.github")}
+                title={t("external.github")}
               >
-                <Link
-                  href={href}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={t(labelKey)}
-                  title={t(labelKey)}
-                >
-                  <Icon className="size-4" aria-hidden="true" />
-                </Link>
-              </Button>
-            ))}
-          </nav>
-          <ThemeSwitcher compact />
-          <LanguageSelect />
+                <Github className="size-4" aria-hidden="true" />
+              </Link>
+            </Button>
+            <ThemeSwitcher compact />
+            <LanguageSelect />
+          </div>
         </div>
       </div>
     </header>

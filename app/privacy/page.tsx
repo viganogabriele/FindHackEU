@@ -225,19 +225,10 @@ export default function PrivacyPage() {
               <li>
                 GitHub:{" "}
                 <Link
-                  href="https://github.com/lorenzopalaia/hacktrack-eu"
+                  href="https://github.com/viganogabriele/FindHackEU"
                   className="text-primary hover:underline"
                 >
                   Open an issue
-                </Link>
-              </li>
-              <li>
-                Discord:{" "}
-                <Link
-                  href="https://discord.com/invite/SmygTckVez"
-                  className="text-primary hover:underline"
-                >
-                  Join our server
                 </Link>
               </li>
             </ul>

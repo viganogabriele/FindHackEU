@@ -194,12 +194,12 @@ export default function TermsPage() {
               8. Contact Information
             </h2>
             <p>
-              For any questions about these Terms, please contact us at{" "}
+              For any questions about these Terms, please contact us via{" "}
               <Link
-                href="https://discord.com/invite/SmygTckVez"
+                href="https://github.com/viganogabriele/FindHackEU"
                 className="text-primary hover:underline"
               >
-                Discord server
+                GitHub
               </Link>
               .
             </p>
