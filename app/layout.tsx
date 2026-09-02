@@ -25,8 +25,8 @@ const merriweather = Merriweather({
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | HackTrack EU",
-    default: "HackTrack EU - Discover European Hackathons",
+    template: "%s | FindHackEU",
+    default: "FindHackEU - Discover European Hackathons",
   },
   description:
     "Comprehensive list of hackathons happening across Europe. Real-time updates, advanced filtering, and notifications via Discord, Telegram, and Twitter.",
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Lorenzo Palaia" }],
   creator: "Lorenzo Palaia",
-  publisher: "HackTrack EU",
+  publisher: "FindHackEU",
   alternates: {
     canonical: "https://hacktrack-eu.vercel.app",
   },
@@ -52,22 +52,22 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_GB",
     url: "https://hacktrack-eu.vercel.app",
-    title: "HackTrack EU - Discover European Hackathons",
+    title: "FindHackEU - Discover European Hackathons",
     description:
       "Comprehensive list of hackathons happening across Europe. Real-time updates, advanced filtering, and notifications.",
-    siteName: "HackTrack EU",
+    siteName: "FindHackEU",
     images: [
       {
         url: "/images/preview.png",
         width: 1200,
         height: 630,
-        alt: "HackTrack EU Platform Preview",
+        alt: "FindHackEU Platform Preview",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "HackTrack EU - Discover European Hackathons",
+    title: "FindHackEU - Discover European Hackathons",
     description: "Comprehensive list of hackathons happening across Europe",
     creator: "@HackTrackEU",
     images: ["/images/preview.png"],

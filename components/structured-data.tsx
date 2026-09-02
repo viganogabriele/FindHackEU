@@ -15,12 +15,12 @@ export function StructuredData({
   const generateWebsiteSchema = () => ({
     "@context": "https://schema.org",
     "@type": "WebSite",
-    name: "HackTrack EU",
+    name: "FindHackEU",
     description: "Comprehensive list of hackathons happening across Europe",
     url: "https://hacktrack-eu.vercel.app",
     publisher: {
       "@type": "Organization",
-      name: "HackTrack EU",
+      name: "FindHackEU",
       url: "https://hacktrack-eu.vercel.app",
       logo: "https://hacktrack-eu.vercel.app/images/logo.png",
     },

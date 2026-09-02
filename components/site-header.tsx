@@ -20,7 +20,7 @@ export function SiteHeader() {
           href={logoHref}
           className="shrink-0 text-base font-semibold tracking-tight"
         >
-          HackTrack EU
+          FindHackEU
         </Link>
         <div className="flex items-center gap-2">
           <PublicSubmitForm />

@@ -15,7 +15,7 @@ export function SiteFooter() {
   return (
     <footer className="border-t">
       <div className="mx-auto flex max-w-screen-2xl flex-col gap-3 px-4 py-6 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-        <span>HackTrack EU</span>
+        <span>FindHackEU</span>
         <nav
           className="flex flex-wrap gap-x-5 gap-y-2"
           aria-label={t("support")}

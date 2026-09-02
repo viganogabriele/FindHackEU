@@ -3,7 +3,7 @@ User-agent: *
 Allow: /
 
 # Host
-Host: https://hacktrack-eu.vercel.app
+Host: https://findhackeu.vercel.app
 
 # Sitemaps
-Sitemap: https://hacktrack-eu.vercel.app/sitemap.xml
+Sitemap: https://findhackeu.vercel.app/sitemap.xml
