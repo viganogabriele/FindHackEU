@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
@@ -444,8 +444,6 @@ async function PendingTab({
     matchesAutoPublishBlockerFilter(candidate, blockerCodes),
   );
 
-  const suggestions = await getPrescreenSuggestions(visibleCandidates ?? []);
-
   return (
     <AdminShell
       authStatus={authStatus}
@@ -477,14 +475,16 @@ async function PendingTab({
         )}
 
       <ul className="space-y-2">
-        {visibleCandidates?.map((candidate) => (
-          <CandidateCard
-            key={candidate.id}
-            candidate={candidate}
-            status="pending"
-            suggestion={suggestions.get(candidate.id) ?? null}
-          />
-        ))}
+        <Suspense
+          fallback={
+            <PendingCandidateListItems
+              candidates={visibleCandidates ?? []}
+              suggestions={null}
+            />
+          }
+        >
+          <PendingCandidateList candidates={visibleCandidates ?? []} />
+        </Suspense>
         {hackathons?.map((hackathon) => (
           <PublishedHackathonCard
             key={hackathon.id}
@@ -500,6 +500,56 @@ async function PendingTab({
         </p>
       )}
     </AdminShell>
+  );
+}
+
+/**
+ * Renders the `<CandidateCard>` list shared by the Suspense fallback and the
+ * resolved `PendingCandidateList` below - passing `suggestions={null}` (the
+ * fallback case) renders every card immediately with no AI badge, so
+ * candidates never wait on Gemini to appear; the resolved case (a `Map`)
+ * fills the badges back in without changing the list's shape or order, so
+ * there's no layout jump between the two renders.
+ */
+function PendingCandidateListItems({
+  candidates,
+  suggestions,
+}: {
+  candidates: CandidateRow[];
+  suggestions: Map<string, PrescreenSuggestion> | null;
+}) {
+  return (
+    <>
+      {candidates.map((candidate) => (
+        <CandidateCard
+          key={candidate.id}
+          candidate={candidate}
+          status="pending"
+          suggestion={suggestions?.get(candidate.id) ?? null}
+        />
+      ))}
+    </>
+  );
+}
+
+/**
+ * Streams in the LLM pre-screening badges (issue #17) via React Suspense
+ * instead of blocking `PendingTab`'s whole render on `getPrescreenSuggestions`
+ * - the candidate list itself (fetched eagerly in `PendingTab`, independent
+ * of Gemini) renders immediately via the Suspense fallback above, and this
+ * component's `await` only delays the AI badges popping in on top of it.
+ */
+async function PendingCandidateList({
+  candidates,
+}: {
+  candidates: CandidateRow[];
+}) {
+  const suggestions = await getPrescreenSuggestions(candidates);
+  return (
+    <PendingCandidateListItems
+      candidates={candidates}
+      suggestions={suggestions}
+    />
   );
 }
 
