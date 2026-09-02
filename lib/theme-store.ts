@@ -82,7 +82,7 @@ const convertPresetToConfig = (
 export const AVAILABLE_THEMES: ThemeConfig[] = Object.entries(defaultPresets)
   .map(([id, preset]) => convertPresetToConfig(id, preset))
   .sort((a, b) => a.name.localeCompare(b.name));
-export const DEFAULT_THEME_ID = "clean-slate";
+export const DEFAULT_THEME_ID = "cosmic-glass";
 
 // Funzione per ottenere il tema di default
 const getDefaultTheme = () => {

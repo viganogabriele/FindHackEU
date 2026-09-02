@@ -77,7 +77,15 @@ export function PublicSubmitForm({ className }: { className?: string }) {
           size="sm"
           aria-label={t("submit.button")}
           title={t("submit.button")}
-          className={cn("h-10 gap-2", className)}
+          // h-8 matches the h-8 view-mode toggle buttons this sits next to
+          // on mobile (app/page.tsx's `sm:hidden` instance); h-10 matches
+          // the search input/"Solo preferiti" button this sits next to on
+          // desktop (filters-panel.tsx's `hidden sm:inline-flex` instance).
+          // Each instance only renders in one of those two breakpoint
+          // ranges, so this single responsive class is safe for both
+          // (found live, 2026-09-02 - the old fixed h-10 mismatched the
+          // h-8 mobile siblings).
+          className={cn("h-8 gap-2 sm:h-10", className)}
         >
           <Megaphone className="size-4" aria-hidden="true" />
           <span className="hidden sm:inline">{t("submit.button")}</span>

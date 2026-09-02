@@ -210,28 +210,38 @@ function HomeContent({
                     variant={view === "list" ? "secondary" : "ghost"}
                     size="sm"
                     aria-pressed={view === "list"}
+                    aria-label={t("view.list")}
+                    title={t("view.list")}
                     onClick={() => setView("list")}
                   >
                     <List />
-                    {t("view.list")}
+                    <span className="hidden sm:inline">
+                      {t("view.list")}
+                    </span>
                   </Button>
                   <Button
                     variant={view === "map" ? "secondary" : "ghost"}
                     size="sm"
                     aria-pressed={view === "map"}
+                    aria-label={t("view.map")}
+                    title={t("view.map")}
                     onClick={() => setView("map")}
                   >
                     <MapIcon />
-                    {t("view.map")}
+                    <span className="hidden sm:inline">{t("view.map")}</span>
                   </Button>
                   <Button
                     variant={view === "calendar" ? "secondary" : "ghost"}
                     size="sm"
                     aria-pressed={view === "calendar"}
+                    aria-label={t("view.calendar")}
+                    title={t("view.calendar")}
                     onClick={() => setView("calendar")}
                   >
                     <CalendarDays />
-                    {t("view.calendar")}
+                    <span className="hidden sm:inline">
+                      {t("view.calendar")}
+                    </span>
                   </Button>
                 </div>
               </div>

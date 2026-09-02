@@ -27,8 +27,11 @@ export const applyThemeToElement = (
 ): void => {
   const styles = themeState.styles[themeState.currentMode];
 
-  // Applica ogni variabile CSS
+  // Applica ogni variabile CSS - skip undefined so a preset missing an
+  // optional field (e.g. shadow-*/font-* on older presets) doesn't write
+  // the literal string "undefined" as the property's value.
   Object.entries(styles).forEach(([key, value]) => {
+    if (value === undefined) return;
     element.style.setProperty(`--${camelToKebab(key)}`, value);
   });
 
