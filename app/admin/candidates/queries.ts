@@ -227,3 +227,26 @@ export function archivedHackathonsCountQuery(
 ) {
   return archivedHackathonsQuery(client, query, { countOnly: true });
 }
+
+/**
+ * Recent real approve/reject decisions from `hackathon_candidates`, used as
+ * few-shot examples for the LLM pre-screening suggestion (issue #17). This
+ * table already retains a "reject" as a reversible soft-state row (status +
+ * `reviewer_note`), so there's nothing new to persist here - just a bounded
+ * read of the most recently reviewed rows in either terminal status.
+ * Deliberately `hackathon_candidates`-only, not unioned with
+ * `hackathons(moderation_state)` rows the way the tab queries above are -
+ * a published-then-moderated hackathon has no `reviewer_note` field to draw
+ * a rationale from.
+ */
+export function recentCandidateDecisionsQuery(
+  client: AnySupabaseClient,
+  limit = 8,
+) {
+  return client
+    .from("hackathon_candidates")
+    .select("name, status, reviewer_note")
+    .in("status", ["approved", "rejected"])
+    .order("reviewed_at", { ascending: false, nullsFirst: false })
+    .limit(limit);
+}
