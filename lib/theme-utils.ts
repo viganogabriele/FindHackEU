@@ -22,6 +22,14 @@ export const applyThemeToElement = (
   } else {
     element.classList.remove("dark");
   }
+
+  // Expose the active preset id as a data attribute so a handful of
+  // preset-specific CSS rules (e.g. the "cosmic-glass" theme's translucent,
+  // blurred card surfaces in app/globals.css) can be scoped to just that
+  // theme instead of a one-off React prop threaded through every component.
+  if (themeState.themeId) {
+    element.dataset.themeId = themeState.themeId;
+  }
 };
 
 // Ottiene i colori di preview per un tema (primary e accent)
