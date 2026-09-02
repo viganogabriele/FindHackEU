@@ -70,20 +70,19 @@ this doc defers entirely to [`docs/admin-auth-setup.md`](./admin-auth-setup.md)
    ```
 
    (using whatever domain Vercel gives you in step 2, or your custom domain
-   from step 5). Don't add a wildcard — the admin pages are dev-only anyway
-   (see below), but this is still the boundary Supabase itself enforces.
+   from step 5). Don't add a wildcard — this is the boundary Supabase itself
+   enforces on where a completed sign-in may land.
 
-   **Note:** the admin dashboard (`/admin`) is gated by
-   `NODE_ENV !== "production"` in addition to the Google sign-in check, and
-   Next.js sets `NODE_ENV=production` for every Vercel deployment, including
-   Preview builds. In practice this means **the admin UI will not be
-   reachable on your production Vercel deployment at all**, by design — it's
-   meant for local development and manual moderation against a local or
-   directly-connected Supabase instance, not as a hosted admin panel. Still
-   set up Google OAuth per the above if you intend to run `/admin` locally
-   against this same hosted Supabase project (e.g. to moderate candidates
-   from your own machine) — see the go-live checklist for how to verify this
-   split works as expected.
+   **Note:** the admin dashboard (`/admin`) **is reachable on your
+   production deployment.** It used to also be gated by
+   `NODE_ENV !== "production"`, which made it unreachable on Vercel; commit
+   `6f06300` removed that so the dashboard can be used from the hosted
+   deployment. The Google sign-in check in
+   `lib/services/require-admin-auth.ts` is therefore the only thing
+   protecting it, which makes this OAuth setup **required**, not optional,
+   for a real deploy: without `ADMIN_ALLOWED_EMAIL` set (and no rows in
+   `admin_users`) every admin page denies everyone, so you are locked out of
+   your own moderation queue.
 
 4. **Grab your keys.** From the Supabase Dashboard's **Settings → API**
    page, copy:
@@ -199,19 +198,19 @@ At least one of the three is needed only if you intend to run the
 web-search candidate discovery script; none are required for the core
 scraping pipeline or the public site.
 
-| Variable                       | Default if unset                                                           | Notes                                                                                                                                                                                                 |
-| ------------------------------ | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DISCOVERY_DAILY_QUERY_BUDGET` | 30                                                                         | Daily cap on search queries `discover-web-candidates.ts` issues, tracked in a local `.discovery-budget.json` file (not Supabase) — irrelevant unless you run that script.                             |
-| `GEMINI_API_KEY`               | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) free tier | Optional LLM-assisted suggestion badge on the admin Pending tab. Never auto-approves/rejects anything. Admin pages are dev-only regardless (see step 1.3), so this only matters for local moderation. |
+| Variable                       | Default if unset                                                           | Notes                                                                                                                                                                     |
+| ------------------------------ | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DISCOVERY_DAILY_QUERY_BUDGET` | 30                                                                         | Daily cap on search queries `discover-web-candidates.ts` issues, tracked in a local `.discovery-budget.json` file (not Supabase) — irrelevant unless you run that script. |
+| `GEMINI_API_KEY`               | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) free tier | Optional LLM-assisted suggestion badge on the admin Pending tab. Never auto-approves/rejects anything.                                                                    |
 
-### Optional — admin auth (`/admin`, dev-only — see step 1.3)
+### Admin auth (`/admin` — reachable in production, see step 1.3)
 
-| Variable               | Where to get it                                        | Notes                                                                                                                                                                                                                                       |
-| ---------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GOOGLE_CLIENT_ID`     | Google Cloud OAuth client (`docs/admin-auth-setup.md`) | Only meaningful for local moderation against this Supabase project — the admin UI itself is unreachable on Vercel because of the `NODE_ENV=production` gate.                                                                                |
-| `GOOGLE_CLIENT_SECRET` | Same as above                                          | Same caveat.                                                                                                                                                                                                                                |
-| `ADMIN_ALLOWED_EMAIL`  | Your own Google account email                          | Guaranteed-fallback admin; day-to-day admin list lives in the `admin_users` table instead once at least one admin can sign in. If unset and `admin_users` is empty/unreachable, admin pages deny everyone.                                  |
-| `ADMIN_LOCAL_NO_AUTH`  | You choose (`true`/unset)                              | Only ever honored when `NODE_ENV !== "production"` — cannot affect the real Vercel deployment. Leave unset in a production `.env`/Vercel config; harmless either way given the hard `NODE_ENV` gate, but there's no reason to set it there. |
+| Variable               | Where to get it                                        | Notes                                                                                                                                                                                                      |
+| ---------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GOOGLE_CLIENT_ID`     | Google Cloud OAuth client (`docs/admin-auth-setup.md`) | Required for a real deploy: `/admin` is reachable in production and sign-in is the only thing gating it.                                                                                                   |
+| `GOOGLE_CLIENT_SECRET` | Same as above                                          | Same.                                                                                                                                                                                                      |
+| `ADMIN_ALLOWED_EMAIL`  | Your own Google account email                          | Guaranteed-fallback admin; day-to-day admin list lives in the `admin_users` table instead once at least one admin can sign in. If unset and `admin_users` is empty/unreachable, admin pages deny everyone. |
+| `ADMIN_LOCAL_NO_AUTH`  | You choose (`true`/unset)                              | Only ever honored when `NODE_ENV !== "production"` — `lib/services/require-admin-auth.ts` re-checks that inline, so it cannot affect the real Vercel deployment. Leave it unset there regardless.          |
 
 ### Optional — notification bots
 
@@ -282,11 +281,11 @@ If you want a custom domain instead of the default `*.vercel.app` URL:
    follow Vercel's DNS instructions (either delegate the domain's
    nameservers to Vercel, or add the specific A/CNAME records it shows you).
 2. Once the domain is live, update the `APP_URL` GitHub Actions repository
-   variable (step 4) and the hardcoded URL in `update.yml` (also step 4) to
-   point at the new domain.
+   variable (step 4) to point at the new domain. The workflows read that
+   variable and have no hardcoded URL of their own.
 3. Update the Supabase **Authentication → URL Configuration** allowed
-   redirect URL (step 1.3) to the new domain's `/auth/callback` path, if you
-   use hosted admin auth at all.
+   redirect URL (step 1.3) to the new domain's `/auth/callback` path -
+   admin sign-in on the deployment breaks until you do.
 
 This is entirely optional and can be done at any point after the initial
 deploy — treat it as a follow-up, not a blocker to going live.
@@ -308,9 +307,9 @@ the deployment done:
       confirm the pipeline works end-to-end against the hosted Supabase
       project:
       `bash
-    curl -X POST https://<your-domain>/api/update \
-      -H "Authorization: Bearer $CRON_SECRET"
-    `
+  curl -X POST https://<your-domain>/api/update \
+    -H "Authorization: Bearer $CRON_SECRET"
+  `
       Check the JSON response body for per-source `status`, `insertedCount`,
       any `updateErrors`, and the top-level `degraded` flag — per
       `CLAUDE.md`, the route always returns a detailed diagnostic body
@@ -330,15 +329,13 @@ the deployment done:
 - [ ] **Uptime check passes.** After `uptime.yml`'s `APP_URL` variable is
       set, trigger it manually once and confirm it succeeds against your
       domain.
-- [ ] **Admin sign-in works, if you set it up.** Since `/admin` is
-      unreachable on the Vercel deployment itself by design (`NODE_ENV`
-      gate — see step 1.3), test this locally: run `npm run dev` against
-      your `.env.local` pointed at the _hosted_ Supabase project's
-      credentials, visit `http://localhost:3000/admin`, and confirm Google
-      sign-in with your `ADMIN_ALLOWED_EMAIL` account works end-to-end (this
-      is the "not verified by the agent that built this" step called out in
-      `docs/admin-auth-setup.md` — it genuinely needs a real human with real
-      Google credentials to confirm once).
+- [ ] **Admin sign-in works.** `/admin` is reachable on the deployment
+      (step 1.3), so this is a go-live blocker, not an optional extra:
+      visit `https://<your-domain>/admin`, confirm you get the sign-in gate
+      rather than the dashboard while signed out, then sign in with your
+      `ADMIN_ALLOWED_EMAIL` account and confirm you land on the dashboard.
+      Also confirm a _different_ Google account is refused. It genuinely
+      needs a real human with real Google credentials to confirm once.
 - [ ] **README auto-commit works, if `GITHUB_TOKEN` is set.** After a run
       that changes data, confirm a commit landed on the repo from the
       configured token's identity.

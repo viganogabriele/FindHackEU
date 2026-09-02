@@ -66,7 +66,7 @@ When verifying a fix — your own, a subagent's, or an external review tool's su
 - Do not commit `.env*` files or any Supabase/bot credentials.
 - `README.md` is a normal, hand-maintained project document — edit it directly like any other doc; the pipeline no longer auto-generates hackathon tables into it.
 - Keep commit messages focused on a single logical change.
-- `.github/workflows/update.yml` should run once a day against the FindHackEU deployment's `APP_URL` repository variable rather than a hardcoded URL.
+- `.github/workflows/update.yml` runs against the FindHackEU deployment's `APP_URL` repository variable rather than a hardcoded URL. Its current schedule is three runs on weekdays and two at weekends, not once a day — the unmerged `chore/cron-daily` branch is where reducing it to daily was started, if that is still wanted.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
