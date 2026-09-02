@@ -25,6 +25,13 @@ FindHackEU is an independent, open-source directory of hackathons across Europe,
 
 Discord/Telegram/Twitter notification bots exist in the codebase but are currently unconfigured and inactive in production.
 
+<details>
+<summary>Admin dashboard preview</summary>
+
+![FindHackEU admin dashboard screenshot](./docs/assets/admin-screenshot.png)
+
+</details>
+
 ## Run locally
 
 Prerequisites: a current Node.js installation and [Docker](https://www.docker.com/) (for local Supabase).
