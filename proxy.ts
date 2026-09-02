@@ -7,18 +7,18 @@ import { updateSupabaseSession } from "@/lib/services/supabase-auth-middleware";
  * login and must stay untouched by Supabase Auth's cookie handling.
  *
  * "/admin/hackathons" was removed here when issue #82 retired it as a
- * standalone route - it now just redirects to
- * /admin/candidates?status=approved without reading any session state, so
- * it no longer needs a refreshed cookie of its own.
+ * standalone route - it now just redirects to /admin?status=approved
+ * without reading any session state, so it no longer needs a refreshed
+ * cookie of its own.
+ *
+ * "/admin/candidates" no longer exists as a route (renamed to /admin
+ * directly, at the maintainer's request) - the dashboard's own session
+ * refresh is now covered entirely by the "/admin" check below. The
+ * dashboard has no further path segments of its own (every filter/tab is a
+ * query param, not a route segment), so no "/admin/:path*" case is needed.
  */
 function needsSupabaseSession(pathname: string): boolean {
-  if (pathname === "/admin" || pathname === "/auth/callback") {
-    return true;
-  }
-  return (
-    pathname === "/admin/candidates" ||
-    pathname.startsWith("/admin/candidates/")
-  );
+  return pathname === "/admin" || pathname === "/auth/callback";
 }
 
 export async function proxy(request: NextRequest) {
@@ -41,5 +41,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin", "/admin/candidates/:path*", "/auth/callback"],
+  matcher: ["/admin", "/auth/callback"],
 };

@@ -71,7 +71,7 @@ export async function getAdminAuthStatus(): Promise<AdminAuthStatus> {
  * Throws unless the caller has a valid Supabase Auth session whose email
  * matches `ADMIN_ALLOWED_EMAIL`. Call this at the top of every
  * admin server action (mirroring the existing `assertDevOnly()`
- * pattern in app/admin/candidates/actions.ts) - the sign-in gate on the page
+ * pattern in app/admin/actions.ts) - the sign-in gate on the page
  * itself only hides UI, it is not real security on its own since a server
  * action is its own callable endpoint once the client has the page loaded.
  *

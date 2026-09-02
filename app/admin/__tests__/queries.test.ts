@@ -12,7 +12,7 @@ import {
 } from "../queries";
 
 /**
- * Issue #102: the union-query logic backing /admin/candidates's five tabs.
+ * Issue #102: the union-query logic backing /admin's five tabs.
  * Same mocked-chainable-builder approach as
  * app/api/hackathons/__tests__/{archived,moderation}-exclusion.test.ts -
  * asserts the exact filter/order calls each query function sends to

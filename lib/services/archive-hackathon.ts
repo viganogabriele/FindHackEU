@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * (issue #72). Both producers of archived state go through this file:
  *
  *   1. The manual "Archive" button on a published hackathon in
- *      /admin/candidates's Approved tab (app/admin/hackathons/actions.ts's
+ *      /admin's Approved tab (app/admin/hackathons/actions.ts's
  *      `archiveHackathonAction`).
  *   2. The automatic retention sweep (lib/services/retention-sweep.ts,
  *      called from app/api/archive-old-hackathons/route.ts) for a

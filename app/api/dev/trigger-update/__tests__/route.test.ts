@@ -38,7 +38,7 @@ describe("POST /api/dev/trigger-update", () => {
   // weaker gate the sidebar's now-removed DevTriggerUpdateButton had) - a
   // direct POST from anyone running the app locally, signed in or not,
   // would reach the real pipeline. It must now also re-check real admin
-  // auth server-side, mirroring app/admin/candidates/actions.ts's
+  // auth server-side, mirroring app/admin/actions.ts's
   // `assertAuthorized()` pattern, rejecting before ever touching
   // CRON_SECRET or forwarding to /api/update.
   it("rejects an unauthorized caller before forwarding to /api/update", async () => {

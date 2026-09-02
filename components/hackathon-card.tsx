@@ -31,7 +31,7 @@ import { useBookmarksStore } from "@/lib/bookmarks-store";
  * nullable `date_start`). A full `Hackathon` is structurally assignable to
  * this type as-is; a candidate needs a small adapter first - see
  * `candidateToHackathonCardData` in
- * `app/admin/candidates/candidate-card-data.ts`.
+ * `app/admin/candidate-card-data.ts`.
  */
 export interface HackathonCardData {
   id: string;

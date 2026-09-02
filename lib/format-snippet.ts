@@ -6,8 +6,8 @@
  * be a noisy blob straight from the scraped page: countdown-timer widgets
  * ("00Days 00Hours 00Minutes 00Seconds"), duplicated title fragments, and
  * mid-word truncation from upstream `.slice()` calls. `raw_snippet` itself is
- * only ever read for display on the `/admin/candidates` review card (see
- * `app/admin/candidates/page.tsx`'s `CandidateCard`) — nothing else in the
+ * only ever read for display on the `/admin` review card (see
+ * `app/admin/page.tsx`'s `CandidateCard`) — nothing else in the
  * codebase reads it back out — so cleanup happens here, purely at render
  * time, rather than mutating what gets stored at extraction time.
  */

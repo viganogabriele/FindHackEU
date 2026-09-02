@@ -23,7 +23,7 @@ describe("GET /auth/callback", () => {
     vi.clearAllMocks();
   });
 
-  it("falls back to the candidates page for an external next value", async () => {
+  it("falls back to the admin dashboard for an external next value", async () => {
     const response = await GET(
       new Request(
         "https://app.example.com/auth/callback?code=oauth-code&next=%40evil.example%2Fphish",
@@ -31,7 +31,7 @@ describe("GET /auth/callback", () => {
     );
 
     expect(response.headers.get("location")).toBe(
-      "https://app.example.com/admin/candidates",
+      "https://app.example.com/admin",
     );
   });
 
@@ -39,6 +39,7 @@ describe("GET /auth/callback", () => {
     "//evil.example/phish",
     "https://evil.example/phish",
     "/admin/other",
+    "/admin/candidates",
   ])("rejects an unsafe next path: %s", async (next) => {
     const response = await GET(
       new Request(
@@ -47,7 +48,7 @@ describe("GET /auth/callback", () => {
     );
 
     expect(response.headers.get("location")).toBe(
-      "https://app.example.com/admin/candidates",
+      "https://app.example.com/admin",
     );
   });
 
@@ -63,7 +64,7 @@ describe("GET /auth/callback", () => {
     );
   });
 
-  it("falls back to the candidates page for the retired /admin/hackathons route (issue #82)", async () => {
+  it("falls back to the admin dashboard for the retired /admin/hackathons route (issue #82)", async () => {
     const response = await GET(
       new Request(
         "https://app.example.com/auth/callback?code=oauth-code&next=%2Fadmin%2Fhackathons%3Fstatus%3Dpast",
@@ -71,7 +72,7 @@ describe("GET /auth/callback", () => {
     );
 
     expect(response.headers.get("location")).toBe(
-      "https://app.example.com/admin/candidates",
+      "https://app.example.com/admin",
     );
   });
 
@@ -99,7 +100,7 @@ describe("GET /auth/callback", () => {
     );
 
     expect(response.headers.get("location")).toBe(
-      "https://app.example.com/admin/candidates?error=oauth_callback_failed",
+      "https://app.example.com/admin?error=oauth_callback_failed",
     );
   });
 
@@ -115,7 +116,7 @@ describe("GET /auth/callback", () => {
     );
 
     expect(response.headers.get("location")).toBe(
-      "https://app.example.com/admin/candidates?error=oauth_callback_failed",
+      "https://app.example.com/admin?error=oauth_callback_failed",
     );
   });
 });

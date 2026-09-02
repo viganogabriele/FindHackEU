@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * Query builders backing /admin/candidates's five tabs (issue #102).
+ * Query builders backing /admin's five tabs (issue #102).
  * Factored out of page.tsx into their own pure functions (dependency-
  * injected Supabase client, not the module-level `supabaseAdmin` singleton)
  * specifically so the union-query shape - the exact filters/order each tab

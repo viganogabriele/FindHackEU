@@ -44,7 +44,7 @@ describe("updateSupabaseSession", () => {
   });
 
   it("writes refreshed cookies and all session cache headers to the response", async () => {
-    const request = new NextRequest("https://app.example.com/admin/candidates");
+    const request = new NextRequest("https://app.example.com/admin");
 
     const response = await updateSupabaseSession(request);
 

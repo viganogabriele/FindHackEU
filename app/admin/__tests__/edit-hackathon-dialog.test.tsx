@@ -19,7 +19,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-vi.mock("../../hackathons/actions", () => ({
+vi.mock("../hackathons/actions", () => ({
   editHackathonFormAction: vi.fn(),
 }));
 
@@ -28,7 +28,7 @@ vi.mock("sonner", () => ({
 }));
 
 import { EditHackathonDialog } from "../edit-hackathon-dialog";
-import { editHackathonFormAction } from "../../hackathons/actions";
+import { editHackathonFormAction } from "../hackathons/actions";
 import { toast } from "sonner";
 
 type HackathonRow = Database["public"]["Tables"]["hackathons"]["Row"];

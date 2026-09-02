@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/admin/candidates",
+  usePathname: () => "/admin",
   useRouter: () => ({ replace: mocks.replace }),
   useSearchParams: () => new URLSearchParams("status=pending&reason=no-date"),
 }));
@@ -36,7 +36,7 @@ describe("AdminSearchInput", () => {
 
     await waitFor(() => {
       expect(mocks.replace).toHaveBeenCalledWith(
-        "/admin/candidates?status=pending&reason=no-date&q=Berlin",
+        "/admin?status=pending&reason=no-date&q=Berlin",
         { scroll: false },
       );
     });

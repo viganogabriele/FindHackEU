@@ -15,7 +15,7 @@ import { requireAdminAuth } from "@/lib/services/require-admin-auth";
  * on a real deployment.
  *
  * Also re-checks real admin auth server-side (issue #81), mirroring
- * app/admin/candidates/actions.ts's `assertAuthorized()` pattern - the
+ * app/admin/actions.ts's `assertAuthorized()` pattern - the
  * button now only renders on the authenticated /admin dashboard, but that
  * alone doesn't stop a direct POST to this route from anyone running the
  * app locally (previously gated only by NODE_ENV, weaker than real admin

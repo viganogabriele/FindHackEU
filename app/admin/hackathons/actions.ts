@@ -41,7 +41,7 @@ async function assertAuthorized() {
  * common "no longer wanted but not wrong" case, which should use Archive
  * instead.
  *
- * Called from /admin/candidates's Approved tab (issue #82) - the standalone
+ * Called from /admin's Approved tab (issue #82) - the standalone
  * /admin/hackathons page that used to own this action was retired, but the
  * action itself stays here since it has no page-specific dependency.
  */
@@ -59,7 +59,7 @@ export async function deleteHackathonAction(
     throw new Error(error.message);
   }
 
-  revalidatePath("/admin/candidates");
+  revalidatePath("/admin");
 }
 
 /**
@@ -74,7 +74,7 @@ export async function deleteHackathonAction(
  * available separately for genuine junk/mistakes that don't need to be kept
  * around at all. Archived rows are excluded from the public API
  * (app/api/hackathons/route.ts) and the README, and are managed from the
- * new Archived tab on /admin/candidates.
+ * new Archived tab on /admin.
  */
 export async function archiveHackathonAction(
   hackathonId: string,
@@ -92,7 +92,7 @@ export async function archiveHackathonAction(
     throw new Error(result.message);
   }
 
-  revalidatePath("/admin/candidates");
+  revalidatePath("/admin");
 }
 
 /**
@@ -111,7 +111,7 @@ export async function unarchiveHackathonAction(
     throw new Error(result.message);
   }
 
-  revalidatePath("/admin/candidates");
+  revalidatePath("/admin");
 }
 
 /**
@@ -124,7 +124,7 @@ export async function unarchiveHackathonAction(
  * independent concern (editorial moderation, not date-based retention) - a
  * candidate-sourced Pending/Rejected row keeps using
  * `approveCandidateAction`/`rejectCandidateAction`
- * (app/admin/candidates/actions.ts) unchanged, since this action only
+ * (app/admin/actions.ts) unchanged, since this action only
  * touches `hackathons`, never `hackathon_candidates`.
  */
 export async function setHackathonModerationStateAction(
@@ -143,7 +143,7 @@ export async function setHackathonModerationStateAction(
     throw new Error(result.message);
   }
 
-  revalidatePath("/admin/candidates");
+  revalidatePath("/admin");
 }
 
 /**
@@ -170,7 +170,7 @@ export async function editHackathonFormAction(
   });
 
   if (result.outcome === "updated") {
-    revalidatePath("/admin/candidates");
+    revalidatePath("/admin");
     revalidatePath("/api/hackathons");
   }
 

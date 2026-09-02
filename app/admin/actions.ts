@@ -21,7 +21,7 @@ import { requireAdminAuth } from "@/lib/services/require-admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 
 /**
- * Server actions backing /admin/candidates. Every action re-checks both
+ * Server actions backing /admin. Every action re-checks both
  * NODE_ENV and admin auth itself (not just relying on the page being
  * unreachable/hiding its buttons) since a server action is its own callable
  * endpoint once the client has the page loaded.
@@ -55,7 +55,7 @@ export async function approveCandidateAction(
     throw new Error(result.message);
   }
 
-  revalidatePath("/admin/candidates");
+  revalidatePath("/admin");
 }
 
 export async function rejectCandidateAction(
@@ -66,7 +66,7 @@ export async function rejectCandidateAction(
 
   await rejectCandidate(candidateId, reviewerNote);
 
-  revalidatePath("/admin/candidates");
+  revalidatePath("/admin");
 }
 
 export async function moveCandidateToPendingAction(
@@ -77,7 +77,7 @@ export async function moveCandidateToPendingAction(
   const result = await moveCandidateToPending(supabaseAdmin, candidateId);
 
   if (result.outcome === "updated") {
-    revalidatePath("/admin/candidates");
+    revalidatePath("/admin");
   }
 
   return result;
@@ -106,7 +106,7 @@ export async function deleteCandidateAction(
     throw new Error(error.message);
   }
 
-  revalidatePath("/admin/candidates");
+  revalidatePath("/admin");
 }
 
 /**
@@ -134,7 +134,7 @@ export async function editCandidateFormAction(
   });
 
   if (result.outcome === "updated") {
-    revalidatePath("/admin/candidates");
+    revalidatePath("/admin");
   }
 
   return result;
@@ -156,7 +156,7 @@ export async function submitManualCandidateFormAction(
   });
 
   if (result.outcome === "created") {
-    revalidatePath("/admin/candidates");
+    revalidatePath("/admin");
   }
 
   return result;

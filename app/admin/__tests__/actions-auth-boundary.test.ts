@@ -38,7 +38,7 @@ import {
   rejectCandidateAction,
   moveCandidateToPendingAction,
   submitManualCandidateFormAction,
-} from "../candidates/actions";
+} from "../actions";
 import {
   deleteHackathonAction,
   archiveHackathonAction,
@@ -134,10 +134,7 @@ describe("admin server actions", () => {
       dateStart: "2026-12-01",
       topics: ["AI", "Web3"],
     });
-    expect(mocks.revalidatePath).toHaveBeenNthCalledWith(
-      1,
-      "/admin/candidates",
-    );
+    expect(mocks.revalidatePath).toHaveBeenNthCalledWith(1, "/admin");
     expect(mocks.revalidatePath).toHaveBeenNthCalledWith(2, "/api/hackathons");
   });
 

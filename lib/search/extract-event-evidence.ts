@@ -14,7 +14,7 @@ export interface EventEvidence {
    * same page also carries an Open Graph title that clearly refers to
    * something else (issue #15). This never changes which tier's data is
    * returned - JSON-LD still wins - it's purely an extra confidence signal
-   * for a human reviewer at /admin/candidates to double-check the page
+   * for a human reviewer at /admin to double-check the page
    * before approving. Always `false` when the winning tier isn't
    * "jsonld-event", since there's nothing lower-confidence left to compare
    * it against on this page.

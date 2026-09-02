@@ -43,7 +43,7 @@ export default function HackathonList({
   // Share for past events) footer as the card's `actions` slot. A full
   // `Hackathon` row satisfies `HackathonCardData` as-is, so no mapping is
   // needed here (unlike the admin candidate card - see
-  // app/admin/candidates/candidate-card-data.ts).
+  // app/admin/candidate-card-data.ts).
   const PublicHackathonCard = ({ hackathon }: { hackathon: Hackathon }) => {
     const { t } = useTranslation();
 

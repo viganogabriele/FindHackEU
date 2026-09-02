@@ -1,15 +1,17 @@
 // "/admin/hackathons" was removed from this allowlist when issue #82
 // retired it as a standalone admin route - it now just redirects to
-// /admin/candidates?status=approved and needs no auth session of its own,
-// so it's no longer a meaningful post-login destination.
-export const ADMIN_AUTH_REDIRECT_PATHS = [
-  "/admin",
-  "/admin/candidates",
-] as const;
+// /admin?status=approved and needs no auth session of its own, so it's no
+// longer a meaningful post-login destination.
+//
+// "/admin/candidates" was removed from this allowlist when the maintainer
+// asked for the whole dashboard to be renamed to /admin directly - that
+// route no longer exists, so it must not be an accepted post-login
+// destination either. "/admin" is now the ONLY allowlisted path.
+export const ADMIN_AUTH_REDIRECT_PATHS = ["/admin"] as const;
 
 export type AdminAuthRedirectPath = (typeof ADMIN_AUTH_REDIRECT_PATHS)[number];
 
-export const DEFAULT_ADMIN_AUTH_REDIRECT = "/admin/candidates";
+export const DEFAULT_ADMIN_AUTH_REDIRECT = "/admin";
 
 export function isAdminAuthRedirectPath(
   value: string | null | undefined,

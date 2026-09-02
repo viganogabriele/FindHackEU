@@ -16,9 +16,9 @@ describe("proxy", () => {
     vi.clearAllMocks();
   });
 
-  it("refreshes the Supabase session for the candidates admin page", async () => {
+  it("refreshes the Supabase session for the admin dashboard", async () => {
     const request = new NextRequest(
-      "https://app.example.com/admin/candidates?status=approved",
+      "https://app.example.com/admin?status=approved",
     );
     const refreshedResponse = NextResponse.next({ request });
     mocks.updateSupabaseSession.mockResolvedValueOnce(refreshedResponse);

@@ -3,7 +3,7 @@
  * Runs a bounded set of web-search queries (issue #13/#14/#17) and writes
  * whatever plausible event pages they turn up into `hackathon_candidates`
  * as `pending` rows - never directly into `hackathons`. A human reviews
- * each one at /admin/candidates before it becomes a real, published event.
+ * each one at /admin before it becomes a real, published event.
  *
  * This is a manually-triggered, opt-in script (like scripts/trigger-update.mjs),
  * not part of the daily cron - search API quota is limited (see
@@ -191,7 +191,7 @@ async function main() {
   console.log(
     `Auto-published ${promoted} trusted JSON-LD candidate(s); ` +
       `${insertedCandidates.length - trustedCandidates.length} new candidate(s) ` +
-      `remain in review at /admin/candidates.`,
+      `remain in review at /admin.`,
   );
   if (promotionErrors.length > 0) {
     console.warn(

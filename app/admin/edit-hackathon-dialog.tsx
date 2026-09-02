@@ -16,7 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { HACKATHON_TOPICS } from "@/lib/constants/topics";
-import { editHackathonFormAction } from "../hackathons/actions";
+import { editHackathonFormAction } from "./hackathons/actions";
 import type { Database } from "@/types/database";
 import { toast } from "sonner";
 import { NO_AUTOFILL_PROPS } from "@/lib/form-utils";
