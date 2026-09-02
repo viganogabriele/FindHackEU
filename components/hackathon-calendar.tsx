@@ -79,17 +79,19 @@ export default function HackathonCalendar({
 
   return (
     <div className="w-full">
-      <div className="mb-4 flex items-center justify-between gap-2">
+      {/* `flex-wrap`: at 320px the month label plus three controls do not
+          fit on one line, and wrapping the controls onto a second row is
+          better than letting them overflow. */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold" aria-live="polite">
           {monthLabel}
         </h2>
         <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={goToToday}
-            className="hidden sm:inline-flex"
-          >
+          {/* Was `hidden sm:inline-flex`. Month navigation is one month per
+              tap, so hiding this on mobile left a visitor who had browsed
+              ahead with no way back to the current month except tapping the
+              arrow repeatedly - the one place the shortcut matters most. */}
+          <Button variant="outline" size="sm" onClick={goToToday}>
             {t("calendarView.today")}
           </Button>
           <Button

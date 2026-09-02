@@ -82,7 +82,12 @@ export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0" align="end">
+      {/* Not a hard 300px: that leaves 10px of slack on a 320px-wide
+          screen, and none once the viewport is narrower. */}
+      <PopoverContent
+        className="w-[min(300px,calc(100vw-2rem))] p-0"
+        align="end"
+      >
         <Command>
           <CommandInput placeholder={t("theme.searchPlaceholder")} />
           <CommandList>

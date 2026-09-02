@@ -372,7 +372,13 @@
 }
 
 .leaflet-popup-content:has(.hackathon-map-popup-card) {
-  width: 280px !important;
+  /*
+   * Not a hard 280px: the popup also carries Leaflet's own wrapper padding
+   * and sits inside a map that is the full viewport width on a phone, so a
+   * fixed width overflowed on narrow screens and made Leaflet pan the map
+   * to try to fit it.
+   */
+  width: min(280px, calc(100vw - 5rem)) !important;
   margin: 0;
 }
 

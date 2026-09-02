@@ -196,7 +196,7 @@ export default function HackathonMap({
               title={hackathon.name}
               {...(approximate ? { icon: APPROXIMATE_MARKER_ICON } : {})}
             >
-              <Popup minWidth={280} maxWidth={320}>
+              <Popup minWidth={240} maxWidth={320}>
                 <div className="hackathon-map-popup-card">
                   {approximate && (
                     <p className="mb-1.5 text-xs font-medium text-amber-700 dark:text-amber-500">
