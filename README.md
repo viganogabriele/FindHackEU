@@ -8,7 +8,7 @@ The data is exposed through:
 
 - A filterable **web UI** with a map view, radius search, bookmarks, and multilingual (10-locale) support.
 - A small **public read API** (`GET /api/hackathons`).
-- **Discord/Telegram/Twitter** bots that announce newly discovered hackathons.
+- **Discord/Telegram/X (Twitter)** bots that can announce newly discovered hackathons — not currently active/configured, but the notification pipeline is in place and can be turned back on.
 
 ## Running it locally
 
