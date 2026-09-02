@@ -275,6 +275,20 @@
   padding: 0.5rem;
 }
 
+/*
+ * Dark-mode map tiles (issue #8 follow-up): rather than a separate,
+ * deliberately low-detail free dark basemap (Esri's Dark Gray Canvas has
+ * far fewer streets/labels than OpenStreetMap by design), the same
+ * OpenStreetMap tiles used in light mode are recolored with a CSS filter.
+ * This keeps identical map detail/precision between light and dark mode -
+ * only the color treatment differs - and needs no extra tile provider or
+ * API key. Standard "invert + hue-rotate" trick for OSM night styling.
+ */
+.hackathon-map-dark-tiles {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9)
+    saturate(0.6);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

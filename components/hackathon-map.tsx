@@ -16,29 +16,9 @@ const EUROPE_CENTER: [number, number] = [50.5, 10.5];
 // separate out of a cluster at a more reasonable zoom level.
 const MAX_CLUSTER_RADIUS = 45;
 
-const LIGHT_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-const LIGHT_TILE_ATTRIBUTION =
+const TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const TILE_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-
-// CARTO's dark_all basemap - the usual free/no-key choice for this - was
-// verified live (2026-09-02) to now serve an "API KEY REQUIRED" watermark
-// tile instead of the map, i.e. it's no longer usable without a key. Esri's
-// World Dark Gray Canvas is used instead: also free, no API key, verified
-// live to return real (non-watermarked) tiles. Attribution text is Esri's
-// own published copyright string for this service.
-//
-// Esri's Dark Gray Canvas is split into two layers by design: "Base" (just
-// muted landmass/water, no roads/labels/borders) and "Reference" (roads,
-// place labels, boundaries - meant to be layered on TOP of Base). Using
-// only Base renders a dark map with no streets or place names at all - a
-// real bug found via live testing, not a Base-only style choice - so both
-// layers are used together, Reference stacked above Base.
-const DARK_TILE_BASE_URL =
-  "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}";
-const DARK_TILE_REFERENCE_URL =
-  "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}";
-const DARK_TILE_ATTRIBUTION =
-  "Esri, HERE, Garmin, &copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors, and the GIS user community";
 
 // Leaflet's image paths are not discoverable by Next's bundler on their own.
 // Keep the standard assets in public/leaflet so markers work in production too.
@@ -122,22 +102,12 @@ export default function HackathonMap({
         className="h-[min(70vh,42rem)] min-h-[24rem] w-full sm:min-h-[30rem]"
         zoomControl
       >
-        {isDark ? (
-          <>
-            <TileLayer key="dark-base" url={DARK_TILE_BASE_URL} />
-            <TileLayer
-              key="dark-reference"
-              attribution={DARK_TILE_ATTRIBUTION}
-              url={DARK_TILE_REFERENCE_URL}
-            />
-          </>
-        ) : (
-          <TileLayer
-            key="light"
-            attribution={LIGHT_TILE_ATTRIBUTION}
-            url={LIGHT_TILE_URL}
-          />
-        )}
+        <TileLayer
+          key={currentMode}
+          attribution={TILE_ATTRIBUTION}
+          url={TILE_URL}
+          className={isDark ? "hackathon-map-dark-tiles" : undefined}
+        />
         <MapViewport hackathons={mappedHackathons} />
         <MarkerClusterGroup
           chunkedLoading
