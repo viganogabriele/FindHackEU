@@ -2,6 +2,7 @@
 
 import { Hackathon } from "@/types/hackathon";
 import { europeanCountries } from "@/lib/european-countries";
+import { SITE_URL } from "@/lib/site-url";
 
 interface StructuredDataProps {
   hackathons?: Hackathon[];
@@ -17,12 +18,12 @@ export function StructuredData({
     "@type": "WebSite",
     name: "FindHackEU",
     description: "Comprehensive list of hackathons happening across Europe",
-    url: "https://hacktrack-eu.vercel.app",
+    url: SITE_URL,
     publisher: {
       "@type": "Organization",
       name: "FindHackEU",
-      url: "https://hacktrack-eu.vercel.app",
-      logo: "https://hacktrack-eu.vercel.app/images/logo.png",
+      url: SITE_URL,
+      logo: `${SITE_URL}/images/logo.png`,
     },
   });
 

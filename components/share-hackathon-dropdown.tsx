@@ -12,17 +12,20 @@ import { Hackathon } from "@/types/hackathon";
 import { FaXTwitter, FaReddit } from "react-icons/fa6";
 import { europeanCountries } from "@/lib/european-countries";
 import { useTranslation } from "@/contexts/translation-context";
+import { SITE_URL } from "@/lib/site-url";
 
 interface ShareHackathonDropdownProps {
   hackathon: Hackathon;
 }
 
 // The canonical FindHackEU URL, matching app/layout.tsx's own metadata
-// `canonical`/`openGraph.url`. Shared content (issue: attribution) should
-// credit where the listing was found, not just link out to the external
-// event page - a share that only contains the event's own URL gives
-// FindHackEU no attribution at all once it's reposted.
-export const FINDHACKEU_URL = "https://hacktrack-eu.vercel.app";
+// `canonical`/`openGraph.url` - both now read the same `SITE_URL` so a
+// share can never point at a different origin than the canonical tag.
+// Shared content (issue: attribution) should credit where the listing was
+// found, not just link out to the external event page - a share that only
+// contains the event's own URL gives FindHackEU no attribution at all once
+// it's reposted.
+export const FINDHACKEU_URL = SITE_URL;
 
 const shareOptions = [
   {
