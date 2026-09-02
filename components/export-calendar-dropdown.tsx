@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarIcon } from "lucide-react";
-import { atcb_action } from "add-to-calendar-button-react";
 import { Hackathon } from "@/types/hackathon";
 import { europeanCountries } from "@/lib/european-countries";
 import { useTranslation } from "@/contexts/translation-context";
@@ -69,9 +68,16 @@ export function ExportCalendarDropdown({
     };
   };
 
-  const handleExport = (option: (typeof calendarOptions)[number]) => {
-    const eventData = formatEventForCalendar();
-    atcb_action({ ...eventData, options: [option.value] });
+  /**
+   * `add-to-calendar-button-react` is only ever needed once someone actually
+   * picks a calendar, but importing it at module scope put the whole library
+   * in the initial bundle - and this dropdown renders in the footer of every
+   * card in the list, so it was never going to be code-split away on its
+   * own. Loading it inside the handler moves it off first paint entirely.
+   */
+  const handleExport = async (option: (typeof calendarOptions)[number]) => {
+    const { atcb_action } = await import("add-to-calendar-button-react");
+    atcb_action({ ...formatEventForCalendar(), options: [option.value] });
   };
 
   return (
@@ -91,7 +97,7 @@ export function ExportCalendarDropdown({
           return (
             <DropdownMenuItem
               key={option.value}
-              onClick={() => handleExport(option)}
+              onClick={() => void handleExport(option)}
               className="flex items-center gap-2"
             >
               <IconComponent className="h-4 w-4" />
