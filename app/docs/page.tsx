@@ -376,9 +376,10 @@ export default function DocsPage() {
                 <Send className="h-6 w-6 text-primary mb-3" />
                 <h3 className="font-semibold mb-2">Submit a Hackathon</h3>
                 <p className="text-sm text-muted-foreground">
-                  Missing an event? Use the submission form (in the site footer)
-                  to suggest a URL. Every submission is reviewed by a maintainer
-                  before it appears in the public listing.
+                  Missing an event? Use the submission form (in the header, next
+                  to the search bar) to suggest a URL. Every submission is
+                  reviewed by a maintainer before it appears in the public
+                  listing.
                 </p>
               </Card>
             </div>
@@ -545,8 +546,9 @@ export default function DocsPage() {
                   Can I submit a hackathon that&apos;s missing?
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Yes! Use the submission form in the site footer, or open an
-                  issue on our GitHub repository with the hackathon details.
+                  Yes! Use the submission form in the header, next to the
+                  search bar, or open an issue on our GitHub repository with
+                  the hackathon details.
                   Every submission is reviewed by a maintainer before it goes
                   live.
                 </p>
