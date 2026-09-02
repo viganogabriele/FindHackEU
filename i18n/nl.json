@@ -34,7 +34,7 @@
   "topics.searchPlaceholder": "Zoek onderwerp",
   "topics.noneFound": "Geen onderwerp gevonden.",
   "dates": "Data",
-  "filters.includeOtherLanguages": "Hackathons in andere talen dan {language} opnemen",
+  "filters.includeOtherLanguages": "Toon hackathons niet in {language}",
   "filters.showOnlineEvents": "Online evenementen tonen",
   "filters.onlineHidden": "Online evenementen verborgen",
   "dates.select": "Selecteer data",

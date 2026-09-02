@@ -34,7 +34,7 @@
   "topics.searchPlaceholder": "Caută subiect",
   "topics.noneFound": "Niciun subiect găsit.",
   "dates": "Date",
-  "filters.includeOtherLanguages": "Include hackathoane care nu sunt în {language}",
+  "filters.includeOtherLanguages": "Afișează hackathoane non-{language}",
   "filters.showOnlineEvents": "Afișează evenimentele online",
   "filters.onlineHidden": "Evenimente online ascunse",
   "dates.select": "Selectează date",

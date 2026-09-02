@@ -34,7 +34,7 @@
   "topics.searchPlaceholder": "Thema suchen",
   "topics.noneFound": "Kein Thema gefunden.",
   "dates": "Daten",
-  "filters.includeOtherLanguages": "Hackathons außerhalb von {language} einschließen",
+  "filters.includeOtherLanguages": "Nicht-{language}-Hackathons anzeigen",
   "filters.showOnlineEvents": "Online-Events anzeigen",
   "filters.onlineHidden": "Online-Events ausgeblendet",
   "dates.select": "Daten auswählen",

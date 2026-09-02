@@ -34,7 +34,7 @@
   "topics.searchPlaceholder": "Szukaj tematu",
   "topics.noneFound": "Nie znaleziono tematu.",
   "dates": "Daty",
-  "filters.includeOtherLanguages": "Uwzględnij hackathony inne niż w języku {language}",
+  "filters.includeOtherLanguages": "Pokaż hackathony spoza {language}",
   "filters.showOnlineEvents": "Pokaż wydarzenia online",
   "filters.onlineHidden": "Wydarzenia online ukryte",
   "dates.select": "Wybierz daty",

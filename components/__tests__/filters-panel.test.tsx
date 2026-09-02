@@ -33,20 +33,20 @@ describe("FiltersPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Filters" }));
 
     const languageSwitch = screen.getByRole("switch", {
-      name: /include hackathons not in/i,
+      name: /show non-.* hackathons/i,
     });
     fireEvent.click(languageSwitch);
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
     const removeLanguageFilter = screen.getByRole("button", {
-      name: /remove include hackathons not in english filter/i,
+      name: /remove show non-english hackathons filter/i,
     });
     fireEvent.click(removeLanguageFilter);
 
     expect(languageSwitch.getAttribute("aria-checked")).toBe("false");
     expect(
       screen.queryByRole("button", {
-        name: /remove include hackathons not in english filter/i,
+        name: /remove show non-english hackathons filter/i,
       }),
     ).toBeNull();
   });
