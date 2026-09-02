@@ -1,21 +1,20 @@
 # FindHackEU
 
-FindHackEU is an independent, open-source directory of hackathons across Europe. It collects events from six live sources—[Luma](https://lu.ma), [Devfolio](https://devfolio.co), [MLH](https://mlh.io), [ETHGlobal](https://ethglobal.com), [Eventbrite](https://www.eventbrite.com), and [Devpost](https://devpost.com)—then normalizes, deduplicates, geocodes, and publishes the results.
+FindHackEU is an independent, open-source directory of hackathons across Europe, maintained by Gabriele Viganò. It brings public event listings into one dependable place: a scheduled pipeline collects events from Luma, Devfolio, MLH, ETHGlobal, Eventbrite, and Devpost; normalizes them; removes duplicates; enriches location data; and publishes the approved results.
 
-The public site provides a filterable listing with map, bookmarks, location-radius search, and a small read-only API. A separate web-search workflow identifies additional possible events; those records enter a moderated review queue and are never published automatically.
+The project grew from a pipeline that surfaced only two hackathons at a time to one that now finds more than 100 events across Europe. That increase comes from broader provider coverage, pagination and geographic filtering, multilingual classification, source-aware deduplication, geocoding, and a moderated discovery queue—not from lowering the publication bar.
 
-## What it includes
+## What you can use
 
-- A Next.js web interface for browsing upcoming and past hackathons by text, date, topic, location, and radius.
-- An interactive map with clustered markers and country-level fallbacks when precise coordinates are unavailable.
-- Browser-local bookmarks, with no account required.
-- `GET /api/hackathons`, a public read API for the published dataset.
-- A scheduled ingestion pipeline that records per-source outcomes, removes URL and fuzzy duplicates, and enriches location data.
-- A moderated candidate queue for web-search discoveries and public submissions.
+- The public website: search by text, date, topic, city/country, and radius; view results on a clustered map; and save browser-local bookmarks.
+- The public read API: `GET /api/hackathons` exposes approved, non-archived events as JSON.
+- Community discovery: submit a missing event; it enters a review queue and is never published automatically.
 
-## Local development
+Notification bots remain in the codebase but are currently unconfigured and inactive.
 
-Prerequisites: a current Node.js installation and [Docker](https://www.docker.com/) for the local Supabase stack.
+## Run locally
+
+Prerequisites: a current Node.js installation and [Docker](https://www.docker.com/) for local Supabase.
 
 ```bash
 git clone https://github.com/viganogabriele/FindHackEU.git
@@ -23,45 +22,42 @@ cd FindHackEU
 npm install
 cp .env.example .env.local
 npx supabase start
+```
+
+Copy the API URL, anon key, and service-role key printed by Supabase to `.env.local` as `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. Set `CRON_SECRET` to any local value, then start the app:
+
+```bash
 npm run dev
 ```
 
-`npx supabase start` starts local Postgres and Supabase Studio, applies the repository migrations, and prints the API URL, anon key, and service-role key. Copy those values to `.env.local` as `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`; set `CRON_SECRET` to any local value. Those settings are sufficient to run the application locally. Other variables in `.env.example` are needed only for the integrations they enable, such as geocoding, provider search, notifications, or production-like authentication.
+Supabase applies the repository migrations and seed data automatically. The local `/admin` dashboard needs no Google OAuth by default: leave `GOOGLE_CLIENT_ID` and `ADMIN_ALLOWED_EMAIL` unset. This bypass is disabled in production.
 
-The development-only admin dashboard is available at `/admin`. No Google OAuth setup is required for a default local installation: leaving `GOOGLE_CLIENT_ID` and `ADMIN_ALLOWED_EMAIL` unset enables the local no-auth bypass. That bypass is hard-disabled in production.
-
-## Project structure
+## Project map
 
 - `app/` — App Router pages and API routes.
-- `lib/parsers/` — source-specific discovery parsers.
+- `lib/parsers/` — provider-specific event discovery.
 - `lib/dedup/` — URL normalization and fuzzy duplicate matching.
-- `lib/discovery/` and `lib/search/` — web-search candidate discovery and evidence extraction.
-- `lib/services/` — ingestion, geocoding, moderation, and database services.
-- `supabase/migrations/` — local and deployed database schema migrations.
+- `lib/discovery/` and `lib/search/` — moderated web-search discovery.
+- `lib/services/` — ingestion, geocoding, persistence, and moderation.
+- `supabase/migrations/` — database schema.
 
-The main update route keeps provider discovery, deduplication, location enrichment, persistence, and optional notifications as separately reported stages. Search-derived candidates remain isolated from the published `hackathons` dataset until an administrator approves them.
+The ingestion stages report independently: a source failure does not prevent the remaining sources from completing. Search-derived records remain separate from the published dataset until a maintainer approves them.
 
 ## Useful commands
 
-| Command                  | Purpose                                               |
-| ------------------------ | ----------------------------------------------------- |
-| `npm run dev`            | Start the local development server.                   |
-| `npm run lint`           | Run ESLint.                                           |
-| `npm run test`           | Run the Vitest suite.                                 |
-| `npx tsc --noEmit`       | Type-check the project.                               |
-| `npm run build`          | Create a production build.                            |
-| `npm run trigger-update` | Run the ingestion pipeline using local configuration. |
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the development server. |
+| `npm run lint` | Run ESLint. |
+| `npm run test` | Run the Vitest suite. |
+| `npx tsc --noEmit` | Type-check the project. |
+| `npm run build` | Build for production. |
+| `npm run trigger-update` | Run the ingestion pipeline locally. |
 
-For detailed development conventions, pipeline behavior, and environment configuration, see [CLAUDE.md](./CLAUDE.md), [AGENTS.md](./AGENTS.md), and [.env.example](./.env.example).
+For architecture and environment details, see [CLAUDE.md](./CLAUDE.md), [AGENTS.md](./AGENTS.md), and [.env.example](./.env.example). The public product and API documentation lives at `/docs`.
 
-## History and license
+## Origin and stewardship
 
-FindHackEU was originally inspired by and forked from HackTrack EU by Lorenzo Palaia. It is now an independent project with its own architecture, infrastructure, and development direction — driven largely by discovery coverage: the original project's pipeline surfaced only a couple of hackathons at a time, well short of what was actually happening across Europe. FindHackEU's six-source pipeline, deduplication, and geocoding typically surface around 90 hackathons at once, with 30+ more sitting in the moderated web-search discovery queue awaiting manual review.
+FindHackEU acknowledges **HackTrack EU**, created by Lorenzo Palaia, as its starting inspiration. FindHackEU is now independently developed and operated, with its own architecture, infrastructure, roadmap, and maintainership. The work has focused on making European hackathon discovery substantially broader and more reliable.
 
-FindHackEU is released under the [MIT License](./LICENSE).
-
-## Maintainer
-
-Gabriele Viganò — [info@viganogabriele.com](mailto:info@viganogabriele.com)
-
-For bugs and proposed improvements, please use the [issue tracker](https://github.com/viganogabriele/FindHackEU/issues).
+Released under the [MIT License](./LICENSE). For bugs and proposals, use the [GitHub issue tracker](https://github.com/viganogabriele/FindHackEU/issues). For other enquiries, contact Gabriele at [info@viganogabriele.com](mailto:info@viganogabriele.com).
