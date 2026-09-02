@@ -38,6 +38,8 @@ Everything else — real provider API keys for the scrapers, bot webhook tokens,
 
 FindHackEU was originally inspired by and born from **HackTrack EU** by Lorenzo Palaia. It has since become an independent project — its own architecture, infrastructure, issue tracker, and development direction — released under the [MIT License](./LICENSE).
 
+The rewrite was driven largely by discovery coverage. The original project's scraping pipeline was finding only a couple of hackathons at a time, well short of what was actually happening across Europe. FindHackEU's current pipeline — six live sources (Luma, Devfolio, MLH, ETHGlobal, Eventbrite, Devpost), URL/fuzzy deduplication, and geocoding — surfaces around 90 hackathons at once, with 30+ more sitting in a moderated web-search discovery queue awaiting manual review before publication.
+
 ## Maintainer
 
 Maintained by Gabriele Viganò ([info@viganogabriele.com](mailto:info@viganogabriele.com)). Issues and pull requests are welcome on [GitHub](https://github.com/viganogabriele/FindHackEU).
