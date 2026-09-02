@@ -42,7 +42,13 @@ import {
   approvedOrPastHackathonsCountQuery,
   archivedHackathonsQuery,
   archivedHackathonsCountQuery,
+  recentCandidateDecisionsQuery,
 } from "./queries";
+import {
+  prescreenCandidate,
+  type PrescreenExample,
+  type PrescreenSuggestion,
+} from "@/lib/services/llm-prescreen";
 import { ManualSubmitForm } from "./manual-submit-form";
 import { EditCandidateDialog } from "./edit-candidate-dialog";
 import { EditHackathonDialog } from "./edit-hackathon-dialog";
@@ -438,6 +444,8 @@ async function PendingTab({
     matchesAutoPublishBlockerFilter(candidate, blockerCodes),
   );
 
+  const suggestions = await getPrescreenSuggestions(visibleCandidates ?? []);
+
   return (
     <AdminShell
       authStatus={authStatus}
@@ -474,6 +482,7 @@ async function PendingTab({
             key={candidate.id}
             candidate={candidate}
             status="pending"
+            suggestion={suggestions.get(candidate.id) ?? null}
           />
         ))}
         {hackathons?.map((hackathon) => (
@@ -492,6 +501,67 @@ async function PendingTab({
       )}
     </AdminShell>
   );
+}
+
+/**
+ * Best-effort LLM pre-screening (issue #17): for each pending candidate,
+ * asks Gemini Flash for a suggested verdict + short rationale, shown next
+ * to the Approve/Reject actions as a "suggestion only" badge - it never
+ * changes `promoteCandidate()`/`rejectCandidate()` behavior.
+ *
+ * Skips the whole exercise (no few-shot query, no Gemini calls) when
+ * `GEMINI_API_KEY` isn't configured, since `prescreenCandidate` would
+ * resolve to `null` for every candidate anyway - this just avoids the
+ * pointless round trip for the few-shot examples query. Every per-candidate
+ * call already degrades to `null` on its own (missing key, network error,
+ * timeout, malformed response - see lib/services/llm-prescreen.ts), so a
+ * `Promise.all` here can never reject and never blocks the page on a slow
+ * or failing Gemini response beyond that per-call timeout.
+ *
+ * v1 caches nothing across page loads - a re-render re-calls Gemini for
+ * every visible pending candidate. That's an accepted tradeoff for this
+ * size of a queue (a handful of candidates/day, comfortably within a free
+ * tier - see CLAUDE.md's issue #17 write-up); revisit only if the queue or
+ * page-view volume grows enough to matter.
+ */
+async function getPrescreenSuggestions(
+  candidates: CandidateRow[],
+): Promise<Map<string, PrescreenSuggestion>> {
+  const suggestions = new Map<string, PrescreenSuggestion>();
+
+  if (!process.env.GEMINI_API_KEY || candidates.length === 0) {
+    return suggestions;
+  }
+
+  const { data: examplesData } =
+    await recentCandidateDecisionsQuery(supabaseAdmin);
+  const examples: PrescreenExample[] = (examplesData ??
+    []) as PrescreenExample[];
+
+  const results = await Promise.all(
+    candidates.map(async (candidate) => {
+      const suggestion = await prescreenCandidate(
+        {
+          name: candidate.name,
+          raw_snippet: candidate.raw_snippet,
+          extraction_method: candidate.extraction_method,
+          query: candidate.query,
+          has_conflict: candidate.has_conflict,
+          blockers: getAutoPublishBlockers(candidate),
+        },
+        examples,
+      );
+      return [candidate.id, suggestion] as const;
+    }),
+  );
+
+  for (const [id, suggestion] of results) {
+    if (suggestion) {
+      suggestions.set(id, suggestion);
+    }
+  }
+
+  return suggestions;
 }
 
 /**
@@ -709,9 +779,11 @@ async function ArchivedTab({
 function CandidateCard({
   candidate,
   status,
+  suggestion = null,
 }: {
   candidate: CandidateRow;
   status: "pending" | "rejected";
+  suggestion?: PrescreenSuggestion | null;
 }) {
   return (
     <li>
@@ -720,7 +792,13 @@ function CandidateCard({
         compact
         adminTheme
         titleLink
-        meta={<CandidateContext candidate={candidate} status={status} />}
+        meta={
+          <CandidateContext
+            candidate={candidate}
+            status={status}
+            suggestion={suggestion}
+          />
+        }
         actions={
           <div className="flex w-full flex-wrap items-center justify-end gap-1.5">
             <CopyLinkButton url={candidate.url} />
@@ -786,15 +864,20 @@ function CandidateCard({
 function CandidateContext({
   candidate,
   status,
+  suggestion = null,
 }: {
   candidate: CandidateRow;
   status: "pending" | "rejected";
+  suggestion?: PrescreenSuggestion | null;
 }) {
   return (
     <div
       className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground"
       aria-label="Candidate source details"
     >
+      {status === "pending" && suggestion && (
+        <PrescreenBadge suggestion={suggestion} />
+      )}
       <span title={`Source: ${candidate.source}`}>
         Source: {candidate.source}
       </span>
@@ -832,6 +915,39 @@ function CandidateContext({
 
       {status === "pending" && <AutoPublishBlockers candidate={candidate} />}
     </div>
+  );
+}
+
+/**
+ * Renders the LLM pre-screening suggestion (issue #17) as a small,
+ * moderation-aid-only badge - never a primary action, never anything that
+ * changes what Approve/Reject do. `verdict` picks the badge tone;
+ * `rationale` is the short one/two-sentence explanation, shown as both
+ * inline text (truncated) and a full-text `title` tooltip.
+ */
+function PrescreenBadge({ suggestion }: { suggestion: PrescreenSuggestion }) {
+  const variant =
+    suggestion.verdict === "likely-valid"
+      ? "default"
+      : suggestion.verdict === "caution"
+        ? "destructive"
+        : "outline";
+
+  const label =
+    suggestion.verdict === "likely-valid"
+      ? "AI: likely valid"
+      : suggestion.verdict === "caution"
+        ? "AI: caution"
+        : "AI: unclear";
+
+  return (
+    <Badge
+      variant={variant}
+      title={`AI suggestion (not a decision): ${suggestion.rationale}`}
+      className="h-5 max-w-[280px] truncate px-1.5 text-[11px]"
+    >
+      {label} — {suggestion.rationale}
+    </Badge>
   );
 }
 
