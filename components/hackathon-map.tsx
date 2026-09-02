@@ -6,7 +6,7 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import { useTranslation } from "@/contexts/translation-context";
 import { resolveMapCoordinates } from "@/lib/country-centroids";
-import { europeanCountries } from "@/lib/european-countries";
+import { HackathonCard } from "@/components/hackathon-card";
 import type { Hackathon } from "@/types/hackathon";
 
 const EUROPE_CENTER: [number, number] = [50.5, 10.5];
@@ -83,7 +83,7 @@ export default function HackathonMap({
 }: {
   hackathons: Hackathon[];
 }) {
-  const { t, formatDateRange } = useTranslation();
+  const { t } = useTranslation();
   const mappedHackathons = mapHackathons(hackathons);
 
   return (
@@ -111,31 +111,19 @@ export default function HackathonMap({
               title={hackathon.name}
               {...(approximate ? { icon: APPROXIMATE_MARKER_ICON } : {})}
             >
-              <Popup>
-                <div className="space-y-1.5 text-sm">
-                  <h3 className="font-semibold">{hackathon.name}</h3>
+              <Popup minWidth={280} maxWidth={320}>
+                <div className="hackathon-map-popup-card">
                   {approximate && (
-                    <p className="font-medium text-amber-700">
+                    <p className="mb-1.5 text-xs font-medium text-amber-700 dark:text-amber-500">
                       {t("map.approximateLocation")}
                     </p>
                   )}
-                  <p>
-                    {europeanCountries.formatLocation(
-                      hackathon.city,
-                      hackathon.country_code,
-                    )}
-                  </p>
-                  <p>
-                    {formatDateRange(hackathon.date_start, hackathon.date_end)}
-                  </p>
-                  <a
-                    href={hackathon.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-primary underline underline-offset-2"
-                  >
-                    {t("action.viewEvent")}
-                  </a>
+                  <HackathonCard
+                    hackathon={hackathon}
+                    compact
+                    titleLink
+                    className="border-0 shadow-none"
+                  />
                 </div>
               </Popup>
             </Marker>

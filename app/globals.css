@@ -197,6 +197,27 @@
   content: "";
 }
 
+/*
+ * Leaflet's default popup chrome (padding, max-width, wrapper border-radius)
+ * is tuned for a couple of lines of plain text, not a full HackathonCard.
+ * Scope overrides to popups holding our card so they don't affect other
+ * Leaflet popups, and let the card supply its own border/background/padding
+ * instead of stacking Leaflet's on top of it.
+ */
+.leaflet-popup-content-wrapper:has(.hackathon-map-popup-card) {
+  padding: 0;
+  overflow: hidden;
+}
+
+.leaflet-popup-content:has(.hackathon-map-popup-card) {
+  width: 280px !important;
+  margin: 0;
+}
+
+.hackathon-map-popup-card {
+  padding: 0.5rem;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
