@@ -85,7 +85,8 @@ export function PublicSubmitForm({ className }: { className?: string }) {
           // ranges, so this single responsive class is safe for both
           // (found live, 2026-09-02 - the old fixed h-10 mismatched the
           // h-8 mobile siblings).
-          className={cn("h-8 gap-2 sm:h-10", className)}
+          // Matches the view toggles it sits beside on mobile (see app/page.tsx).
+          className={cn("h-10 gap-2", className)}
         >
           <Megaphone className="size-4" aria-hidden="true" />
           <span className="hidden sm:inline">{t("submit.button")}</span>
