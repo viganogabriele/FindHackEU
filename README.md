@@ -56,7 +56,7 @@ For detailed development conventions, pipeline behavior, and environment configu
 
 ## History and license
 
-FindHackEU was originally inspired by and forked from HackTrack EU by Lorenzo Palaia. It is now an independent project with its own architecture, infrastructure, and development direction.
+FindHackEU was originally inspired by and forked from HackTrack EU by Lorenzo Palaia. It is now an independent project with its own architecture, infrastructure, and development direction — driven largely by discovery coverage: the original project's pipeline surfaced only a couple of hackathons at a time, well short of what was actually happening across Europe. FindHackEU's six-source pipeline, deduplication, and geocoding typically surface around 90 hackathons at once, with 30+ more sitting in the moderated web-search discovery queue awaiting manual review.
 
 FindHackEU is released under the [MIT License](./LICENSE).
 
