@@ -84,6 +84,7 @@
   "view.label": "Choose results view",
   "view.list": "List",
   "view.map": "Map",
+  "view.calendar": "Calendar",
   "action.viewEvent": "View event",
   "map.markers": "{count} events with a map location",
   "map.approximateLocation": "Approximate country location",
@@ -113,5 +114,12 @@
   "badge.new": "New",
   "location.online": "Online",
   "location.hybrid": "Hybrid",
-  "location.tbd": "To be announced"
+  "location.tbd": "To be announced",
+  "calendarView.today": "Today",
+  "calendarView.previousMonth": "Previous month",
+  "calendarView.nextMonth": "Next month",
+  "calendarView.gridCaption": "Calendar for {month}",
+  "calendarView.moreEvents": "+{count} more",
+  "calendarView.eventCount": "{count} events",
+  "calendarView.empty": "No hackathons this month"
 }

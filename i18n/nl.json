@@ -84,6 +84,7 @@
   "view.label": "Resultatenweergave kiezen",
   "view.list": "Lijst",
   "view.map": "Kaart",
+  "view.calendar": "Kalender",
   "action.viewEvent": "Evenement bekijken",
   "map.markers": "{count} evenementen met een kaartlocatie",
   "map.approximateLocation": "Geschatte locatie van het land",
@@ -113,5 +114,12 @@
   "badge.new": "Nieuw",
   "location.online": "Online",
   "location.hybrid": "Hybride",
-  "location.tbd": "Nog te bepalen"
+  "location.tbd": "Nog te bepalen",
+  "calendarView.today": "Vandaag",
+  "calendarView.previousMonth": "Vorige maand",
+  "calendarView.nextMonth": "Volgende maand",
+  "calendarView.gridCaption": "Kalender voor {month}",
+  "calendarView.moreEvents": "+{count} meer",
+  "calendarView.eventCount": "{count} evenementen",
+  "calendarView.empty": "Geen hackathons deze maand"
 }

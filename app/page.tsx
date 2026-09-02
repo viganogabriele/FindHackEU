@@ -21,12 +21,16 @@ import {
   useBookmarksHydration,
   useBookmarksStore,
 } from "@/lib/bookmarks-store";
-import { List, Map as MapIcon } from "lucide-react";
+import { List, Map as MapIcon, CalendarDays } from "lucide-react";
 import type { HackathonTopic } from "@/lib/constants/topics";
 
 const HackathonMap = dynamic(() => import("@/components/hackathon-map"), {
   ssr: false,
 });
+const HackathonCalendar = dynamic(
+  () => import("@/components/hackathon-calendar"),
+  { ssr: false },
+);
 
 const NO_BOOKMARKS: readonly string[] = [];
 
@@ -167,7 +171,7 @@ function HomeContent({
   const effectiveBookmarkedIds = filters.showBookmarked
     ? bookmarkedIds
     : NO_BOOKMARKS;
-  const [view, setView] = useState<"list" | "map">("list");
+  const [view, setView] = useState<"list" | "map" | "calendar">("list");
   const filteredHackathons = useMemo(
     () =>
       filterAndSortHackathons(
@@ -220,12 +224,23 @@ function HomeContent({
                     <MapIcon />
                     {t("view.map")}
                   </Button>
+                  <Button
+                    variant={view === "calendar" ? "secondary" : "ghost"}
+                    size="sm"
+                    aria-pressed={view === "calendar"}
+                    onClick={() => setView("calendar")}
+                  >
+                    <CalendarDays />
+                    {t("view.calendar")}
+                  </Button>
                 </div>
               </div>
             )}
 
             {view === "map" && !loading ? (
               <HackathonMap hackathons={filteredHackathons} />
+            ) : view === "calendar" && !loading ? (
+              <HackathonCalendar hackathons={filteredHackathons} />
             ) : (
               <HackathonList
                 upcoming={upcoming}

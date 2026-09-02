@@ -84,6 +84,7 @@
   "view.label": "Alege vizualizarea rezultatelor",
   "view.list": "Listă",
   "view.map": "Hartă",
+  "view.calendar": "Calendar",
   "action.viewEvent": "Vezi evenimentul",
   "map.markers": "{count} evenimente cu locație pe hartă",
   "map.approximateLocation": "Locația aproximativă a țării",
@@ -113,5 +114,12 @@
   "badge.new": "Nou",
   "location.online": "Online",
   "location.hybrid": "Hibrid",
-  "location.tbd": "De confirmat"
+  "location.tbd": "De confirmat",
+  "calendarView.today": "Azi",
+  "calendarView.previousMonth": "Luna anterioară",
+  "calendarView.nextMonth": "Luna următoare",
+  "calendarView.gridCaption": "Calendar pentru {month}",
+  "calendarView.moreEvents": "+{count} altele",
+  "calendarView.eventCount": "{count} evenimente",
+  "calendarView.empty": "Niciun hackathon în această lună"
 }

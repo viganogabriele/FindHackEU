@@ -84,6 +84,7 @@
   "view.label": "Välj resultatvy",
   "view.list": "Lista",
   "view.map": "Karta",
+  "view.calendar": "Kalender",
   "action.viewEvent": "Visa evenemang",
   "map.markers": "{count} evenemang med kartposition",
   "map.approximateLocation": "Ungefärlig plats i landet",
@@ -113,5 +114,12 @@
   "badge.new": "Ny",
   "location.online": "Online",
   "location.hybrid": "Hybrid",
-  "location.tbd": "Ej fastställt"
+  "location.tbd": "Ej fastställt",
+  "calendarView.today": "Idag",
+  "calendarView.previousMonth": "Föregående månad",
+  "calendarView.nextMonth": "Nästa månad",
+  "calendarView.gridCaption": "Kalender för {month}",
+  "calendarView.moreEvents": "+{count} till",
+  "calendarView.eventCount": "{count} evenemang",
+  "calendarView.empty": "Inga hackathons denna månad"
 }
