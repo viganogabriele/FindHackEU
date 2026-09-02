@@ -1,0 +1,52 @@
+name: Archive Old Hackathons
+
+# Retention sweep (issue #72 follow-up): archives every `hackathons` row
+# more than a year past its end date. Its own workflow rather than a job in
+# update.yml, because a workflow's `on.schedule` applies to the whole
+# workflow, not to individual jobs - adding a weekly cron there would also
+# have fired the discovery pipeline on that schedule.
+#
+# Weekly is plenty: nothing ages into "more than a year past" between one
+# run and the next, and the endpoint is idempotent (a row already archived
+# is skipped, not re-archived).
+on:
+  schedule:
+    - cron: "0 4 * * 1" # Mondays, 04:00 UTC
+  workflow_dispatch:
+
+jobs:
+  archive-old-hackathons:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      APP_URL: ${{ vars.APP_URL }}
+    steps:
+      - name: Trigger retention sweep
+        run: |
+          set -euo pipefail
+
+          if [ -z "$APP_URL" ]; then
+            echo "Repository variable APP_URL is not configured"
+            exit 1
+          fi
+
+          url="${APP_URL%/}/api/archive-old-hackathons"
+          echo "Triggering $url"
+
+          status=$(curl -s -w "%{http_code}" -o response.json \
+            --max-time 120 \
+            --retry 2 \
+            --retry-delay 5 \
+            -X POST \
+            "$url" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+
+          echo "HTTP status: $status"
+          cat response.json || true
+          echo
+
+          if [ "$status" -ne 200 ]; then
+            echo "Retention sweep failed with status $status"
+            exit 1
+          fi
