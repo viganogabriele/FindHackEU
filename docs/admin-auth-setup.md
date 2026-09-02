@@ -9,6 +9,12 @@ replacement for it - both checks still apply. Because Next.js sets
 in both production and Preview deployments; they are available only when the
 app runs with a non-production `NODE_ENV` (normally local development).
 
+**If you just want to poke at the admin dashboard locally, skip straight to
+["Skip auth entirely for local development"](#skip-auth-entirely-for-local-development)
+below - you do not need a Google Cloud OAuth client for that.** The rest of
+this doc (sections 1-5) is only for the maintainer setting up real Google
+sign-in, e.g. for a hosted deployment.
+
 `/admin/hackathons` used to be a third gated page (published-hackathon
 management); issue #82 merged that into `/admin/candidates`'s Approved tab
 and retired the standalone route - it now just redirects to
@@ -144,3 +150,49 @@ Only a real successful Google sign-in after completing the setup above can confi
 OAuth redirect flow, the Supabase Auth callback, and the
 `ADMIN_ALLOWED_EMAIL` match actually work end-to-end - do that once after
 following this doc.
+
+## Skip auth entirely for local development
+
+Issue #4: setting up a real Google Cloud OAuth client (sections 1-5 above)
+is unnecessary friction if all you want is to clone the repo and try out
+the admin dashboard. `lib/services/require-admin-auth.ts` has a **local-only
+auth bypass** that treats every request as authorized, with no Google
+sign-in at all, whenever `NODE_ENV !== "production"` (hardcoded, checked
+inline by both `getAdminAuthStatus()` and `requireAdminAuth()` - never just
+inferred from an outer gate) **and** either:
+
+- `GOOGLE_CLIENT_ID`/`ADMIN_ALLOWED_EMAIL` are both left unset (the default
+  for a fresh clone - real sign-in couldn't work without them anyway), or
+- you explicitly set `ADMIN_LOCAL_NO_AUTH=true` (useful if you *do* have
+  `ADMIN_ALLOWED_EMAIL` configured, e.g. because you're also testing real
+  sign-in, but want to temporarily skip it).
+
+This bypass is categorically unreachable when `NODE_ENV=production`
+(including Vercel Preview builds) - see the doc comment on
+`isLocalNoAuthBypassEnabled()` in `lib/services/require-admin-auth.ts` for
+the exact reasoning, and CLAUDE.md's "Local no-auth admin bypass" entry for
+how this was verified live.
+
+### From a fresh clone to a working local admin instance, with seed data, no OAuth setup
+
+```bash
+npx supabase start        # boots local Postgres/Studio via Docker; applies
+                           # supabase/migrations/* AND supabase/seed.sql on
+                           # first run (small set of sample hackathons and
+                           # candidates - see CLAUDE.md's "Local Supabase")
+cp .env.example .env.local  # fill in NEXT_PUBLIC_SUPABASE_URL etc. from the
+                             # `supabase start` output; leave GOOGLE_CLIENT_ID,
+                             # ADMIN_ALLOWED_EMAIL, and ADMIN_LOCAL_NO_AUTH
+                             # all blank
+npm install
+npm run dev
+```
+
+Then open `http://localhost:3000/admin/candidates` - it renders directly,
+no sign-in gate, populated with the seed data. If Supabase was already
+running from a previous session and you want a clean re-seed:
+
+```bash
+npx supabase db reset      # drops and recreates the local DB, re-applying
+                            # every migration and supabase/seed.sql
+```
