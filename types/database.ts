@@ -258,6 +258,29 @@ export interface Database {
           created_at?: string;
         };
       };
+      admin_users: {
+        Row: {
+          // Always stored lowercase - see lib/services/admin-users.ts,
+          // which normalizes every read/write against this table so two
+          // differently-cased rows for the same account can't exist.
+          email: string;
+          added_at: string;
+          // Free text (the adding admin's own email, or a value like
+          // "system" for anything seeded outside the /admin UI) - not a
+          // foreign key, purely an audit/display field.
+          added_by: string | null;
+        };
+        Insert: {
+          email: string;
+          added_at?: string;
+          added_by?: string | null;
+        };
+        Update: {
+          email?: string;
+          added_at?: string;
+          added_by?: string | null;
+        };
+      };
     };
   };
 }
