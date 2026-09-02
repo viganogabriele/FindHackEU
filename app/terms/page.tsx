@@ -192,8 +192,8 @@ export default function TermsPage() {
           <section className="mb-8">
             <h2 className="mb-4 text-2xl font-semibold">8. Maintainer</h2>
             <p>
-              FindHackEU is maintained by Gabriele Viganò (Politecnico di
-              Milano). Originally inspired by and born from HackTrack EU by
+              FindHackEU is maintained by Gabriele Viganò. Originally
+              inspired by and born from HackTrack EU by
               Lorenzo Palaia, it is now an independent, MIT-licensed project
               with its own infrastructure and development direction.
             </p>
