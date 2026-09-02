@@ -207,17 +207,6 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({
     return { locale, setLocale, t, messages, formatDateRange, format };
   }, [locale, messages, setLocale]);
 
-  // DEBUG: log locale & message keys in dev to diagnose missing translations
-  React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        // limit output
-        const keys = Object.keys(messages).slice(0, 20);
-        console.debug("[i18n] locale:", locale, "messageKeys:", keys);
-      } catch {}
-    }
-  }, [locale, messages]);
-
   return (
     <TranslationContext.Provider value={value}>
       {children}
