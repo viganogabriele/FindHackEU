@@ -15,10 +15,10 @@ export function SiteHeader() {
 
   return (
     <header className="border-b bg-background/95">
-      <div className="mx-auto flex min-h-16 max-w-screen-2xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-16 max-w-screen-2xl flex-wrap items-center justify-between gap-y-2 gap-x-3 px-4 sm:px-6 lg:px-8">
         <Link
           href={logoHref}
-          className="text-base font-semibold tracking-tight"
+          className="shrink-0 text-base font-semibold tracking-tight"
         >
           HackTrack EU
         </Link>

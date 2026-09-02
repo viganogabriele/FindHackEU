@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { Megaphone } from "lucide-react";
 import { useTranslation } from "@/contexts/translation-context";
 import { HACKATHON_TOPICS } from "@/lib/constants/topics";
 import { NO_AUTOFILL_PROPS } from "@/lib/form-utils";
@@ -70,8 +71,14 @@ export function PublicSubmitForm() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          {t("submit.button")}
+        <Button
+          variant="outline"
+          size="sm"
+          aria-label={t("submit.button")}
+          title={t("submit.button")}
+        >
+          <Megaphone className="size-4" aria-hidden="true" />
+          <span className="hidden sm:inline">{t("submit.button")}</span>
         </Button>
       </DialogTrigger>
       <DialogContent>
