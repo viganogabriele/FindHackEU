@@ -6,6 +6,7 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import { useTranslation } from "@/contexts/translation-context";
 import { resolveMapCoordinates } from "@/lib/country-centroids";
+import { useThemeStore } from "@/lib/theme-store";
 import { HackathonCard } from "@/components/hackathon-card";
 import type { Hackathon } from "@/types/hackathon";
 
@@ -14,6 +15,21 @@ const EUROPE_CENTER: [number, number] = [50.5, 10.5];
 // Smaller than react-leaflet-cluster's 80px default so individual pins
 // separate out of a cluster at a more reasonable zoom level.
 const MAX_CLUSTER_RADIUS = 45;
+
+const LIGHT_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const LIGHT_TILE_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+
+// CARTO's dark_all basemap - the usual free/no-key choice for this - was
+// verified live (2026-09-02) to now serve an "API KEY REQUIRED" watermark
+// tile instead of the map, i.e. it's no longer usable without a key. Esri's
+// World Dark Gray Canvas is used instead: also free, no API key, verified
+// live to return real (non-watermarked) tiles. Attribution text is Esri's
+// own published copyright string for this service.
+const DARK_TILE_URL =
+  "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}";
+const DARK_TILE_ATTRIBUTION =
+  "Esri, HERE, Garmin, &copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors, and the GIS user community";
 
 // Leaflet's image paths are not discoverable by Next's bundler on their own.
 // Keep the standard assets in public/leaflet so markers work in production too.
@@ -85,6 +101,8 @@ export default function HackathonMap({
 }) {
   const { t } = useTranslation();
   const mappedHackathons = mapHackathons(hackathons);
+  const { currentMode } = useThemeStore();
+  const isDark = currentMode === "dark";
 
   return (
     <div className="relative overflow-hidden rounded-lg border bg-muted/20">
@@ -96,8 +114,9 @@ export default function HackathonMap({
         zoomControl
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          key={currentMode}
+          attribution={isDark ? DARK_TILE_ATTRIBUTION : LIGHT_TILE_ATTRIBUTION}
+          url={isDark ? DARK_TILE_URL : LIGHT_TILE_URL}
         />
         <MapViewport hackathons={mappedHackathons} />
         <MarkerClusterGroup
