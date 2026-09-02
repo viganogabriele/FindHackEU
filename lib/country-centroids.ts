@@ -1,3 +1,4 @@
+import { getCityCentroid } from "@/lib/city-centroids";
 import { europeanCountries } from "@/lib/european-countries";
 
 export interface CountryCentroid {
@@ -77,6 +78,7 @@ export interface MapCoordinateInput {
   latitude: number | null | undefined;
   longitude: number | null | undefined;
   countryCode: string | null | undefined;
+  city?: string | null | undefined;
 }
 
 export interface ResolvedMapCoordinates extends CountryCentroid {
@@ -99,6 +101,11 @@ export function resolveMapCoordinates(
       longitude: input.longitude,
       approximate: false,
     };
+  }
+
+  const cityCentroid = getCityCentroid(input.city);
+  if (cityCentroid) {
+    return { ...cityCentroid, approximate: true };
   }
 
   const centroid = getCountryCentroid(input.countryCode);
