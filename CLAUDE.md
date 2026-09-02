@@ -152,6 +152,8 @@ Required at runtime (see `.env.example`): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBL
 
 `GET /api/health` is a cache-free, side-effect-free reachability check; `.github/workflows/uptime.yml` calls it every 15 minutes via the `APP_URL` repository variable. Sentry (`@sentry/nextjs`) captures errors only when a DSN is configured.
 
+For taking this from local dev to a live Vercel + Supabase deployment — production Supabase project setup, Vercel project/env var configuration, the Hobby-tier function-duration caveat on `app/api/update`, GitHub Actions repository variables/secrets (including `update.yml`'s currently-hardcoded deploy URL), and a go-live checklist — see `docs/production-deployment.md`.
+
 ### Path aliases
 
 `@/*` maps to the repo root (see `tsconfig.json`), e.g. `@/lib/supabase`, `@/types/hackathon`.
