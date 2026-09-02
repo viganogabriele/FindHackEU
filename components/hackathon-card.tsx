@@ -54,22 +54,24 @@ export interface HackathonCardData {
 }
 
 /**
- * Icon + style per `location_type`. Deliberately not color-coded by
- * "success/warning" semantics (issue: badge redesign) - a location type
- * isn't good or bad, so `online` no longer maps to green. Each style uses
- * the theme's own accent/secondary/muted tokens so it stays correct across
- * every theme preset, and the icon carries the meaning so color is never
- * the only signal (WCAG 1.4.1). `physical` isn't listed here: it's implied
- * by the city/country text already shown next to it, so it gets no badge.
+ * Icon + style per `location_type`. Deliberately not color-coded at all
+ * (round 2 of the badge redesign, maintainer feedback: "online" still read
+ * as a distinct hue and shouldn't) - a location type isn't good, bad, or a
+ * category worth its own accent color, so every variant shares one flat,
+ * neutral treatment (`bg-muted`/`text-muted-foreground`) and only the icon
+ * + label differ. `tbd` keeps a dashed border to read as "unconfirmed"
+ * without introducing color. Color is never the only signal either way
+ * (WCAG 1.4.1). `physical` isn't listed here: it's implied by the
+ * city/country text already shown next to it, so it gets no badge.
  */
 const LOCATION_TYPE_BADGE = {
   online: {
     icon: Globe,
-    className: "border-transparent bg-accent text-accent-foreground",
+    className: "border-transparent bg-muted text-muted-foreground",
   },
   hybrid: {
     icon: Shuffle,
-    className: "border-transparent bg-secondary text-secondary-foreground",
+    className: "border-transparent bg-muted text-muted-foreground",
   },
   tbd: {
     icon: CircleHelp,
@@ -313,7 +315,10 @@ function LocationTypeBadge({ type }: { type: "online" | "hybrid" | "tbd" }) {
         ? t("location.hybrid")
         : t("location.tbd");
   return (
-    <Badge variant="outline" className={cn("text-xs", className)}>
+    <Badge
+      variant="outline"
+      className={cn("rounded-full text-xs font-medium", className)}
+    >
       <Icon className="size-3" aria-hidden="true" />
       {label}
     </Badge>
