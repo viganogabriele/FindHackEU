@@ -1,75 +1,16 @@
 /**
- * Utility per il processing in chunk e l'ottimizzazione della memoria
- * Riduce il picco di memoria utilizzato durante l'elaborazione di grandi dataset
+ * Memory diagnostics for the discovery pipeline (app/api/update/route.ts),
+ * which logs heap usage between stages and reports it in the run's JSON
+ * response.
+ *
+ * This used to also carry `processInChunks`, `processSequentially` and
+ * `optimizeJSONStringify`. Nothing ever called them - knip can't see it,
+ * because they were static members of an otherwise-used class - so they
+ * were removed rather than left as three untested code paths implying the
+ * pipeline batches its work when it doesn't.
  */
 
 export class MemoryOptimizer {
-  /**
-   * Processa un array in chunk per evitare il sovraccarico di memoria
-   * @param data Array di dati da processare
-   * @param processor Funzione per processare ogni chunk
-   * @param chunkSize Dimensione di ogni chunk (default: 50)
-   * @returns Array di risultati
-   */
-  static async processInChunks<T, R>(
-    data: T[],
-    processor: (chunk: T[]) => Promise<R[]>,
-    chunkSize: number = 50,
-  ): Promise<R[]> {
-    const results: R[] = [];
-
-    console.log(`Processing ${data.length} items in chunks of ${chunkSize}...`);
-
-    for (let i = 0; i < data.length; i += chunkSize) {
-      const chunk = data.slice(i, i + chunkSize);
-      const chunkResults = await processor(chunk);
-      results.push(...chunkResults);
-
-      // Log progress
-      const progress = Math.min(i + chunkSize, data.length);
-      console.log(`Processed ${progress}/${data.length} items`);
-
-      // Allow garbage collection every 200 items
-      if (i % 200 === 0 && i > 0) {
-        await this.allowGarbageCollection();
-      }
-    }
-
-    console.log(`Chunk processing completed: ${results.length} results`);
-    return results;
-  }
-
-  /**
-   * Processa un array sequenzialmente con controllo della memoria
-   * @param data Array di dati da processare
-   * @param processor Funzione per processare ogni item
-   * @param gcInterval Intervallo per permettere garbage collection (default: 100)
-   * @returns Array di risultati
-   */
-  static async processSequentially<T, R>(
-    data: T[],
-    processor: (item: T, index: number) => Promise<R>,
-    gcInterval: number = 100,
-  ): Promise<R[]> {
-    const results: R[] = [];
-
-    console.log(`Processing ${data.length} items sequentially...`);
-
-    for (let i = 0; i < data.length; i++) {
-      const result = await processor(data[i], i);
-      results.push(result);
-
-      // Allow garbage collection at intervals
-      if (i % gcInterval === 0 && i > 0) {
-        console.log(`Processed ${i}/${data.length} items, allowing GC...`);
-        await this.allowGarbageCollection();
-      }
-    }
-
-    console.log(`Sequential processing completed: ${results.length} results`);
-    return results;
-  }
-
   /**
    * Permette al garbage collector di lavorare
    */
@@ -82,22 +23,6 @@ export class MemoryOptimizer {
         }
         resolve();
       });
-    });
-  }
-
-  /**
-   * Ottimizza l'uso della memoria per grandi oggetti JSON
-   * @param obj Oggetto da serializzare
-   * @returns Stringa JSON ottimizzata
-   */
-  static optimizeJSONStringify(obj: Record<string, unknown>): string {
-    // Use streaming JSON stringify for large objects
-    return JSON.stringify(obj, (key, value) => {
-      // Remove undefined values to reduce size
-      if (value === undefined) {
-        return null;
-      }
-      return value;
     });
   }
 
