@@ -19,7 +19,7 @@ import { FaGithub } from "react-icons/fa6";
 
 export const metadata = {
   title: "Documentation - FindHackEU",
-  description: "Complete documentation for FindHackEU platform and API",
+  description: "Guide to the FindHackEU website and public API",
 };
 
 export default function DocsPage() {
@@ -41,7 +41,7 @@ export default function DocsPage() {
             <h1 className="mb-0 text-3xl font-bold">Documentation</h1>
           </div>
           <p className="text-muted-foreground mb-6">
-            Complete guide to using the FindHackEU platform, API, and services
+            A practical guide to browsing FindHackEU and using its public API.
           </p>
 
           <Separator className="my-8 [mask-image:linear-gradient(to_right,transparent,black_15%,black_85%,transparent)]" />
@@ -51,21 +51,21 @@ export default function DocsPage() {
               <Search className="h-6 w-6 text-primary mb-2" />
               <h3 className="font-semibold mb-2">Browse Hackathons</h3>
               <p className="text-sm text-muted-foreground">
-                Discover and filter European hackathons with advanced search
+                Search and filter hackathons across Europe.
               </p>
             </Card>
             <Card className="gap-0 rounded-lg p-4 shadow-none">
               <Code className="h-6 w-6 text-primary mb-2" />
               <h3 className="font-semibold mb-2">REST API</h3>
               <p className="text-sm text-muted-foreground">
-                Access hackathon data programmatically with our API
+                Read published hackathon data programmatically.
               </p>
             </Card>
             <Card className="gap-0 rounded-lg p-4 shadow-none">
               <Map className="h-6 w-6 text-primary mb-2" />
               <h3 className="font-semibold mb-2">Interactive Map</h3>
               <p className="text-sm text-muted-foreground">
-                Explore hackathons on a map with location-based clustering
+                Explore event locations on a clustered map.
               </p>
             </Card>
           </div>
@@ -76,40 +76,40 @@ export default function DocsPage() {
               Getting Started
             </h2>
             <p>
-              FindHackEU is a comprehensive platform for discovering hackathons
-              across Europe. Our system automatically scans and aggregates
-              hackathon information, providing you with the most up-to-date
-              listings.
+              FindHackEU brings together hackathons taking place across Europe.
+              Its ingestion pipeline collects events from several sources,
+              removes duplicates, and enriches available location data before
+              entries appear in the public listing.
             </p>
 
             <h3 className="mb-2 mt-6 text-xl font-medium">Key Features</h3>
             <ul className="space-y-2">
               <li>
-                🔄 <strong>Automated Updates:</strong> New hackathons discovered
-                daily
+                <strong>Scheduled discovery:</strong> The pipeline refreshes the
+                published dataset daily.
               </li>
               <li>
-                🔍 <strong>Advanced Filtering:</strong> Search by location
-                (including a radius search), topics, dates, and status
+                <strong>Filters:</strong> Narrow results by text, location and
+                radius, topic, date, and event status.
               </li>
               <li>
-                🗺️ <strong>Interactive Map:</strong> Browse hackathons visually
-                with clustering
+                <strong>Map:</strong> Review matching events on a clustered map.
               </li>
               <li>
-                ❤️ <strong>Bookmarks:</strong> Save your favorite hackathons
-                locally in your browser
+                <strong>Bookmarks:</strong> Save events in this browser for
+                later.
               </li>
               <li>
-                📮 <strong>Community Submissions:</strong> Suggest a hackathon
-                that&apos;s missing through our public submission form
+                <strong>Submissions:</strong> Suggest a missing event for
+                moderation.
               </li>
               <li>
-                📊 <strong>RESTful API:</strong> Access data programmatically
+                <strong>Public API:</strong> Access published data
+                programmatically.
               </li>
               <li>
-                📱 <strong>Responsive Design:</strong> Works perfectly on all
-                devices
+                <strong>Responsive interface:</strong> Use the listing on
+                desktop and mobile devices.
               </li>
             </ul>
           </section>
@@ -121,9 +121,9 @@ export default function DocsPage() {
             </h2>
 
             <p>
-              FindHackEU supports multiple interface languages. The main
-              application UI loads translations from the <code>i18n/</code>
-              directory; documentation pages are currently kept in English.
+              The public interface is available in multiple languages. App
+              translations are maintained in <code>i18n/</code>; this page is
+              currently written in English.
             </p>
 
             <h3 className="mb-2 mt-4 text-xl font-medium">
@@ -143,11 +143,10 @@ export default function DocsPage() {
             </ul>
 
             <p className="mt-4">
-              To add or edit translations, update the JSON files in{" "}
-              <code>i18n/</code>
-              ensuring keys remain consistent across languages. The translation
-              context in <code>contexts/translation-context.tsx</code> exposes
-              helpers used by the app.
+              Contributors should update the JSON files in <code>i18n/</code>{" "}
+              together and keep their keys aligned. The translation context in{" "}
+              <code>contexts/translation-context.tsx</code> provides the
+              application&apos;s translation helpers.
             </p>
           </section>
 
@@ -161,28 +160,30 @@ export default function DocsPage() {
               Browsing Hackathons
             </h3>
             <p>
-              The main interface displays hackathons in an easy-to-browse card
-              format. Each card shows:
+              The listing presents each event as a card. Depending on the source
+              data available, a card can include:
             </p>
             <ul className="mt-2 space-y-1 list-disc pl-5">
               <li>
-                <strong>Event Name:</strong> Full hackathon title
+                <strong>Event name:</strong> The published event title
               </li>
               <li>
-                <strong>Location:</strong> City and country
+                <strong>Location:</strong> City, country, and location type when
+                known
               </li>
               <li>
-                <strong>Dates:</strong> Start and end dates (if available)
+                <strong>Dates:</strong> Start and end times, when supplied
               </li>
               <li>
-                <strong>Topics:</strong> Relevant tags (AI, Crypto, Web3, etc.)
+                <strong>Topics:</strong> Applicable event tags
               </li>
               <li>
-                <strong>Notes:</strong> Additional event details and
-                requirements
+                <strong>Notes:</strong> Additional details provided by the
+                source
               </li>
               <li>
-                <strong>Registration Link:</strong> Direct link to sign up
+                <strong>Event link:</strong> The source page for registration or
+                details
               </li>
             </ul>
 
@@ -191,32 +192,32 @@ export default function DocsPage() {
               <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <h4 className="font-semibold mb-2">Search</h4>
                 <p className="text-sm text-muted-foreground">
-                  Find hackathons by name using the search box
+                  Match event names and available text.
                 </p>
               </Card>
               <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <h4 className="font-semibold mb-2">Status</h4>
                 <p className="text-sm text-muted-foreground">
-                  Toggle between upcoming and past events
+                  Switch between upcoming and past listings.
                 </p>
               </Card>
               <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <h4 className="font-semibold mb-2">Location</h4>
                 <p className="text-sm text-muted-foreground">
-                  Filter by specific cities, countries, or a distance radius
-                  from a place you choose
+                  Filter by country or city, or search within a radius of a
+                  chosen place.
                 </p>
               </Card>
               <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <h4 className="font-semibold mb-2">Topics</h4>
                 <p className="text-sm text-muted-foreground">
-                  Select multiple topics of interest
+                  Include one or more topics.
                 </p>
               </Card>
               <Card className="gap-0 rounded-lg p-4 shadow-none md:col-span-2">
                 <h4 className="font-semibold mb-2">Date Range</h4>
                 <p className="text-sm text-muted-foreground">
-                  Choose specific date ranges for your search
+                  Restrict results to a date range.
                 </p>
               </Card>
             </div>
@@ -228,8 +229,8 @@ export default function DocsPage() {
               API Documentation
             </h2>
             <p>
-              Our REST API provides programmatic access to hackathon data. The
-              API is free to use with reasonable rate limits.
+              The read-only API exposes published hackathons as JSON. It is
+              intended for reasonable use by applications and integrations.
             </p>
 
             <h3 className="mb-2 mt-6 text-xl font-medium">Base URL</h3>
@@ -237,8 +238,8 @@ export default function DocsPage() {
               https://your-findhackeu-deployment.example/api
             </div>
             <p className="mt-2 text-sm text-muted-foreground">
-              Replace the host above with wherever FindHackEU is deployed (for
-              example, your Vercel deployment URL).
+              Replace the example host with the URL of the FindHackEU deployment
+              you are querying.
             </p>
 
             <h3 className="mb-2 mt-6 text-xl font-medium">Endpoints</h3>
@@ -252,14 +253,15 @@ export default function DocsPage() {
                   <code className="text-sm">/hackathons</code>
                 </div>
                 <p className="text-sm mb-3">
-                  Retrieve hackathons with optional filtering
+                  Return published hackathons for the requested status.
                 </p>
 
                 <h4 className="font-semibold mb-2">Query Parameters</h4>
                 <ul className="text-sm space-y-1">
                   <li>
-                    <code>status</code> - Filter by status (upcoming, past,
-                    estimated)
+                    <code>status</code> — Optional; one of <code>upcoming</code>
+                    , <code>past</code>, or <code>estimated</code>. Defaults to{" "}
+                    <code>upcoming</code>.
                   </li>
                 </ul>
 
@@ -296,17 +298,18 @@ export default function DocsPage() {
 
             <h3 className="mb-2 mt-6 text-xl font-medium">Rate Limiting</h3>
             <p>
-              The API implements reasonable rate limiting to ensure fair usage:
+              In production, the public API applies these per-client limits:
             </p>
             <ul className="mt-2 space-y-1 list-disc pl-5">
               <li>
-                <strong>Free usage:</strong> 100 requests per hour per IP
+                <strong>Hourly limit:</strong> 100 requests per hour
               </li>
               <li>
                 <strong>Burst limit:</strong> 10 requests per minute
               </li>
               <li>
-                <strong>Commercial usage:</strong> Contact us for higher limits
+                Limits are disabled outside production to support local
+                development.
               </li>
             </ul>
 
@@ -318,7 +321,7 @@ export default function DocsPage() {
                 </Badge>
                 <h4 className="font-semibold mb-1">Bad Request</h4>
                 <p className="text-sm text-muted-foreground">
-                  Invalid query parameters
+                  An invalid query parameter was supplied.
                 </p>
               </Card>
               <Card className="gap-0 rounded-lg p-4 shadow-none">
@@ -327,7 +330,7 @@ export default function DocsPage() {
                 </Badge>
                 <h4 className="font-semibold mb-1">Too Many Requests</h4>
                 <p className="text-sm text-muted-foreground">
-                  Rate limit exceeded
+                  The production rate limit was exceeded.
                 </p>
               </Card>
               <Card className="gap-0 rounded-lg p-4 shadow-none">
@@ -336,7 +339,7 @@ export default function DocsPage() {
                 </Badge>
                 <h4 className="font-semibold mb-1">Internal Server Error</h4>
                 <p className="text-sm text-muted-foreground">
-                  Server-side error
+                  The server could not complete the request.
                 </p>
               </Card>
               <Card className="gap-0 rounded-lg p-4 shadow-none">
@@ -345,7 +348,7 @@ export default function DocsPage() {
                 </Badge>
                 <h4 className="font-semibold mb-1">Service Unavailable</h4>
                 <p className="text-sm text-muted-foreground">
-                  Temporary maintenance
+                  The service is temporarily unavailable.
                 </p>
               </Card>
             </div>
@@ -357,8 +360,8 @@ export default function DocsPage() {
               Bookmarks &amp; Submitting Hackathons
             </h2>
             <p>
-              Two lightweight ways to make the platform your own, no account
-              required.
+              Save events locally or suggest a missing one. Neither action
+              requires an account.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 not-prose">
@@ -366,27 +369,25 @@ export default function DocsPage() {
                 <Heart className="h-6 w-6 text-primary mb-3" />
                 <h3 className="font-semibold mb-2">Bookmarks</h3>
                 <p className="text-sm text-muted-foreground">
-                  Tap the heart icon on any hackathon card to save it. Bookmarks
-                  are stored only in your browser&apos;s local storage &mdash;
-                  they never leave your device &mdash; and you can filter the
-                  listing to show only your favorites.
+                  Select the heart on an event card to save it. Bookmarks stay
+                  in this browser&apos;s local storage and can be used to filter
+                  the listing.
                 </p>
               </Card>
               <Card className="gap-0 rounded-lg p-6 shadow-none">
                 <Send className="h-6 w-6 text-primary mb-3" />
                 <h3 className="font-semibold mb-2">Submit a Hackathon</h3>
                 <p className="text-sm text-muted-foreground">
-                  Missing an event? Use the submission form (in the header, next
-                  to the search bar) to suggest a URL. Every submission is
-                  reviewed by a maintainer before it appears in the public
-                  listing.
+                  Use the submission form to suggest a missing event. A
+                  maintainer reviews every submission before it can appear in
+                  the public listing.
                 </p>
               </Card>
             </div>
 
             <p className="mt-4 text-sm text-muted-foreground">
-              Note: Discord, Telegram, and X (Twitter) notification channels are
-              not currently active. They may return in the future.
+              Discord, Telegram, and X (Twitter) notifications are not currently
+              active.
             </p>
           </section>
 
@@ -396,8 +397,8 @@ export default function DocsPage() {
               Technical Architecture
             </h2>
             <p>
-              FindHackEU is built with modern technologies to ensure
-              reliability, performance, and scalability.
+              FindHackEU uses a TypeScript application, a Supabase PostgreSQL
+              database, and a scheduled ingestion workflow.
             </p>
 
             <h3 className="mb-2 mt-6 text-xl font-medium">Technology Stack</h3>
@@ -414,7 +415,7 @@ export default function DocsPage() {
               <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <h4 className="font-semibold mb-2">Backend</h4>
                 <ul className="text-sm space-y-1">
-                  <li>Next.js API Routes</li>
+                  <li>Next.js Route Handlers</li>
                   <li>Supabase (PostgreSQL)</li>
                   <li>Row Level Security</li>
                 </ul>
@@ -422,32 +423,33 @@ export default function DocsPage() {
               <Card className="gap-0 rounded-lg p-4 shadow-none">
                 <h4 className="font-semibold mb-2">Infrastructure</h4>
                 <ul className="text-sm space-y-1">
-                  <li>Vercel deployment</li>
-                  <li>GitHub Actions CI/CD</li>
-                  <li>Cron job automation</li>
+                  <li>Deployment environment</li>
+                  <li>GitHub Actions scheduled workflow</li>
+                  <li>Daily ingestion schedule</li>
                 </ul>
               </Card>
             </div>
 
             <h3 className="mb-2 mt-6 text-xl font-medium">Update Frequency</h3>
             <p>
-              Our automated pipeline runs once daily via a scheduled cron job to
-              discover new hackathons and keep listings up to date.
+              A scheduled workflow runs the ingestion pipeline once per day.
+              Individual source failures are reported without preventing the
+              remaining stages from completing.
             </p>
           </section>
 
           <section className="mb-8">
             <h2 className="mb-4 text-2xl font-semibold">Contributing</h2>
             <p>
-              FindHackEU is an open-source project and we welcome contributions
-              from the community!
+              FindHackEU is open source. Contributions that improve coverage,
+              correctness, accessibility, or documentation are welcome.
             </p>
 
             <h3 className="mb-2 mt-6 text-xl font-medium">How to Contribute</h3>
             <ul className="space-y-2">
               <li>
-                <strong>Report Issues:</strong> Found a bug or missing
-                hackathon?{" "}
+                <strong>Report an issue:</strong> Use GitHub for a bug, missing
+                event, or documentation problem.{" "}
                 <Link
                   href="https://github.com/viganogabriele/FindHackEU/issues"
                   className="text-primary hover:underline"
@@ -456,12 +458,12 @@ export default function DocsPage() {
                 </Link>
               </li>
               <li>
-                <strong>Code Contributions:</strong> Fork the repository and
-                submit pull requests
+                <strong>Contribute code:</strong> Fork the repository, make a
+                focused change, and open a pull request.
               </li>
               <li>
-                <strong>Feature Requests:</strong> Propose new features or
-                improvements
+                <strong>Suggest improvements:</strong> Describe the problem and
+                proposed outcome in an issue before undertaking larger work.
               </li>
             </ul>
 
@@ -485,15 +487,15 @@ export default function DocsPage() {
 
           <section className="mb-8">
             <h2 className="mb-4 text-2xl font-semibold">Support & Community</h2>
-            <p>Need help or have questions? Here&apos;s how to get in touch:</p>
+            <p>Use the channel that best fits the request.</p>
 
             <div className="grid grid-cols-1 gap-6 mt-6 not-prose">
               <Card className="gap-0 rounded-lg p-6 shadow-none">
                 <FaGithub className="h-6 w-6 mb-3" />
                 <h3 className="font-semibold mb-2">GitHub Issues</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Best for bug reports, feature requests, and technical
-                  discussions
+                  Best for bug reports, proposed improvements, and technical
+                  discussion.
                 </p>
                 <Button asChild variant="outline" size="sm">
                   <Link
@@ -509,8 +511,8 @@ export default function DocsPage() {
                 <Send className="h-6 w-6 mb-3" />
                 <h3 className="font-semibold mb-2">Email the Maintainer</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  FindHackEU is maintained by Gabriele Viganò &mdash; reach out
-                  for anything else
+                  FindHackEU is maintained by Gabriele Viganò. Use email for
+                  questions not suited to a public issue.
                 </p>
                 <Button asChild variant="outline" size="sm">
                   <Link href="mailto:info@viganogabriele.com">
@@ -521,8 +523,8 @@ export default function DocsPage() {
             </div>
 
             <p className="mt-4 text-sm text-muted-foreground">
-              Discord, Telegram, and X (Twitter) channels are not currently
-              active. They may return in the future.
+              Discord, Telegram, and X (Twitter) notification channels are not
+              currently active.
             </p>
           </section>
 
@@ -537,7 +539,7 @@ export default function DocsPage() {
                   How often is the data updated?
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Our automated pipeline scans for new hackathons once daily.
+                  The scheduled ingestion pipeline runs once per day.
                 </p>
               </div>
 
@@ -546,19 +548,18 @@ export default function DocsPage() {
                   Can I submit a hackathon that&apos;s missing?
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Yes! Use the submission form in the header, next to the search
-                  bar, or open an issue on our GitHub repository with the
-                  hackathon details. Every submission is reviewed by a
-                  maintainer before it goes live.
+                  Yes. Use the public submission form or open a GitHub issue
+                  with the event details. A maintainer reviews each suggestion
+                  before publication.
                 </p>
               </div>
 
               <div className="border-l-4 border-primary pl-4">
                 <h3 className="font-semibold mb-2">Is the API free to use?</h3>
                 <p className="text-sm text-muted-foreground">
-                  Yes, our API is free for reasonable personal and small-scale
-                  commercial use. We have rate limits in place to ensure fair
-                  usage for everyone.
+                  The read-only API is publicly available. In production it is
+                  rate-limited to protect the service; see the API section
+                  above.
                 </p>
               </div>
 
@@ -567,9 +568,10 @@ export default function DocsPage() {
                   How do you determine if a hackathon is &quot;European&quot;?
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  We filter events based on location data. Events must be
-                  physically located in European countries or be explicitly
-                  targeted at the European community.
+                  The discovery pipeline uses source location data to retain
+                  events in European countries. Events with unresolved locations
+                  may remain available when the source explicitly identifies
+                  them as online or hybrid.
                 </p>
               </div>
 
@@ -578,9 +580,9 @@ export default function DocsPage() {
                   Can I use this data for my own project?
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Yes! Our API is designed for this purpose. Please respect our
-                  rate limits and consider mentioning FindHackEU as your data
-                  source.
+                  Yes. Use the public API within its production rate limits and
+                  attribute FindHackEU when its data materially supports your
+                  project.
                 </p>
               </div>
 
@@ -589,9 +591,9 @@ export default function DocsPage() {
                   Who maintains FindHackEU?
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  FindHackEU is maintained by Gabriele Viganò. It&apos;s an
-                  independent, MIT-licensed project, originally inspired by and
-                  born from HackTrack EU by Lorenzo Palaia.
+                  FindHackEU is maintained by Gabriele Viganò. It is an
+                  independent MIT-licensed project, originally inspired by and
+                  forked from HackTrack EU by Lorenzo Palaia.
                 </p>
               </div>
             </div>
@@ -599,8 +601,8 @@ export default function DocsPage() {
 
           <div className="border-t pt-6 text-center text-muted-foreground">
             <p>
-              For additional questions or support, don&apos;t hesitate to reach
-              out via GitHub or email. We&apos;re here to help! 🚀
+              For further help, open a GitHub issue or contact the maintainer by
+              email.
             </p>
           </div>
         </div>
