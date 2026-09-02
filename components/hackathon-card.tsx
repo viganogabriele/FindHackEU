@@ -16,7 +16,6 @@ import {
   MapPin,
   Calendar as CalendarIcon,
   Heart,
-  Sparkles,
   Globe,
   Shuffle,
   CircleHelp,
@@ -47,6 +46,9 @@ export interface HackathonCardData {
   location_type?: "physical" | "online" | "hybrid" | "tbd";
   topics?: string[] | null;
   notes?: string | null;
+  // Still present in the underlying data/pipeline (see app/api/update) -
+  // deliberately no longer rendered as a badge on this card (maintainer
+  // feedback: presentation-only removal, not a data change).
   is_new?: boolean;
   preview_image_url?: string | null;
 }
@@ -181,15 +183,6 @@ export function HackathonCard({
                   aria-hidden="true"
                 />
               </button>
-            )}
-            {hackathon.is_new && (
-              <Badge
-                variant="outline"
-                className="shrink-0 border-primary/30 bg-primary/10 text-primary"
-              >
-                <Sparkles className="mr-1 h-3 w-3" />
-                {t("badge.new")}
-              </Badge>
             )}
           </div>
         </div>
