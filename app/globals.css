@@ -213,19 +213,81 @@
 
 /*
  * "Cosmic Glass" theme preset (see lib/theme-presets.ts /
- * constants/additional-themes.js) pairs a near-black background with
- * translucent card/popover/sidebar surfaces - the blur has to be applied
+ * constants/additional-themes.js) pairs a near-black (dark) or lavender-white
+ * (light) background with translucent surfaces - the blur has to be applied
  * here rather than baked into a CSS color, since backdrop-filter isn't a
  * color value. Scoped to this one preset via the data-theme-id attribute
  * ThemeProvider sets (lib/theme-utils.ts), so every other preset's opaque
  * surfaces render exactly as before.
+ *
+ * Round 1 only glassed the navbar (a hand-rolled backdrop-blur in
+ * site-header.tsx) plus card/popover/sheet/dialog. Round 2 (maintainer:
+ * "everything should be glass, not just the navbar") extends the same
+ * treatment to every other floating/elevated surface driven by this
+ * preset's own translucent card/popover tokens - dropdown/select menus,
+ * the command palette used by the location/topic pickers, and
+ * alert-dialogs - plus the page footer, which isn't a Radix primitive with
+ * its own data-slot so it's targeted by tag selector instead.
  */
 [data-theme-id="cosmic-glass"] [data-slot="card"],
 [data-theme-id="cosmic-glass"] [data-slot="popover-content"],
 [data-theme-id="cosmic-glass"] [data-slot="sheet-content"],
-[data-theme-id="cosmic-glass"] [data-slot="dialog-content"] {
+[data-theme-id="cosmic-glass"] [data-slot="dialog-content"],
+[data-theme-id="cosmic-glass"] [data-slot="alert-dialog-content"],
+[data-theme-id="cosmic-glass"] [data-slot="dropdown-menu-content"],
+[data-theme-id="cosmic-glass"] [data-slot="select-content"],
+[data-theme-id="cosmic-glass"] [data-slot="command"],
+[data-theme-id="cosmic-glass"] footer {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+}
+
+/*
+ * sheet-content/dialog-content/alert-dialog-content use the shared
+ * `bg-background` utility (the opaque page-background token, correctly so
+ * for every other preset) rather than `bg-card`/`bg-popover` - so on their
+ * own they'd render opaque here and the blur above would have nothing
+ * translucent to show. Give them this preset's translucent popover surface
+ * instead, without touching `--background` itself (which must stay opaque:
+ * it is also the <body> color, and a translucent body has nothing behind
+ * it to blur).
+ */
+[data-theme-id="cosmic-glass"] [data-slot="sheet-content"],
+[data-theme-id="cosmic-glass"] [data-slot="dialog-content"],
+[data-theme-id="cosmic-glass"] [data-slot="alert-dialog-content"] {
+  background-color: var(--popover);
+}
+
+[data-theme-id="cosmic-glass"] footer {
+  background-color: color-mix(in oklch, var(--card) 80%, transparent);
+  border-color: var(--border);
+}
+
+/*
+ * A flat, textureless page background makes translucency invisible - blurring
+ * a solid color looks identical to a solid color. This decorative,
+ * fixed-position gradient (purple/violet only, no pink) sits behind all page
+ * content so every glass surface above has something soft to blur, in both
+ * color modes.
+ */
+[data-theme-id="cosmic-glass"] body {
+  background-image:
+    radial-gradient(
+      ellipse 60% 50% at 15% 0%,
+      color-mix(in oklch, var(--chart-1) 22%, transparent),
+      transparent
+    ),
+    radial-gradient(
+      ellipse 55% 45% at 85% 20%,
+      color-mix(in oklch, var(--chart-3) 20%, transparent),
+      transparent
+    ),
+    radial-gradient(
+      ellipse 50% 40% at 50% 100%,
+      color-mix(in oklch, var(--chart-5) 16%, transparent),
+      transparent
+    );
+  background-attachment: fixed;
 }
 
 .hackathon-map-approximate-marker {
