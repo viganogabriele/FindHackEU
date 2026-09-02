@@ -89,6 +89,7 @@
   "action.viewEvent": "Event ansehen",
   "map.markers": "{count} Events mit Kartenposition",
   "map.approximateLocation": "Ungefährer Standort des Landes",
+  "map.tapToActivate": "Zum Bewegen auf die Karte tippen",
   "error.loadFailed": "Hackathons konnten nicht geladen werden",
   "error.retry": "Erneut versuchen",
   "aria.register": "Für {name} registrieren",
