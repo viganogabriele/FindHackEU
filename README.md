@@ -45,13 +45,13 @@ The ingestion stages report independently: a source failure does not prevent the
 
 ## Useful commands
 
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Start the development server. |
-| `npm run lint` | Run ESLint. |
-| `npm run test` | Run the Vitest suite. |
-| `npx tsc --noEmit` | Type-check the project. |
-| `npm run build` | Build for production. |
+| Command                  | Purpose                             |
+| ------------------------ | ----------------------------------- |
+| `npm run dev`            | Start the development server.       |
+| `npm run lint`           | Run ESLint.                         |
+| `npm run test`           | Run the Vitest suite.               |
+| `npx tsc --noEmit`       | Type-check the project.             |
+| `npm run build`          | Build for production.               |
 | `npm run trigger-update` | Run the ingestion pipeline locally. |
 
 For architecture and environment details, see [CLAUDE.md](./CLAUDE.md), [AGENTS.md](./AGENTS.md), and [.env.example](./.env.example). The public product and API documentation lives at `/docs`.

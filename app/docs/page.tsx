@@ -41,7 +41,8 @@ export default function DocsPage() {
             <h1 className="mb-0 text-3xl font-bold">Documentation</h1>
           </div>
           <p className="text-muted-foreground mb-6">
-            A practical guide to browsing FindHackEU and using its public API.
+            How FindHackEU publishes reliable European hackathon listings, and
+            how to browse or reuse the approved data.
           </p>
 
           <Separator className="my-8 [mask-image:linear-gradient(to_right,transparent,black_15%,black_85%,transparent)]" />
@@ -69,6 +70,42 @@ export default function DocsPage() {
               </p>
             </Card>
           </div>
+
+          <section className="mb-8">
+            <h2 className="mb-4 text-2xl font-semibold">
+              From discovery to publication
+            </h2>
+            <p>
+              FindHackEU is independently maintained by Gabriele Viganò. It grew
+              from a discovery setup that surfaced two hackathons at a time to a
+              multi-source pipeline that now finds more than 100 events across
+              Europe. The goal is broader coverage without treating unverified
+              search results as published facts.
+            </p>
+            <div className="grid grid-cols-1 gap-4 mt-4 md:grid-cols-3 not-prose">
+              <Card className="gap-0 rounded-lg p-4 shadow-none">
+                <h3 className="font-semibold mb-2">1. Discover</h3>
+                <p className="text-sm text-muted-foreground">
+                  Scheduled providers collect public event listings; web search
+                  and public submissions add candidates for review.
+                </p>
+              </Card>
+              <Card className="gap-0 rounded-lg p-4 shadow-none">
+                <h3 className="font-semibold mb-2">2. Validate</h3>
+                <p className="text-sm text-muted-foreground">
+                  URLs are normalized, likely duplicates are reconciled, and
+                  available location data is checked and enriched.
+                </p>
+              </Card>
+              <Card className="gap-0 rounded-lg p-4 shadow-none">
+                <h3 className="font-semibold mb-2">3. Publish</h3>
+                <p className="text-sm text-muted-foreground">
+                  Only approved, non-archived records appear on the website and
+                  in the public API. Candidate records never publish themselves.
+                </p>
+              </Card>
+            </div>
+          </section>
 
           <section className="mb-8">
             <h2 className="mb-4 flex items-center gap-2 text-2xl font-semibold">
@@ -263,11 +300,22 @@ export default function DocsPage() {
                     , <code>past</code>, or <code>estimated</code>. Defaults to{" "}
                     <code>upcoming</code>.
                   </li>
+                  <li>
+                    <code>limit</code> — Optional page size from 1 to 100. If
+                    omitted, the API returns the complete matching dataset.
+                  </li>
+                  <li>
+                    <code>cursor</code> — Opaque cursor returned as
+                    <code>nextCursor</code> from a paginated response. Use it
+                    only with the same status and limit.
+                  </li>
                 </ul>
 
-                <h4 className="font-semibold mb-2 mt-4">Example Request</h4>
+                <h4 className="font-semibold mb-2 mt-4">Examples</h4>
                 <div className="bg-muted rounded-lg p-3 font-mono text-xs overflow-x-auto">
-                  GET /api/hackathons?status=upcoming
+                  {`GET /api/hackathons?status=upcoming
+GET /api/hackathons?status=upcoming&limit=25
+GET /api/hackathons?status=upcoming&limit=25&cursor=<nextCursor>`}
                 </div>
               </Card>
 
@@ -281,11 +329,14 @@ export default function DocsPage() {
       "name": "AI Hackathon Munich",
       "city": "Munich",
       "country_code": "DE",
+      "location_type": "physical",
+      "venue": null,
       "date_start": "2025-06-15T09:00:00+00:00",
       "date_end": "2025-06-16T18:00:00+00:00",
       "topics": ["AI", "Machine Learning"],
       "notes": "Bring your laptop and creativity!",
       "url": "https://example.com/hackathon",
+      "source": "luma",
       "status": "upcoming",
       "is_new": true
     },
@@ -293,6 +344,15 @@ export default function DocsPage() {
   ]
 }`}
                 </div>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  When <code>limit</code> is supplied, the response also
+                  includes <code>nextCursor</code>. It is <code>null</code> on
+                  the final page. Dates and optional details depend on what the
+                  original organizer publishes; <code>country_code</code> uses
+                  ISO 3166-1 alpha-2 codes, while <code>location_type</code> is
+                  one of <code>physical</code>, <code>online</code>,
+                  <code>hybrid</code>, or <code>tbd</code>.
+                </p>
               </Card>
             </div>
 
@@ -439,6 +499,39 @@ export default function DocsPage() {
           </section>
 
           <section className="mb-8">
+            <h2 className="mb-4 text-2xl font-semibold">Data quality</h2>
+            <p>
+              FindHackEU is a directory, not the event organizer. Always use the
+              link on an event card for registration, eligibility, and
+              last-minute changes. The pipeline is designed to make listings
+              useful and transparent about their provenance, not to replace the
+              organizer&apos;s information.
+            </p>
+            <ul className="mt-4 space-y-2">
+              <li>
+                <strong>Source traceability:</strong> API records retain their
+                provider in the <code>source</code> field and cards link back to
+                the source event page.
+              </li>
+              <li>
+                <strong>Duplicate protection:</strong> normalized URLs and
+                title/date matching prevent the same event being listed twice
+                when providers overlap.
+              </li>
+              <li>
+                <strong>Human moderation:</strong> web-search discoveries and
+                community submissions stay pending until a maintainer reviews
+                them.
+              </li>
+              <li>
+                <strong>Honest uncertainty:</strong> unknown dates, venues, and
+                location types remain unset or marked as to be determined; they
+                are not invented by the service.
+              </li>
+            </ul>
+          </section>
+
+          <section className="mb-8">
             <h2 className="mb-4 text-2xl font-semibold">Contributing</h2>
             <p>
               FindHackEU is open source. Contributions that improve coverage,
@@ -458,8 +551,8 @@ export default function DocsPage() {
                 </Link>
               </li>
               <li>
-                <strong>Contribute code:</strong> Fork the repository, make a
-                focused change, and open a pull request.
+                <strong>Contribute code:</strong> Create a focused change in
+                your copy of the repository and open a pull request.
               </li>
               <li>
                 <strong>Suggest improvements:</strong> Describe the problem and
@@ -592,8 +685,9 @@ export default function DocsPage() {
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   FindHackEU is maintained by Gabriele Viganò. It is an
-                  independent MIT-licensed project, originally inspired by and
-                  forked from HackTrack EU by Lorenzo Palaia.
+                  independent MIT-licensed project. Its starting inspiration was
+                  HackTrack EU, created by Lorenzo Palaia; FindHackEU now has
+                  its own architecture, infrastructure, and roadmap.
                 </p>
               </div>
             </div>
