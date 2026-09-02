@@ -160,31 +160,40 @@ export function HackathonCard({
               hackathon.name
             )}
           </CardTitle>
-          <div className="flex shrink-0 items-center gap-2">
-            {!adminTheme && !compact && (
-              <button
-                type="button"
-                onClick={() => toggleBookmark(hackathon.id)}
-                aria-label={t(
-                  isBookmarked ? "bookmark.remove" : "bookmark.add",
-                  { name: hackathon.name },
+          {/*
+            The bookmark button's own hit-area (p-1.5 + a size-5 icon = 32px)
+            is taller than a single line of the title text next to it, so
+            top-aligning the two by their box edges (items-start on the row)
+            left the heart visibly floating above the title's cap-height -
+            most noticeable on a short, one-line title. Negative margins
+            here pull the button's padding back into the title's own line
+            box so the icon glyph (not the invisible padding around it)
+            lines up with the first line of text, for both a one-line and a
+            two-line (line-clamp-2) title - the hit target stays full size
+            for touch/pointer users, only the visual alignment changes.
+          */}
+          {!adminTheme && !compact && (
+            <button
+              type="button"
+              onClick={() => toggleBookmark(hackathon.id)}
+              aria-label={t(isBookmarked ? "bookmark.remove" : "bookmark.add", {
+                name: hackathon.name,
+              })}
+              aria-pressed={isBookmarked}
+              title={t(isBookmarked ? "bookmark.remove" : "bookmark.add", {
+                name: hackathon.name,
+              })}
+              className="-mt-1.5 -mr-1.5 shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Heart
+                className={cn(
+                  "size-5",
+                  isBookmarked && "fill-current text-red-500",
                 )}
-                aria-pressed={isBookmarked}
-                title={t(isBookmarked ? "bookmark.remove" : "bookmark.add", {
-                  name: hackathon.name,
-                })}
-                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <Heart
-                  className={cn(
-                    "size-5",
-                    isBookmarked && "fill-current text-red-500",
-                  )}
-                  aria-hidden="true"
-                />
-              </button>
-            )}
-          </div>
+                aria-hidden="true"
+              />
+            </button>
+          )}
         </div>
         {meta}
         {hackathon.notes && hackathon.notes.trim() && (
