@@ -22,6 +22,7 @@ import {
   getMaxFutureCutoff,
 } from "@/lib/config/discovery-config";
 import { fetchWithRetry } from "@/lib/http/fetch-with-retry";
+import { BROWSER_USER_AGENT } from "@/lib/http/user-agent";
 
 interface EthGlobalCity {
   name?: string;
@@ -79,8 +80,7 @@ export class EthGlobalParser extends BaseParser {
       const response = await fetchWithRetry(this.eventsUrl, {
         headers: {
           Accept: "text/html",
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "User-Agent": BROWSER_USER_AGENT,
         },
       });
 
