@@ -251,6 +251,297 @@ export function FiltersPanel({
       : []),
   ];
 
+  // A plain JSX expression, not a nested function component - declaring
+  // this as `function FilterControls() {...}` inside FiltersPanel's body
+  // gave it a brand-new identity on every render, so React unmounted and
+  // remounted this whole subtree (including the radius <Input>) on every
+  // keystroke there (each keystroke updates local state, re-rendering
+  // FiltersPanel). That dropped DOM focus mid-remount, which the mobile
+  // <Sheet>'s focus trap read as focus leaving the dialog and closed it -
+  // found live, 2026-09-02 (typing in the radius field closed the whole
+  // filters sheet; typing in the location search didn't, since that one
+  // filters its list locally without touching FiltersPanel's own state).
+  const filterControls = (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-3">
+        <Field label={t("status")}>
+          <Select
+            value={filters.status}
+            onValueChange={(value: "upcoming" | "past") =>
+              updateFilter("status", value)
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="upcoming">{t("status.upcoming")}</SelectItem>
+              <SelectItem value="past">{t("status.past")}</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field label={t("sort.byDate")}>
+          <Select
+            value={filters.sort}
+            onValueChange={(value: "asc" | "desc") =>
+              updateFilter("sort", value)
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="asc">{t("sort.ascending")}</SelectItem>
+              <SelectItem value="desc">{t("sort.descending")}</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+      </div>
+      <Field label={t("locations")}>
+        {availableLocations.length === 0 ? (
+          <p
+            className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground"
+            role="status"
+          >
+            {t("locations.noneFound")}
+          </p>
+        ) : (
+          <Popover open={locationOpen} onOpenChange={setLocationOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={locationOpen}
+                className="w-full justify-between"
+              >
+                {filters.locations.length > 0
+                  ? `${filters.locations.length} ${t("locations.selected")}`
+                  : t("locations.select")}
+                <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+              <Command>
+                <CommandInput placeholder={t("locations.searchPlaceholder")} />
+                <CommandList>
+                  <CommandEmpty>{t("locations.noneFound")}</CommandEmpty>
+                  <CommandGroup>
+                    {availableLocations.map((location) => (
+                      <CommandItem
+                        key={location}
+                        onSelect={() => toggleLocation(location)}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 size-4",
+                            filters.locations.includes(location)
+                              ? "opacity-100"
+                              : "opacity-0",
+                          )}
+                        />
+                        {locationLabel(location)}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                  {filters.locations
+                    .filter(isCountryLocationValue)
+                    .map((countryLocation) => {
+                      const countryCode =
+                        countryCodeFromLocationValue(countryLocation);
+                      const cities = countryCode
+                        ? getCityLocationOptionsForCountry(
+                            availableLocations,
+                            countryCode,
+                          )
+                        : [];
+                      return cities.length ? (
+                        <CommandGroup
+                          key={countryLocation}
+                          heading={t("locations.citiesIn", {
+                            country: formatCountryLocationLabel(
+                              countryCode!,
+                              (country) => country,
+                            ),
+                          })}
+                        >
+                          {cities.map((city) => (
+                            <CommandItem
+                              key={city}
+                              onSelect={() =>
+                                selectCityWithinCountry(countryLocation, city)
+                              }
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 size-4",
+                                  filters.locations.includes(city)
+                                    ? "opacity-100"
+                                    : "opacity-0",
+                                )}
+                              />
+                              {city}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      ) : null;
+                    })}
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        )}
+      </Field>
+      <Field label={t("radius.label")}>
+        <div className="flex gap-2">
+          <Input
+            value={radiusQuery}
+            placeholder={t("radius.placeholder")}
+            onChange={(event) => {
+              setRadiusQuery(event.target.value);
+              setRadiusError(null);
+              if (filters.radius) updateFilter("radius", null);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                void applyRadius();
+              }
+            }}
+            aria-describedby={radiusError ? "radius-error" : undefined}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void applyRadius()}
+            disabled={radiusLoading}
+          >
+            {radiusLoading ? t("radius.loading") : t("radius.apply")}
+          </Button>
+        </div>
+        {radiusError && (
+          <p
+            id="radius-error"
+            className="text-sm text-destructive"
+            role="alert"
+          >
+            {radiusError}
+          </p>
+        )}
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <Label>{t("radius.distance")}</Label>
+            <output>{filters.radius?.radiusKm ?? DEFAULT_RADIUS_KM} km</output>
+          </div>
+          <Slider
+            min={MIN_RADIUS_KM}
+            max={MAX_RADIUS_KM}
+            step={RADIUS_STEP_KM}
+            value={[filters.radius?.radiusKm ?? DEFAULT_RADIUS_KM]}
+            onValueChange={([radiusKm]) => {
+              if (filters.radius && radiusKm)
+                updateFilter("radius", { ...filters.radius, radiusKm });
+            }}
+            disabled={!filters.radius}
+            aria-label={t("radius.distance")}
+          />
+        </div>
+      </Field>
+      <Field label={t("topics")}>
+        <Popover open={topicOpen} onOpenChange={setTopicOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={topicOpen}
+              className="w-full justify-between"
+            >
+              {filters.topics.length > 0
+                ? `${filters.topics.length} ${t("locations.selected")}`
+                : t("topics.select")}
+              <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+            <Command>
+              <CommandInput placeholder={t("topics.searchPlaceholder")} />
+              <CommandList>
+                <CommandEmpty>{t("topics.noneFound")}</CommandEmpty>
+                <CommandGroup>
+                  {uniqueTopics.map((topic) => (
+                    <CommandItem
+                      key={topic}
+                      onSelect={() => toggleTopic(topic)}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 size-4",
+                          filters.topics.includes(topic)
+                            ? "opacity-100"
+                            : "opacity-0",
+                        )}
+                      />
+                      {topic}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      </Field>
+      <Field label={t("dates")}>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full justify-start text-left font-normal"
+            >
+              <CalendarIcon className="mr-2 size-4" />
+              {filters.dateRange?.from
+                ? filters.dateRange.to
+                  ? `${format(filters.dateRange.from, "dd MMM", { locale: enGB })} – ${format(filters.dateRange.to, "dd MMM", { locale: enGB })}`
+                  : format(filters.dateRange.from, "dd MMM yyyy", {
+                      locale: enGB,
+                    })
+                : t("dates.select")}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="range"
+              defaultMonth={filters.dateRange?.from}
+              selected={filters.dateRange}
+              onSelect={(range) => updateFilter("dateRange", range)}
+              locale={enGB}
+            />
+          </PopoverContent>
+        </Popover>
+      </Field>
+      <div className="flex items-center justify-between gap-6 rounded-md border p-3">
+        <Label htmlFor="include-non-english" className="leading-snug">
+          {t("filters.includeOtherLanguages", { language: languageName })}
+        </Label>
+        <Switch
+          id="include-non-english"
+          checked={filters.includeNonEnglish}
+          onCheckedChange={(checked) =>
+            updateFilter("includeNonEnglish", checked)
+          }
+        />
+      </div>
+      <div className="flex items-center justify-between gap-6 rounded-md border p-3">
+        <Label htmlFor="include-online" className="leading-snug">
+          {t("filters.showOnlineEvents")}
+        </Label>
+        <Switch
+          id="include-online"
+          checked={filters.includeOnline}
+          onCheckedChange={(checked) => updateFilter("includeOnline", checked)}
+        />
+      </div>
+    </div>
+  );
+
   return (
     <section className="mb-8 space-y-3" aria-label={t("filters")}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -304,7 +595,7 @@ export function FiltersPanel({
                 <SheetDescription>{t("subtitle")}</SheetDescription>
               </SheetHeader>
               <div className="space-y-6 p-6">
-                <FilterControls />
+                {filterControls}
                 <Separator />
                 <div className="flex items-center justify-between gap-4">
                   <span className="text-sm text-muted-foreground">
@@ -327,295 +618,6 @@ export function FiltersPanel({
       <ActiveFilterChips chips={chips} />
     </section>
   );
-
-  function FilterControls() {
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-2 gap-3">
-          <Field label={t("status")}>
-            <Select
-              value={filters.status}
-              onValueChange={(value: "upcoming" | "past") =>
-                updateFilter("status", value)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="upcoming">{t("status.upcoming")}</SelectItem>
-                <SelectItem value="past">{t("status.past")}</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label={t("sort.byDate")}>
-            <Select
-              value={filters.sort}
-              onValueChange={(value: "asc" | "desc") =>
-                updateFilter("sort", value)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="asc">{t("sort.ascending")}</SelectItem>
-                <SelectItem value="desc">{t("sort.descending")}</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-        </div>
-        <Field label={t("locations")}>
-          {availableLocations.length === 0 ? (
-            <p
-              className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground"
-              role="status"
-            >
-              {t("locations.noneFound")}
-            </p>
-          ) : (
-            <Popover open={locationOpen} onOpenChange={setLocationOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={locationOpen}
-                  className="w-full justify-between"
-                >
-                  {filters.locations.length > 0
-                    ? `${filters.locations.length} ${t("locations.selected")}`
-                    : t("locations.select")}
-                  <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                <Command>
-                  <CommandInput
-                    placeholder={t("locations.searchPlaceholder")}
-                  />
-                  <CommandList>
-                    <CommandEmpty>{t("locations.noneFound")}</CommandEmpty>
-                    <CommandGroup>
-                      {availableLocations.map((location) => (
-                        <CommandItem
-                          key={location}
-                          onSelect={() => toggleLocation(location)}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 size-4",
-                              filters.locations.includes(location)
-                                ? "opacity-100"
-                                : "opacity-0",
-                            )}
-                          />
-                          {locationLabel(location)}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                    {filters.locations
-                      .filter(isCountryLocationValue)
-                      .map((countryLocation) => {
-                        const countryCode =
-                          countryCodeFromLocationValue(countryLocation);
-                        const cities = countryCode
-                          ? getCityLocationOptionsForCountry(
-                              availableLocations,
-                              countryCode,
-                            )
-                          : [];
-                        return cities.length ? (
-                          <CommandGroup
-                            key={countryLocation}
-                            heading={t("locations.citiesIn", {
-                              country: formatCountryLocationLabel(
-                                countryCode!,
-                                (country) => country,
-                              ),
-                            })}
-                          >
-                            {cities.map((city) => (
-                              <CommandItem
-                                key={city}
-                                onSelect={() =>
-                                  selectCityWithinCountry(countryLocation, city)
-                                }
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 size-4",
-                                    filters.locations.includes(city)
-                                      ? "opacity-100"
-                                      : "opacity-0",
-                                  )}
-                                />
-                                {city}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        ) : null;
-                      })}
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          )}
-        </Field>
-        <Field label={t("radius.label")}>
-          <div className="flex gap-2">
-            <Input
-              value={radiusQuery}
-              placeholder={t("radius.placeholder")}
-              onChange={(event) => {
-                setRadiusQuery(event.target.value);
-                setRadiusError(null);
-                if (filters.radius) updateFilter("radius", null);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  void applyRadius();
-                }
-              }}
-              aria-describedby={radiusError ? "radius-error" : undefined}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void applyRadius()}
-              disabled={radiusLoading}
-            >
-              {radiusLoading ? t("radius.loading") : t("radius.apply")}
-            </Button>
-          </div>
-          {radiusError && (
-            <p
-              id="radius-error"
-              className="text-sm text-destructive"
-              role="alert"
-            >
-              {radiusError}
-            </p>
-          )}
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <Label>{t("radius.distance")}</Label>
-              <output>
-                {filters.radius?.radiusKm ?? DEFAULT_RADIUS_KM} km
-              </output>
-            </div>
-            <Slider
-              min={MIN_RADIUS_KM}
-              max={MAX_RADIUS_KM}
-              step={RADIUS_STEP_KM}
-              value={[filters.radius?.radiusKm ?? DEFAULT_RADIUS_KM]}
-              onValueChange={([radiusKm]) => {
-                if (filters.radius && radiusKm)
-                  updateFilter("radius", { ...filters.radius, radiusKm });
-              }}
-              disabled={!filters.radius}
-              aria-label={t("radius.distance")}
-            />
-          </div>
-        </Field>
-        <Field label={t("topics")}>
-          <Popover open={topicOpen} onOpenChange={setTopicOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                aria-expanded={topicOpen}
-                className="w-full justify-between"
-              >
-                {filters.topics.length > 0
-                  ? `${filters.topics.length} ${t("locations.selected")}`
-                  : t("topics.select")}
-                <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-              <Command>
-                <CommandInput placeholder={t("topics.searchPlaceholder")} />
-                <CommandList>
-                  <CommandEmpty>{t("topics.noneFound")}</CommandEmpty>
-                  <CommandGroup>
-                    {uniqueTopics.map((topic) => (
-                      <CommandItem
-                        key={topic}
-                        onSelect={() => toggleTopic(topic)}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 size-4",
-                            filters.topics.includes(topic)
-                              ? "opacity-100"
-                              : "opacity-0",
-                          )}
-                        />
-                        {topic}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-        </Field>
-        <Field label={t("dates")}>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="w-full justify-start text-left font-normal"
-              >
-                <CalendarIcon className="mr-2 size-4" />
-                {filters.dateRange?.from
-                  ? filters.dateRange.to
-                    ? `${format(filters.dateRange.from, "dd MMM", { locale: enGB })} – ${format(filters.dateRange.to, "dd MMM", { locale: enGB })}`
-                    : format(filters.dateRange.from, "dd MMM yyyy", {
-                        locale: enGB,
-                      })
-                  : t("dates.select")}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="range"
-                defaultMonth={filters.dateRange?.from}
-                selected={filters.dateRange}
-                onSelect={(range) => updateFilter("dateRange", range)}
-                locale={enGB}
-              />
-            </PopoverContent>
-          </Popover>
-        </Field>
-        <div className="flex items-center justify-between gap-6 rounded-md border p-3">
-          <Label htmlFor="include-non-english" className="leading-snug">
-            {t("filters.includeOtherLanguages", { language: languageName })}
-          </Label>
-          <Switch
-            id="include-non-english"
-            checked={filters.includeNonEnglish}
-            onCheckedChange={(checked) =>
-              updateFilter("includeNonEnglish", checked)
-            }
-          />
-        </div>
-        <div className="flex items-center justify-between gap-6 rounded-md border p-3">
-          <Label htmlFor="include-online" className="leading-snug">
-            {t("filters.showOnlineEvents")}
-          </Label>
-          <Switch
-            id="include-online"
-            checked={filters.includeOnline}
-            onCheckedChange={(checked) =>
-              updateFilter("includeOnline", checked)
-            }
-          />
-        </div>
-      </div>
-    );
-  }
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
