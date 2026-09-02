@@ -114,7 +114,7 @@ export default function HackathonMap({
   const isDark = currentMode === "dark";
 
   return (
-    <div className="relative overflow-hidden rounded-lg border bg-muted/20">
+    <div className="relative z-0 overflow-hidden rounded-lg border bg-muted/20">
       <MapContainer
         center={EUROPE_CENTER}
         zoom={4}
