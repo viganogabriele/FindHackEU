@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { fetchAllRows } from "@/lib/services/fetch-all-rows";
@@ -115,25 +116,44 @@ export async function GET(request: Request) {
       data = await fetchAllRows((from, to) => query.range(from, to));
     }
 
-    return NextResponse.json(
-      {
-        data,
-        ...(limit !== null ? { nextCursor } : {}),
-      },
-      {
-        headers: {
-          // Cache for 5 minutes, serve stale for up to 10 minutes while revalidating
-          "Cache-Control": "s-maxage=300, stale-while-revalidate=600",
-          // CDN specific caching
-          "CDN-Cache-Control": "max-age=300",
-          "Vercel-CDN-Cache-Control": "max-age=300",
-          // Add ETag for conditional requests
-          ETag: `"hackathons-${status}-${Date.now()}"`,
-          // Vary by status parameter
-          Vary: "Accept, Authorization",
-        },
-      },
-    );
+    const body = JSON.stringify({
+      data,
+      ...(limit !== null ? { nextCursor } : {}),
+    });
+
+    // Derived from the response body, so it only changes when the response
+    // actually does. The previous value embedded `Date.now()`, which made it
+    // unique per response: no `If-None-Match` could ever match it, so a
+    // conditional request never got a 304 and every CDN revalidation after
+    // `s-maxage` re-transferred the whole list instead of confirming it was
+    // unchanged - the exact thing an ETag exists to avoid.
+    const etag = `"${createHash("sha1").update(body).digest("base64url")}"`;
+
+    const headers = {
+      // Cache for 5 minutes, serve stale for up to 10 minutes while revalidating
+      "Cache-Control": "s-maxage=300, stale-while-revalidate=600",
+      // CDN specific caching
+      "CDN-Cache-Control": "max-age=300",
+      "Vercel-CDN-Cache-Control": "max-age=300",
+      ETag: etag,
+      // No `Vary` header: this response depends only on the query string,
+      // which is already part of every cache key. The previous
+      // `Vary: Accept, Authorization` varied on two headers the handler
+      // never reads, and `Vary: Authorization` in particular tells shared
+      // caches to be careful with a response that is identical for
+      // everybody.
+    };
+
+    // Honour a conditional request. A 304 must not carry a body, and
+    // repeats the caching headers so an intermediary can refresh its own
+    // freshness bookkeeping.
+    if (request.headers.get("if-none-match") === etag) {
+      return new NextResponse(null, { status: 304, headers });
+    }
+
+    return new NextResponse(body, {
+      headers: { ...headers, "Content-Type": "application/json" },
+    });
   } catch (error) {
     console.error("Error fetching hackathons:", error);
     return NextResponse.json(
