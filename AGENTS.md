@@ -42,16 +42,16 @@ npm run dev
 
 ## Commands
 
-| Purpose                                     | Command                                                                                                                                           |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Dev server                                  | `npm run dev`                                                                                                                                     |
-| Production build (also runs format + knip)  | `npm run build`                                                                                                                                   |
-| Start production server                     | `npm run start`                                                                                                                                     |
-| Lint                                        | `npm run lint` (flat-config `eslint .`, not `next lint`)                                                                                          |
-| Format                                      | `npm run format`                                                                                                                                   |
-| Test suite                                  | `npm run test` (Vitest)                                                                                                                            |
-| Dead code / unused deps                     | `npm run knip`                                                                                                                                     |
-| Regenerate sitemap                          | `npm run sitemap`                                                                                                                                  |
+| Purpose                                    | Command                                                  |
+| ------------------------------------------ | -------------------------------------------------------- |
+| Dev server                                 | `npm run dev`                                            |
+| Production build (also runs format + knip) | `npm run build`                                          |
+| Start production server                    | `npm run start`                                          |
+| Lint                                       | `npm run lint` (flat-config `eslint .`, not `next lint`) |
+| Format                                     | `npm run format`                                         |
+| Test suite                                 | `npm run test` (Vitest)                                  |
+| Dead code / unused deps                    | `npm run knip`                                           |
+| Regenerate sitemap                         | `npm run sitemap`                                        |
 
 When running lint/knip/vitest from the repo root, scope them to real source directories if stray untracked dirs exist locally (e.g. `.worktrees/*`, `redesign/`) — otherwise stale copies produce spurious failures.
 
