@@ -44,7 +44,7 @@ export default function DocsPage() {
             Complete guide to using the FindHackEU platform, API, and services
           </p>
 
-          <Separator className="my-6" />
+          <Separator className="my-8 [mask-image:linear-gradient(to_right,transparent,black_15%,black_85%,transparent)]" />
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 not-prose mb-8">
             <Card className="gap-0 rounded-lg p-4 shadow-none">

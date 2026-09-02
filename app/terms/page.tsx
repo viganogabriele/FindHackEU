@@ -32,7 +32,7 @@ export default function TermsPage() {
             })}
           </p>
 
-          <Separator className="my-6" />
+          <Separator className="my-8 [mask-image:linear-gradient(to_right,transparent,black_15%,black_85%,transparent)]" />
 
           <section className="mb-8">
             <h2 className="mb-4 text-2xl font-semibold">
