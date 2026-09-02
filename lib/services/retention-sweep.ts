@@ -8,8 +8,8 @@ import { archiveHackathon } from "@/lib/services/archive-hackathon";
  * no end date was recorded) is more than a year in the past gets archived -
  * reusing the exact same `archiveHackathon` mechanism the manual "Archive"
  * button uses, not a separate implementation. Called from
- * app/api/archive-old-hackathons/route.ts, a new endpoint hit by a separate
- * cron entry in .github/workflows/update.yml - deliberately NOT wired into
+ * app/api/archive-old-hackathons/route.ts, an endpoint hit weekly by its own
+ * workflow (.github/workflows/archive-old-hackathons.yml) - deliberately NOT wired into
  * app/api/update/route.ts itself, per the issue: this is a distinct
  * concern from the main scrape/dedupe/notify pipeline and shouldn't change
  * its behavior.
