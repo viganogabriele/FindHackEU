@@ -166,43 +166,73 @@
 }
 
 /*
- * Public-site topic tag colors (issue: badge redesign). Each cycles through
- * a preset's own --chart-1..5 tokens instead of hardcoded hex values, so
- * every theme preset gets a distinct-but-harmonious set of tag colors that
- * were already curated for that theme's dataviz use - no ad-hoc palette to
- * maintain per theme, and no literal color implies a topic's meaning.
+ * Public-site topic tags (round 2 of the badge redesign - flagged twice by
+ * the maintainer as "hideous"). Round 1 only changed the color source
+ * (hardcoded hex -> --chart-1..5 tokens) but kept the default Badge shape:
+ * a bordered, rounded-md, solid-tint chip. That shape reads as a form
+ * control, not a tag. `.topic-chip` replaces the shape/typography with the
+ * pill conventions of Linear/Notion/Vercel-style tag chips - fully rounded,
+ * no border (a tinted background alone carries the "chip" affordance),
+ * tighter vertical padding, and a slightly smaller, medium-weight label -
+ * while `.topic-badge-1..5` keep only the per-topic tint, still cycling
+ * through a preset's own --chart-1..5 tokens so every theme preset gets a
+ * distinct-but-harmonious set of tag colors without a hand-maintained
+ * palette, at a uniform 16% tint (bumped up from round 1's 14%, to
+ * compensate for the dropped border keeping each chip legible as a
+ * discrete shape against the card background).
+ *
+ * The text color is NOT the raw chart-N value. This app has dozens of
+ * theme presets (lib/theme-presets.ts, fetched from tweakcn) beyond the
+ * one or two this project maintains by hand, and a chart color tuned to
+ * look good as a solid dataviz swatch is not automatically legible as
+ * small chip text at 16% opacity - several presets' chart-1..5 (including
+ * "Clean Slate", this site's own default) measured well under 4.5:1
+ * contrast that way once a real theme-application bug (camelToKebab in
+ * lib/theme-utils.ts not hyphenating keys ending in a digit - chart1..5 -
+ * so `--chart-1` was silently never set by theme selection) was fixed and
+ * per-theme chart colors actually started reaching these rules for the
+ * first time. Blending each chart color toward the theme's own
+ * `--foreground` token - guaranteed high-contrast against `--card` in any
+ * preset, since body text depends on it - keeps a visible per-topic hue
+ * while making every preset's chips legible without hand-tuning each
+ * preset's palette individually. Verified (see the contrast-check script
+ * used during development) to clear 4.5:1 for all 5 slots on both the
+ * default preset and "Cosmic Glass", light and dark.
  */
-.topic-badge-1,
-.topic-badge-2,
-.topic-badge-3,
-.topic-badge-4,
-.topic-badge-5 {
-  border-width: 1px;
+.topic-chip {
+  gap: 0.25rem;
+  border-radius: 9999px;
+  border-color: transparent;
+  padding-inline: 0.625rem;
+  padding-block: 0.1875rem;
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+.topic-chip-more {
+  background-color: var(--muted);
+  color: var(--muted-foreground);
 }
 .topic-badge-1 {
-  background-color: color-mix(in oklch, var(--chart-1) 14%, transparent);
-  color: var(--chart-1);
-  border-color: color-mix(in oklch, var(--chart-1) 32%, transparent);
+  background-color: color-mix(in oklch, var(--chart-1) 16%, transparent);
+  color: color-mix(in oklch, var(--chart-1) 45%, var(--foreground) 55%);
 }
 .topic-badge-2 {
-  background-color: color-mix(in oklch, var(--chart-2) 14%, transparent);
-  color: var(--chart-2);
-  border-color: color-mix(in oklch, var(--chart-2) 32%, transparent);
+  background-color: color-mix(in oklch, var(--chart-2) 16%, transparent);
+  color: color-mix(in oklch, var(--chart-2) 45%, var(--foreground) 55%);
 }
 .topic-badge-3 {
-  background-color: color-mix(in oklch, var(--chart-3) 14%, transparent);
-  color: var(--chart-3);
-  border-color: color-mix(in oklch, var(--chart-3) 32%, transparent);
+  background-color: color-mix(in oklch, var(--chart-3) 16%, transparent);
+  color: color-mix(in oklch, var(--chart-3) 45%, var(--foreground) 55%);
 }
 .topic-badge-4 {
   background-color: color-mix(in oklch, var(--chart-4) 16%, transparent);
-  color: var(--chart-4);
-  border-color: color-mix(in oklch, var(--chart-4) 34%, transparent);
+  color: color-mix(in oklch, var(--chart-4) 45%, var(--foreground) 55%);
 }
 .topic-badge-5 {
   background-color: color-mix(in oklch, var(--chart-5) 16%, transparent);
-  color: var(--chart-5);
-  border-color: color-mix(in oklch, var(--chart-5) 34%, transparent);
+  color: color-mix(in oklch, var(--chart-5) 45%, var(--foreground) 55%);
 }
 
 .admin-theme input[type="date"]::-webkit-calendar-picker-indicator {

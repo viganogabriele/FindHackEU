@@ -274,7 +274,7 @@ export function HackathonCard({
                     key={`${topic}-${index}`}
                     variant="outline"
                     className={cn(
-                      "text-xs",
+                      "topic-chip",
                       adminTheme ? "admin-topic-badge" : topicConfig.color,
                     )}
                   >
@@ -283,7 +283,7 @@ export function HackathonCard({
                 );
               })}
             {hackathon.topics.length > 4 && (
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="topic-chip topic-chip-more">
                 {`+${hackathon.topics.length - 4} ${t("topics.more")}`}
               </Badge>
             )}
