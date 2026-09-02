@@ -35,6 +35,8 @@
   "topics.noneFound": "Geen onderwerp gevonden.",
   "dates": "Data",
   "filters.includeOtherLanguages": "Hackathons in andere talen dan {language} opnemen",
+  "filters.showOnlineEvents": "Online evenementen tonen",
+  "filters.onlineHidden": "Online evenementen verborgen",
   "dates.select": "Selecteer data",
   "sorting": "Sortering",
   "sort.byDate": "Sorteer op datum",

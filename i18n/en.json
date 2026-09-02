@@ -35,6 +35,8 @@
   "topics.noneFound": "No topic found.",
   "dates": "Dates",
   "filters.includeOtherLanguages": "Include hackathons not in {language}",
+  "filters.showOnlineEvents": "Show online events",
+  "filters.onlineHidden": "Online events hidden",
   "dates.select": "Select dates",
   "sorting": "Sorting",
   "sort.byDate": "Sort by date",

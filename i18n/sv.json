@@ -35,6 +35,8 @@
   "topics.noneFound": "Inget ämne hittades.",
   "dates": "Datum",
   "filters.includeOtherLanguages": "Inkludera hackathons som inte är på {language}",
+  "filters.showOnlineEvents": "Visa onlineevenemang",
+  "filters.onlineHidden": "Onlineevenemang dolda",
   "dates.select": "Välj datum",
   "sorting": "Sortering",
   "sort.byDate": "Sortera efter datum",

@@ -50,6 +50,10 @@ export function filterAndSortHackathons(
       return false;
     }
 
+    if (!filters.includeOnline && hackathon.location_type === "online") {
+      return false;
+    }
+
     if (filters.dateRange?.from || filters.dateRange?.to) {
       const hackathonDate = new Date(hackathon.date_start);
       if (filters.dateRange.from && hackathonDate < filters.dateRange.from) {

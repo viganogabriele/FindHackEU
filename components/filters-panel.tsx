@@ -120,6 +120,7 @@ export function FiltersPanel({
     filters.topics.length +
     Number(Boolean(filters.dateRange?.from || filters.dateRange?.to)) +
     Number(filters.includeNonEnglish) +
+    Number(!filters.includeOnline) +
     Number(filters.showBookmarked);
 
   const toggleLocation = (location: string) => {
@@ -229,6 +230,15 @@ export function FiltersPanel({
               language: languageName,
             }),
             onRemove: () => updateFilter("includeNonEnglish", false),
+          },
+        ]
+      : []),
+    ...(!filters.includeOnline
+      ? [
+          {
+            id: "online-hidden",
+            label: t("filters.onlineHidden"),
+            onRemove: () => updateFilter("includeOnline", true),
           },
         ]
       : []),
@@ -591,6 +601,16 @@ export function FiltersPanel({
             onCheckedChange={(checked) =>
               updateFilter("includeNonEnglish", checked)
             }
+          />
+        </div>
+        <div className="flex items-center justify-between gap-6 rounded-md border p-3">
+          <Label htmlFor="include-online" className="leading-snug">
+            {t("filters.showOnlineEvents")}
+          </Label>
+          <Switch
+            id="include-online"
+            checked={filters.includeOnline}
+            onCheckedChange={(checked) => updateFilter("includeOnline", checked)}
           />
         </div>
       </div>
