@@ -66,6 +66,12 @@ import { AdminSearchInput } from "./admin-search-input";
 import { PendingReasonFilter } from "./pending-reason-filter";
 import { TriggerUpdateButton } from "./trigger-update-button";
 import { MoveCandidateToPendingButton } from "./move-candidate-to-pending-button";
+import { AddAdminForm, RemoveAdminButton } from "./manage-admins";
+import {
+  listAdminUsers,
+  adminUsersCountQuery,
+  type AdminUserRow,
+} from "@/lib/services/admin-users";
 
 type CandidateRow = Database["public"]["Tables"]["hackathon_candidates"]["Row"];
 type HackathonRow = Database["public"]["Tables"]["hackathons"]["Row"];
@@ -108,7 +114,20 @@ type AuthStatus = Awaited<ReturnType<typeof getAdminAuthStatus>>;
 // "estimated" (`hackathons.status`) is deliberately NOT a sixth tab - see
 // `approvedOrPastHackathonsQuery` in ./queries.ts for exactly how it's
 // folded into Approved/Past instead, per the maintainer's explicit ask.
-type StatusFilter = "pending" | "approved" | "rejected" | "past" | "archived";
+//
+// "admins" (issue #18) is a genuinely different kind of tab from the five
+// above - it manages who can access this dashboard at all, not a
+// candidate/hackathon moderation state. It's included in the same
+// StatusNav/STATUSES machinery purely for a consistent look (one tab bar,
+// one badge-count convention), not because it's conceptually a sixth
+// moderation state.
+type StatusFilter =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "past"
+  | "archived"
+  | "admins";
 
 const STATUSES: StatusFilter[] = [
   "pending",
@@ -116,6 +135,7 @@ const STATUSES: StatusFilter[] = [
   "rejected",
   "past",
   "archived",
+  "admins",
 ];
 
 type TabCounts = Record<StatusFilter, number | null>;
@@ -139,6 +159,7 @@ async function getTabCounts(query: string): Promise<TabCounts> {
     rejectedHackathons,
     past,
     archived,
+    admins,
   ] = await Promise.all([
     candidatesByStatusCountQuery(supabaseAdmin, "pending", query),
     hackathonsByModerationStateCountQuery(supabaseAdmin, "pending", query),
@@ -147,6 +168,7 @@ async function getTabCounts(query: string): Promise<TabCounts> {
     hackathonsByModerationStateCountQuery(supabaseAdmin, "rejected", query),
     approvedOrPastHackathonsCountQuery(supabaseAdmin, "past", query),
     archivedHackathonsCountQuery(supabaseAdmin, query),
+    adminUsersCountQuery(supabaseAdmin),
   ]);
 
   return {
@@ -155,6 +177,9 @@ async function getTabCounts(query: string): Promise<TabCounts> {
     rejected: sumCounts([rejectedCandidates, rejectedHackathons]),
     past: sumCounts([past]),
     archived: sumCounts([archived]),
+    // The admin count is never affected by the `query` search box (there's
+    // nothing to search for on this tab), unlike every other count above.
+    admins: sumCounts([admins]),
   };
 }
 
@@ -246,6 +271,10 @@ export default async function CandidatesAdminPage({
         tabCounts={tabCounts}
       />
     );
+  }
+
+  if (status === "admins") {
+    return <AdminsTab authStatus={authStatus} tabCounts={tabCounts} />;
   }
 
   return (
@@ -786,6 +815,122 @@ async function ArchivedTab({
             tab="archived"
           />
         ))}
+      </ul>
+    </AdminShell>
+  );
+}
+
+/**
+ * The Admins tab (issue #18) - lets an authorized admin see and manage who
+ * else can access this dashboard, without touching env vars or the
+ * database directly. Reachable only by someone who already passed the
+ * `getAdminAuthStatus()` check at the top of the page component above -
+ * same defense-in-depth as every other tab (real security is
+ * `requireAdminAuth()`, re-checked inside every server action this tab
+ * calls, not this page-level gate).
+ *
+ * The `ADMIN_ALLOWED_EMAIL` fallback account (if configured) is shown as
+ * its own read-only row, separate from the real `admin_users` rows below
+ * it - it's not a row in the table at all (see require-admin-auth.ts's
+ * fallback check), so it has no `added_at`/`added_by` and can't be removed
+ * from here; removing it would require unsetting the env var and
+ * redeploying, which is the point (a guaranteed way in that this UI can't
+ * accidentally take away).
+ */
+async function AdminsTab({
+  authStatus,
+  tabCounts,
+}: {
+  authStatus: AuthStatus;
+  tabCounts: TabCounts;
+}) {
+  const { data, error } = await listAdminUsers(supabaseAdmin);
+  const admins = data as AdminUserRow[] | null;
+  const fallbackEmail = process.env.ADMIN_ALLOWED_EMAIL ?? null;
+
+  return (
+    <AdminShell
+      authStatus={authStatus}
+      status="admins"
+      query=""
+      tabCounts={tabCounts}
+    >
+      <div className="mb-4 space-y-1">
+        <h2 className="text-lg font-semibold">Manage admins</h2>
+        <p className="text-sm text-muted-foreground">
+          Anyone listed below can sign in with their own Google account and
+          get full access to this dashboard. Removing someone here takes
+          effect on their next sign-in check.
+        </p>
+      </div>
+
+      <Card className="mb-4">
+        <CardContent className="pt-4">
+          <AddAdminForm />
+        </CardContent>
+      </Card>
+
+      {fallbackEmail && (
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-md border bg-muted/40 px-3 py-2">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium" title={fallbackEmail}>
+              {fallbackEmail}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Fallback admin (ADMIN_ALLOWED_EMAIL) - always allowed, can only
+              be changed via the deployment&apos;s environment variables.
+            </p>
+          </div>
+          <Badge variant="secondary">Fallback</Badge>
+        </div>
+      )}
+
+      {error && (
+        <p className="text-sm text-destructive">
+          Failed to load admins: {error.message}
+        </p>
+      )}
+
+      {!error && admins?.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No admins in the table yet
+          {fallbackEmail
+            ? " - the fallback account above still has access."
+            : "."}
+        </p>
+      )}
+
+      <ul className="space-y-2">
+        {admins?.map((admin) => {
+          const isSelf =
+            authStatus.email?.toLowerCase() === admin.email.toLowerCase();
+          return (
+            <li key={admin.email}>
+              <Card>
+                <CardContent className="flex items-center justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <p
+                      className="truncate text-sm font-medium"
+                      title={admin.email}
+                    >
+                      {admin.email}
+                      {isSelf && (
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">
+                          (you)
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Added {new Date(admin.added_at).toLocaleDateString()}
+                      {admin.added_by ? ` by ${admin.added_by}` : ""}
+                    </p>
+                  </div>
+                  <RemoveAdminButton email={admin.email} isSelf={isSelf} />
+                </CardContent>
+              </Card>
+            </li>
+          );
+        })}
       </ul>
     </AdminShell>
   );
