@@ -30,7 +30,7 @@ FindHackEU owns its current Supabase/deployment configuration and does not depen
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in Supabase, geocoding, bot, and GITHUB_TOKEN/CRON_SECRET values
+cp .env.example .env.local   # fill in Supabase, geocoding, bot, and CRON_SECRET values
 npx supabase start           # optional but recommended: local Postgres/Studio via Docker, migrations auto-applied
 npm run dev
 ```
