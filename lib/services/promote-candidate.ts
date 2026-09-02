@@ -1,5 +1,5 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase";
-import { normalizeUrl } from "@/lib/dedup/url-normalizer";
 import { defaultTopicExtractor } from "@/lib/topic-extractor";
 import type { Database } from "@/types/database";
 
@@ -13,21 +13,66 @@ export type PromoteResult =
   | { outcome: "error"; message: string };
 
 /**
+ * `types/database.ts` declares no `Functions`, so `Database["public"]`
+ * doesn't structurally match supabase-js's `GenericSchema` and `.rpc()`
+ * types its arguments as `undefined` - the same repo-wide rough edge that
+ * makes a plain `.select()` resolve to `never` (CLAUDE.md, "Data model").
+ * `lib/services/candidate-moderation.ts` already works around it exactly
+ * this way for `move_candidate_to_pending`; this follows that pattern
+ * rather than reshaping the shared database types from inside this fix.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = SupabaseClient<any, any, any>;
+
+interface PromoteRpcOutcome {
+  outcome?: unknown;
+  hackathon_id?: unknown;
+  existing_hackathon_id?: unknown;
+}
+
+/**
  * Copies an approved `hackathon_candidates` row into the real `hackathons`
  * table - the only path by which a web-search-discovered event becomes a
  * published one (see the hackathon_candidates migration's doc comment).
  * Used by both the admin review page's "Approve" action and, symmetrically,
  * a previously-rejected row's "Approve anyway" action for a false negative.
  *
+ * The find-duplicate/insert/mark-approved sequence runs inside the
+ * `promote_hackathon_candidate` Postgres function
+ * (supabase/migrations/20260901100000_atomic_candidate_promotion.sql), not
+ * here. That migration was written specifically to fix two problems with
+ * doing it in application code, and both were still live because the
+ * function was never actually called:
+ *
+ *   1. **The duplicate check didn't do what it claimed.** It selected with
+ *      `.eq("url", candidate.url)` - an exact string match - and only then
+ *      compared `normalizeUrl(row.url)` against the candidate's normalized
+ *      URL, which is trivially true for every row an exact match can
+ *      return. So an event already stored under an equivalent-but-different
+ *      URL (`lu.ma` vs `luma.com`, `www.`, a trailing slash, a `utm_*`
+ *      parameter) was never recognized. The insert then hit the
+ *      `hackathons_set_normalized_url` trigger's uniqueness check and came
+ *      back as `outcome: "error"` carrying a raw Postgres message, instead
+ *      of the graceful `duplicate_url` this function defines. Reproduced
+ *      live against local Supabase: promoting a `https://www.luma.com/x/?utm_source=y`
+ *      candidate against a stored `https://lu.ma/x` returned
+ *      `{"outcome":"error","message":"hackathon URL already exists: luma.com/x"}`,
+ *      which `approveCandidateAction` rethrows - leaving the candidate
+ *      stuck in Pending with no way to resolve it from the UI.
+ *   2. **Two concurrent approvals could both insert.** Nothing serialized
+ *      the read against the write. The function takes `for update` on the
+ *      candidate row plus a `pg_advisory_xact_lock` on the normalized URL.
+ *
+ * Topics stay a caller decision because the function takes them as a
+ * parameter: a submitter's explicit choices win, and auto-extraction from
+ * the title is only the fallback for a web-search candidate that never had
+ * a chance to specify any. The pre-read that feeds it is not part of the
+ * race - the function re-reads the row under a lock.
+ *
  * A direct `.select(...)` result cast to its `Database[...]["Row"]` type
  * (rather than trusting Supabase's own inferred type) is a pre-existing,
- * repo-wide rough edge, not something new here - confirmed live that even
- * `supabaseAdmin.from("hackathons").select("id, url")` alone resolves to
- * `never` in this project's current Supabase client setup outside the
- * `fetchAllRows<T>` wrapper other code happens to always go through.
- * CLAUDE.md already documents the equivalent gap for insert/update shapes
- * as expected, not a bug to "fix" by loosening types elsewhere; this
- * follows the same rule for selects.
+ * repo-wide rough edge, not something new here; CLAUDE.md documents the
+ * equivalent gap for insert/update shapes as expected.
  *
  * Idempotent: re-approving an already-promoted candidate returns
  * `"already_promoted"` instead of inserting a duplicate row.
@@ -50,118 +95,47 @@ export async function promoteCandidate(
   if (!candidate) {
     return { outcome: "not_found" };
   }
-  if (candidate.promoted_at && candidate.promoted_hackathon_id) {
-    return {
-      outcome: "already_promoted",
-      hackathonId: candidate.promoted_hackathon_id,
-    };
-  }
 
-  const normalizedCandidateUrl = normalizeUrl(candidate.url);
+  const topics =
+    candidate.topics && candidate.topics.length > 0
+      ? candidate.topics
+      : defaultTopicExtractor.extractTopics(candidate.name);
 
-  // Reuse the same normalized-URL identity the main pipeline's own dedup
-  // uses (lib/dedup/url-normalizer.ts) - a candidate whose event has since
-  // been picked up by Luma/Devfolio/MLH/ETHGlobal on its own must not
-  // become a second row for the same event.
-  const { data: existingRowsData, error: existingError } = await supabaseAdmin
-    .from("hackathons")
-    .select("id, url")
-    .eq("url", candidate.url);
-
-  if (existingError) {
-    return { outcome: "error", message: existingError.message };
-  }
-
-  const existingRows = existingRowsData as Array<{
-    id: string;
-    url: string;
-  }> | null;
-
-  const existing = existingRows?.find(
-    (row) => normalizeUrl(row.url) === normalizedCandidateUrl,
+  const { data, error } = await (supabaseAdmin as AnySupabaseClient).rpc(
+    "promote_hackathon_candidate",
+    { p_candidate_id: candidateId, p_topics: topics },
   );
 
-  if (existing) {
-    await supabaseAdmin
-      .from("hackathon_candidates")
-      // @ts-expect-error - Supabase generated types may not include update shape
-      .update({
-        status: "approved",
-        reviewed_at: new Date().toISOString(),
-        promoted_at: new Date().toISOString(),
-        promoted_hackathon_id: existing.id,
-      })
-      .eq("id", candidateId);
-
-    return { outcome: "duplicate_url", existingHackathonId: existing.id };
+  if (error) {
+    return { outcome: "error", message: error.message };
   }
 
-  const now = new Date();
-  const dateStart = candidate.date_start ?? now.toISOString();
-  // A candidate with no recoverable structured date is inserted as
-  // "estimated" (part of the status enum specifically for this case, per
-  // the init migration's own comment) rather than guessed into
-  // "upcoming"/"past" - a human approved the event's existence, not a
-  // specific date.
-  const status = candidate.date_start
-    ? new Date(candidate.date_start) < now
-      ? "past"
-      : "upcoming"
-    : "estimated";
+  const result = (data ?? {}) as PromoteRpcOutcome;
+  const hackathonId =
+    typeof result.hackathon_id === "string" ? result.hackathon_id : null;
+  const existingHackathonId =
+    typeof result.existing_hackathon_id === "string"
+      ? result.existing_hackathon_id
+      : null;
 
-  const { data: insertedData, error: insertError } = await supabaseAdmin
-    .from("hackathons")
-    .insert([
-      // @ts-expect-error - Supabase generated types may not include insert shape
-      {
-        name: candidate.name,
-        city: candidate.city,
-        country_code: candidate.country_code,
-        // A human-submitted or web-search candidate has no reliable
-        // location-type signal (issue #21) - explicit "tbd" rather than
-        // relying on the DB column default, so this is visible here too.
-        location_type: "tbd",
-        date_start: dateStart,
-        date_end: candidate.date_end,
-        // Prefer topics the submitter explicitly chose (manual submission
-        // form) over auto-extraction - a human who already knows the event
-        // is a much better source of truth than a regex over a short
-        // title, which is only a fallback for a web-search-discovered
-        // candidate that never had a chance to specify any.
-        topics:
-          candidate.topics && candidate.topics.length > 0
-            ? candidate.topics
-            : defaultTopicExtractor.extractTopics(candidate.name),
-        url: candidate.url,
-        source: "websearch",
-        status,
-        is_new: true,
-      },
-    ])
-    .select("id")
-    .single();
-
-  const inserted = insertedData as { id: string } | null;
-
-  if (insertError || !inserted) {
-    return {
-      outcome: "error",
-      message: insertError?.message ?? "Insert returned no row",
-    };
+  switch (result.outcome) {
+    case "promoted":
+      return hackathonId
+        ? { outcome: "promoted", hackathonId }
+        : { outcome: "error", message: "Promotion returned no hackathon id" };
+    case "already_promoted":
+      return hackathonId
+        ? { outcome: "already_promoted", hackathonId }
+        : { outcome: "error", message: "Promotion returned no hackathon id" };
+    case "duplicate_url":
+      return existingHackathonId
+        ? { outcome: "duplicate_url", existingHackathonId }
+        : { outcome: "error", message: "Promotion returned no hackathon id" };
+    case "not_found":
+      return { outcome: "not_found" };
+    default:
+      return { outcome: "error", message: "Unexpected promotion outcome" };
   }
-
-  await supabaseAdmin
-    .from("hackathon_candidates")
-    // @ts-expect-error - Supabase generated types may not include update shape
-    .update({
-      status: "approved",
-      reviewed_at: now.toISOString(),
-      promoted_at: now.toISOString(),
-      promoted_hackathon_id: inserted.id,
-    })
-    .eq("id", candidateId);
-
-  return { outcome: "promoted", hackathonId: inserted.id };
 }
 
 export async function rejectCandidate(
