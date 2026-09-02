@@ -17,6 +17,13 @@ interface ShareHackathonDropdownProps {
   hackathon: Hackathon;
 }
 
+// The canonical FindHackEU URL, matching app/layout.tsx's own metadata
+// `canonical`/`openGraph.url`. Shared content (issue: attribution) should
+// credit where the listing was found, not just link out to the external
+// event page - a share that only contains the event's own URL gives
+// FindHackEU no attribution at all once it's reposted.
+export const FINDHACKEU_URL = "https://hacktrack-eu.vercel.app";
+
 const shareOptions = [
   {
     label: "Twitter",
@@ -70,7 +77,7 @@ export function ShareHackathonDropdown({
 
     return {
       title: hackathon.name,
-      text: `${t("share.prefix")} ${hackathon.name}\n${t("share.date")} ${date}\n${t("share.location")} ${location}\n${topics}`,
+      text: `${t("share.prefix")} ${hackathon.name}\n${t("share.date")} ${date}\n${t("share.location")} ${location}\n${topics}\n${t("share.via")} ${FINDHACKEU_URL}`,
       url: hackathon.url,
     };
   };
@@ -86,7 +93,7 @@ export function ShareHackathonDropdown({
             hackathon.country_code,
           ) || "TBD";
         const twitterText = encodeURIComponent(
-          `${t("share.prefix")} ${shareContent.title}\n${t("share.date")} ${formatDate(hackathon)}\n${t("share.location")} ${location}\n${shareContent.url}`,
+          `${t("share.prefix")} ${shareContent.title}\n${t("share.date")} ${formatDate(hackathon)}\n${t("share.location")} ${location}\n${shareContent.url}\n${t("share.via")} ${FINDHACKEU_URL}`,
         );
         window.open(
           `https://twitter.com/intent/tweet?text=${twitterText}`,
@@ -104,7 +111,7 @@ export function ShareHackathonDropdown({
             hackathon.country_code,
           ) || "TBD";
         const linkedinSummary = encodeURIComponent(
-          `${shareContent.title} - ${formatDate(hackathon)} ${t("share.in")} ${linkedinLocation}`,
+          `${shareContent.title} - ${formatDate(hackathon)} ${t("share.in")} ${linkedinLocation} · ${t("share.via")}`,
         );
         window.open(
           `https://www.linkedin.com/sharing/share-offsite/?url=${linkedinUrl}&title=${linkedinTitle}&summary=${linkedinSummary}`,
@@ -120,7 +127,7 @@ export function ShareHackathonDropdown({
             hackathon.country_code,
           ) || "TBD";
         const redditTitle = encodeURIComponent(
-          `${shareContent.title} - ${formatDate(hackathon)} ${t("share.in")} ${redditLocation}`,
+          `${shareContent.title} - ${formatDate(hackathon)} ${t("share.in")} ${redditLocation} · ${t("share.via")}`,
         );
         const redditUrl = encodeURIComponent(shareContent.url);
         window.open(
