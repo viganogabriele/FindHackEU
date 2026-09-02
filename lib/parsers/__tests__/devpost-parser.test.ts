@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DevpostParser } from "@/lib/parsers/devpost-parser";
+import { BROWSER_USER_AGENT } from "@/lib/http/user-agent";
 
 interface MockHackathon {
   id: number;
@@ -28,18 +29,21 @@ function mockFetch(
   pages: Array<MockHackathon[]>,
   totalCount = pages.flat().length,
 ) {
-  const fetchMock = vi.fn(async (input: string | URL | Request) => {
-    const page =
-      Number(new URL(input.toString()).searchParams.get("page")) || 1;
-    const body = responseFor(pages[page - 1] ?? [], totalCount);
+  const fetchMock = vi.fn(
+    async (input: string | URL | Request, init?: RequestInit) => {
+      void init;
+      const page =
+        Number(new URL(input.toString()).searchParams.get("page")) || 1;
+      const body = responseFor(pages[page - 1] ?? [], totalCount);
 
-    return {
-      ok: true,
-      status: 200,
-      json: async () => JSON.parse(body),
-      text: async () => body,
-    } as Response;
-  });
+      return {
+        ok: true,
+        status: 200,
+        json: async () => JSON.parse(body),
+        text: async () => body,
+      } as Response;
+    },
+  );
 
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
@@ -377,5 +381,24 @@ describe("DevpostParser", () => {
         date_end: new Date("2027-01-02T23:59:59.999Z"),
       }),
     ]);
+  });
+  // Regression guard: Devpost answers a bare "Mozilla/5.0" with HTTP 403,
+  // and 403 is not a retryable status (lib/http/fetch-with-retry.ts), so the
+  // provider failed outright on every run. Verified live 2026-09-02: the
+  // same request with a full browser UA returns 200.
+  it("sends a full browser User-Agent, not a bare product token", async () => {
+    const fetchMock = mockFetch([[]]);
+
+    const pendingParse = new DevpostParser().parse();
+    await vi.runAllTimersAsync();
+    await pendingParse;
+
+    const headers = fetchMock.mock.calls[0][1]?.headers as Record<
+      string,
+      string
+    >;
+
+    expect(headers["User-Agent"]).toBe(BROWSER_USER_AGENT);
+    expect(headers["User-Agent"]).not.toBe("Mozilla/5.0");
   });
 });
