@@ -244,4 +244,53 @@ describe("extractEventEvidence", () => {
       extractEventEvidence("https://example.org/missing"),
     ).rejects.toThrow(/404/);
   });
+
+  describe("HTML entity decoding in extracted titles (issue #12)", () => {
+    it("decodes &#x27;, &amp;, and &quot; in a JSON-LD Event name", async () => {
+      mockFetchHtml(`<html><head>
+        <script type="application/ld+json">
+          {"@type":"Event","name":"HackYeah 2026 \\u2014 Europe&#x27;s &quot;Biggest&quot; Stationary &amp; Online Hackathon","startDate":"2026-11-01T00:00:00Z"}
+        </script>
+      </head></html>`);
+
+      const evidence = await extractEventEvidence("https://example.org/event");
+
+      expect(evidence?.extraction_method).toBe("jsonld-event");
+      expect(evidence?.name).toBe(
+        'HackYeah 2026 — Europe\'s "Biggest" Stationary & Online Hackathon',
+      );
+    });
+
+    it("decodes entities in an og:title fallback", async () => {
+      mockFetchHtml(`<html><head>
+        <meta property="og:title" content="Rock &amp; Code Hackathon &#8212; Berlin&#x27;s Best" />
+      </head></html>`);
+
+      const evidence = await extractEventEvidence("https://example.org/event");
+
+      expect(evidence?.extraction_method).toBe("og-meta");
+      expect(evidence?.name).toBe("Rock & Code Hackathon — Berlin's Best");
+    });
+
+    it("decodes entities in a bare <title> fallback", async () => {
+      mockFetchHtml(
+        `<html><head><title>Munich &amp; Friends&#39; Hackathon</title></head></html>`,
+      );
+
+      const evidence = await extractEventEvidence("https://example.org/event");
+
+      expect(evidence?.extraction_method).toBe("text-fallback");
+      expect(evidence?.name).toBe("Munich & Friends' Hackathon");
+    });
+
+    it("leaves a title with no entities unchanged", async () => {
+      mockFetchHtml(`<html><head>
+        <meta property="og:title" content="Plain Hackathon Title" />
+      </head></html>`);
+
+      const evidence = await extractEventEvidence("https://example.org/event");
+
+      expect(evidence?.name).toBe("Plain Hackathon Title");
+    });
+  });
 });
