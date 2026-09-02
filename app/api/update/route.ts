@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
-import { Octokit } from "@octokit/rest";
 import { supabaseAdmin } from "@/lib/supabase";
 import { LumaParser } from "@/lib/parsers/luma-parser";
 import { LablabParser } from "@/lib/parsers/lablab-parser";
@@ -20,7 +19,6 @@ import { fetchAllRows } from "@/lib/services/fetch-all-rows";
 import { DiscordBot } from "@/lib/bots/discord-bot";
 import { TelegramBot } from "@/lib/bots/telegram-bot";
 import { TwitterBot } from "@/lib/bots/twitter-bot";
-import { ReadmeUpdater } from "@/lib/services/readme-updater";
 import { LocationEnhancementService } from "@/lib/services/location-enhancement-service";
 import { MemoryOptimizer } from "@/lib/utils/memory-optimizer";
 import { checkUpdateCooldown } from "@/lib/services/update-cooldown";
@@ -92,7 +90,7 @@ export async function POST(request: Request) {
 
     console.log(
       `Starting hackathon update${
-        testMode ? " (TEST MODE - no notifications/README)" : ""
+        testMode ? " (TEST MODE - no notifications)" : ""
       }...`,
     );
 
@@ -755,10 +753,12 @@ export async function POST(request: Request) {
     //   in-place updates possible, so a changed date/location on an
     //   existing record is a real data change too, not just an insert)
     // - a real status transition (issue #27) => data changed too, so an
-    //   upcoming -> past flip with no other field touched still triggers
-    //   a README regeneration instead of leaving it showing a stale
-    //   status until some unrelated insert/update happens to occur later
+    //   upcoming -> past flip with no other field touched still counts
     // - reset errors do not count as data changes
+    //
+    // This flag no longer drives a README regeneration (issue #3 removed
+    // that step); it's still reported in the response as a general
+    // "did this run change anything" signal.
     // ---------------------------------------------------------
     const dataChanged =
       newHackathons.length > 0 ||
@@ -835,65 +835,6 @@ export async function POST(request: Request) {
     }
 
     // ---------------------------------------------------------
-    // 6. README
-    // ---------------------------------------------------------
-    let readmeUpdated = false;
-    let readmeError: string | null = null;
-
-    if (dataChanged && !testMode && !insertionError) {
-      try {
-        console.log("Data changed, updating README via GitHub API...");
-
-        const octokit = new Octokit({
-          auth: process.env.GITHUB_TOKEN,
-        });
-
-        const readmeUpdater = new ReadmeUpdater();
-        const newReadmeContent = await readmeUpdater.generateReadmeContent();
-
-        const { data: currentFile } = await octokit.rest.repos.getContent({
-          owner: "lorenzopalaia",
-          repo: "hacktrack-eu",
-          path: "README.md",
-        });
-
-        if ("content" in currentFile) {
-          const currentContent = Buffer.from(
-            currentFile.content,
-            "base64",
-          ).toString("utf-8");
-
-          if (currentContent !== newReadmeContent) {
-            await octokit.rest.repos.createOrUpdateFileContents({
-              owner: "lorenzopalaia",
-              repo: "hacktrack-eu",
-              path: "README.md",
-              message:
-                "🔄 Auto-update README with latest hackathons [Automated]",
-              content: Buffer.from(newReadmeContent).toString("base64"),
-              sha: currentFile.sha,
-            });
-
-            readmeUpdated = true;
-
-            console.log("README updated successfully via GitHub API");
-          } else {
-            console.log("README content unchanged, skipping update");
-          }
-        }
-      } catch (error) {
-        readmeError = error instanceof Error ? error.message : "Unknown error";
-
-        console.error("Error updating README:", error);
-        Sentry.captureException(error);
-      }
-    } else if (testMode) {
-      console.log("Test mode: README update skipped");
-    } else if (!dataChanged) {
-      console.log("No data changes detected, skipping README update");
-    }
-
-    // ---------------------------------------------------------
     // Final success state
     // ---------------------------------------------------------
     const sourceErrors = Object.entries(sourceResults)
@@ -907,7 +848,6 @@ export async function POST(request: Request) {
       !!resetError ||
       !!insertionError ||
       !!statusUpdateError ||
-      !!readmeError ||
       notificationErrors.length > 0 ||
       sourceErrors.length > 0 ||
       updateErrors.length > 0;
@@ -987,9 +927,6 @@ export async function POST(request: Request) {
         statusTransitionCount,
 
         notificationsSent,
-
-        readmeUpdated,
-        readmeError,
 
         notificationErrors:
           notificationErrors.length > 0 ? notificationErrors : undefined,

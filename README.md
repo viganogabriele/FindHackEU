@@ -1,255 +1,43 @@
 ![Hackathon Logo](https://user-images.githubusercontent.com/36594527/117592199-10730800-b17b-11eb-84f8-4ffcae8116d4.png)
 
-# <p align="center">HackTrack EU</p>
+# FindHackEU
 
-> **ℹ️ Project Update**: This project was formerly known as **Euro Hackathons** and has been rebranded to **HackTrack EU** for better clarity and expanded scope.
+FindHackEU aggregates hackathons happening across Europe into one place. A daily pipeline scrapes six live sources — [Luma](https://luma.com), [Devfolio](https://devfolio.co), [MLH](https://mlh.io), [ETHGlobal](https://ethglobal.com), [Eventbrite](https://www.eventbrite.com), and [Devpost](https://devpost.com) — deduplicates and geocodes the results, and stores them in Supabase. A moderated web-search discovery queue supplements the automated scrapers by surfacing candidate events for a human to review and approve before they go public.
 
-Welcome to **HackTrack EU**! This repository provides a comprehensive, **automatically updated** list of hackathons happening across Europe.
+The data is exposed through:
 
-Whether you're a seasoned hacker or a beginner looking for your first hackathon, you'll find all the information you need here! 🎉
+- A filterable **web UI** with a map view, radius search, bookmarks, and multilingual (10-locale) support.
+- A small **public read API** (`GET /api/hackathons`).
+- **Discord/Telegram/Twitter** bots that announce newly discovered hackathons.
 
-## [![RepoStars](https://repostars.dev/api/embed?repo=lorenzopalaia%2FHackTrack-EU&theme=neon)](https://repostars.dev/?repos=lorenzopalaia%2FHackTrack-EU&theme=neon)
+## Running it locally
 
-## ️ Current Hackathons
-
-> **Note**: This README is automatically updated. For the most current data and better browsing experience, visit our [live website](https://hacktrack-eu.vercel.app).
-
-### 🟢 Upcoming Hackathons
-
-_Last updated: 28 August 2026 at 23:46_
-
-<!-- UPCOMING_TABLE_START -->
-
-| Hackathon Name                                                               | Location               | Date            | Topics | URL                                                |
-| ---------------------------------------------------------------------------- | ---------------------- | --------------- | ------ | -------------------------------------------------- |
-| The Running Hackathon                                                        | London, UK             | 29 Aug 2026     |        | [Link](https://luma.com/tag-wx1t)                  |
-| GIRLS WHO AI X BUILDHER LABS PRESENT: BEAUTY DECODED // ALL FEMALE HACKATHON | London, UK             | 29 Aug 2026     |        | [Link](https://luma.com/sklovsnj)                  |
-| SSES Hackathon Ice Cream Break                                               | Stockholm, Sweden      | 29 Aug 2026     |        | [Link](https://luma.com/lrjxuw3y)                  |
-| House London #1 - Data Hackathon                                             | London, UK             | 29 Aug 2026     |        | [Link](https://luma.com/ufmgc59d)                  |
-| Monad Blitz Amsterdam Hackathon                                              | Amsterdam, Netherlands | 29 Aug 2026     |        | [Link](https://luma.com/blitz-ams-aug-2026)        |
-| Cantor8 London Hackathon                                                     | London, UK             | 29 Aug 2026     |        | [Link](https://luma.com/sjkped24)                  |
-| Hackathon - Translating AI Safety (Content x Comms)                          | London, UK             | 30 Aug 2026     |        | [Link](https://luma.com/b4myja5u)                  |
-| Hardware Hack Day                                                            | London, UK             | 30 Aug 2026     |        | [Link](https://luma.com/granola-hardware-hack-day) |
-| Common S3nse - Conference & Hackathon                                        | Amsterdam, Netherlands | 4 Sept-5, 2026  |        | [Link](https://luma.com/commons3nse)               |
-| Encode London Hackathon and Conference                                       | London, UK             | 23 Oct-25, 2026 |        | [Link](https://lu.ma/encode-london-2026)           |
-
-<!-- UPCOMING_TABLE_END -->
-
-### 🔴 Recent Past Hackathons
-
-_Showing last 20 events_
-
-<!-- PAST_TABLE_START -->
-
-| Hackathon Name                                                         | Location               | Date            | Topics  | URL                                                    |
-| ---------------------------------------------------------------------- | ---------------------- | --------------- | ------- | ------------------------------------------------------ |
-| MKIK x AI Klub AI Hackathon                                            | Budapest, Hungary      | 28 Aug 2026     |         | [Link](https://luma.com/nqgdrv58)                      |
-| CODE Hackathon                                                         | Berlin, Germany        | 28 Aug 2026     |         | [Link](https://luma.com/me4sa82z)                      |
-| SYE Hackathon                                                          | Stockholm, Sweden      | 28 Aug-30, 2026 |         | [Link](https://luma.com/42lrw3lh)                      |
-| European Defense Tech Hackathon – Hamburg                              | Hamburg, Germany       | 28 Aug-30, 2026 |         | [Link](https://luma.com/edth-2026-hamburg)             |
-| Figma Make-a-thon Helsinki                                             | Helsinki, Finland      | 27 Aug 2026     |         | [Link](https://luma.com/g6qnjc47)                      |
-| Vibe Coding Hackathon                                                  | London, UK             | 20 Jun-22, 2026 |         | [Link](https://lu.ma/4f1qbg8g)                         |
-| SOFTWARE DEFINED VEHICLE (AI FOR CODING) & TIME TO MARKET              | Modena, Italy          | 29 May 2026     |         | [Link](https://lu.ma/mvf2026-software-defined-vehicle) |
-| Miro x Kiro AMS Hackathon: Building Today to Pitch (a Better) Tomorrow | Amsterdam, Netherlands | 26 May 2026     |         | [Link](https://lu.ma/y0we1v1p)                         |
-| Vibe Coding Netværk Aarhus #5                                          | Aarhus                 | 21 May 2026     |         | [Link](https://lu.ma/zdhnrmkx)                         |
-| AI Agent Olympics Hackathon                                            | Rho, Italy             | 19 May-20, 2026 |         | [Link](https://lu.ma/5fxlxfl5)                         |
-| Kill the Search Bar - pdm Hackathon 2026                               | Berlin, Germany        | 15 May-17, 2026 |         | [Link](https://lu.ma/2e3aa6yj)                         |
-| Vibecoding Level 2 - Med Simon Souyris Strumse                         | Ås, Norway             | 12 May 2026     |         | [Link](https://lu.ma/ui0kaxdp)                         |
-| De Connectie Code - AI Hackathon for moms & kids (EN/NL editie)        | Amsterdam, Netherlands | 10 May 2026     |         | [Link](https://lu.ma/9dcjvxuy)                         |
-| Critical Infrastructure Shield Hackathon Switzerland                   | Winterthur             | 8 May-10, 2026  |         | [Link](https://lu.ma/critical-infra-shield-2026)       |
-| GDG AI HACK - 2026                                                     | Milan, Italy           | 7 May-10, 2026  | AI      | [Link](https://gdgaihack.com/)                         |
-| GeoJam: A GeoAI Evening Hackathon                                      | London, UK             | 7 May 2026      |         | [Link](https://lu.ma/s0o43hpi)                         |
-| 2026 London Defence Tech Hackathon                                     | Camberley, UK          | 2 May-3, 2026   | Defense | [Link](https://lu.ma/nn4aluwm)                         |
-| n8n Budapest Hackathon No. 2                                           | Budapest, Hungary      | 30 Apr 2026     |         | [Link](https://lu.ma/2ak1686a)                         |
-| Beyond the Vibecoding                                                  | Amsterdam, Netherlands | 28 Apr 2026     |         | [Link](https://lu.ma/33c0hue3)                         |
-| Vibe Coding Netværk's KBH Meetup #3                                    | Frederiksberg, Denmark | 24 Apr 2026     |         | [Link](https://lu.ma/4bah9tsl)                         |
-
-<!-- PAST_TABLE_END -->
-
----
-
-## 🚀 What's New
-
-This repository has been completely **modernized** with:
-
-- 🔄 **Automated Updates**: New hackathons are discovered and added 3 to 4 times per day
-- 🤖 **Multi-Platform Notifications**: Get notified instantly via Discord, Telegram, and Twitter
-- 🌐 **Live Web Interface**: Browse hackathons on our modern Next.js website
-- 📊 **Smart Data Management**: Everything is stored and managed via Supabase database
-- 📱 **RESTful API**: Access hackathon data programmatically
-
----
-
-## 🌐 Live Website
-
-Visit our **interactive website** for the best browsing experience:
-
-### **[📍 HackTrack EU](https://hacktrack-eu.vercel.app)**
-
-The website features:
-
-- 📱 **Responsive Design**: Built with Next.js, Tailwind CSS, and shadcn/ui
-- 🔍 **Advanced Filtering**: Filter by status, location, topics, and dates
-- 📊 **Real-time Data**: Always up-to-date with the latest hackathons
-- 🎨 **Modern Interface**: Clean, fast, and user-friendly design
-
----
-
-## 🤖 Stay Notified
-
-Never miss a hackathon again! Our bots automatically notify you when new European hackathons are discovered:
-
-### Discord Bot
-
-Join our [Discord server](https://discord.com/invite/SmygTckVez) to get instant notifications:
-
-- 🔔 **Real-time alerts** for new hackathons
-- 📋 **Rich embeds** with all hackathon details
-- 🏷️ **Topic filtering** (AI, Crypto, Web3, etc.)
-
-### Telegram Bot
-
-Follow our Telegram channel [@HackTrackEU](https://t.me/hacktrackeu) for mobile notifications:
-
-- 📱 **Mobile-friendly** notifications
-- 🚀 **Instant updates** as soon as hackathons are added
-- 🔗 **Direct links** to registration pages
-
-### Twitter Updates
-
-Follow [@HackTrackEU](https://x.com/hacktrackeu) for social updates:
-
-- 🐦 **Tweet notifications** for trending hackathons
-- 🏷️ **Hashtag organization** by topics
-- 🔄 **Retweetable content** to spread the word
-
----
-
-## 📊 API Access
-
-Access hackathon data programmatically via our REST API:
-
-### Endpoints
+You'll need [Docker](https://www.docker.com/) (for the local Supabase stack) and Node.js.
 
 ```bash
-# Get upcoming hackathons
-GET /api/hackathons?status=upcoming
-
-# Get past hackathons
-GET /api/hackathons?status=past
-
-# Optional bounded pagination (omit for the full list, as above)
-GET /api/hackathons?status=upcoming&limit=25
-GET /api/hackathons?status=upcoming&limit=25&cursor=<opaque token from a previous nextCursor>
-
-# Response format (full-list, no `limit`)
-{
-  "data": [
-    {
-      "id": "uuid",
-      "name": "Hackathon Name",
-      "city": "City",
-      "country_code": "DE",
-      "location_type": "physical",
-      "venue": null,
-      "date_start": "2026-06-15T09:00:00+00:00",
-      "date_end": "2026-06-16T18:00:00+00:00",
-      "topics": ["AI", "Web3"],
-      "notes": "Additional event details and requirements",
-      "url": "https://...",
-      "source": "luma",
-      "status": "upcoming",
-      "is_new": true
-    },
-    ...
-  ]
-}
-
-# Response format when `limit` is passed - adds a `nextCursor` (null once
-# there are no more pages); pass it back as `cursor` to fetch the next page
-{
-  "data": [ ... ],
-  "nextCursor": "MjAyNi0wOS0wM..." // or null
-}
+git clone https://github.com/viganogabriele/FindHackEU.git
+cd FindHackEU
+npm install
+cp .env.example .env.local
+npx supabase start   # boots local Postgres/Studio via Docker; prints anon/service-role keys
 ```
 
-`location_type` is one of `physical | online | hybrid | tbd` (issue #21) and `venue` is free-text campus/building detail, both nullable/defaulting to `"tbd"` when unknown. `country_code` is an ISO 3166-1 alpha-2 code, not a full country name.
+Copy the printed `anon key` / `service_role key` (and API URL) into `.env.local` as `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. Set `CRON_SECRET` to any string of your choosing. That's enough to run the app:
 
----
+```bash
+npm run dev
+```
 
-## 🛠️ Technical Stack
+`npx supabase start` automatically applies the schema migrations and seeds the local database with realistic sample data — a mix of upcoming/past hackathons and pending/rejected candidates — so the site and the admin dashboard have something to show immediately.
 
-Our modern infrastructure includes:
+Speaking of which: **the admin dashboard (`/admin`, `/admin/candidates`) works locally with zero Google OAuth setup.** As long as `GOOGLE_CLIENT_ID`/`ADMIN_ALLOWED_EMAIL` are left unset in `.env.local`, a local no-auth bypass grants access automatically — no OAuth client to create just to poke around.
 
-- **Frontend**: Next.js 16 with App Router, Tailwind CSS, shadcn/ui
-- **Backend**: Next.js API Routes with TypeScript
-- **Database**: Supabase (PostgreSQL) with Row Level Security
-- **Notifications**: Discord webhooks, Telegram Bot API, Twitter API v2
-- **Deployment**: Vercel with automated CI/CD
-- **Monitoring**: Real-time sync
+Everything else — real provider API keys for the scrapers, bot webhook tokens, a geocoding key, real Google OAuth for production-like admin auth testing, and so on — is optional for local exploration and documented in `.env.example`. For the full architecture, pipeline internals, and development conventions, see [`CLAUDE.md`](./CLAUDE.md) and [`AGENTS.md`](./AGENTS.md).
 
----
+## History
 
-## 🛡️ Data Quality
+FindHackEU was originally inspired by and born from **HackTrack EU** by Lorenzo Palaia. It has since become an independent project — its own architecture, infrastructure, issue tracker, and development direction — released under the [MIT License](./LICENSE).
 
-We ensure high data quality through:
+## Maintainer
 
-- ✅ **Automated deduplication** to prevent duplicates
-- 🕐 **Date validation** and status management
-- 🌍 **Geographic filtering** to ensure European focus
-- 🔗 **Link verification** to ensure working URLs
-- 📝 **Content filtering** to identify genuine hackathons
-
----
-
-## 🤝 How to Contribute
-
-While our system is automated, we welcome community contributions:
-
-### Reporting Missing Hackathons
-
-If you know of a hackathon that we missed:
-
-1. **Open an Issue** with the hackathon details
-2. Include: Name, Location, Date, URL, and Topics
-3. Our team will add it manually
-
-### Code Contributions
-
-Want to improve the system?
-
-1. **Fork** this repository
-2. Work on features like new data sources, UI improvements, or notification enhancements
-3. **Submit a Pull Request** with detailed description
-
----
-
-## 💬 Community & Support
-
-- 💡 **Feature Requests**: Open an issue on GitHub
-- 🐛 **Bug Reports**: Report via GitHub Issues
-- 💬 **General Discussion**: Join our Discord server
-
----
-
-## 📜 License
-
-This project is open source and available under the [MIT License](LICENSE).
-
----
-
-## 🙏 Acknowledgments
-
-Special thanks to:
-
-- 🌟 **Contributors** who help maintain and improve the system
-- 🏢 **Event Organizers** who make these amazing hackathons possible
-- 👥 **Community Members** who spread the word and participate
-
----
-
-<div align="center">
-
-**Made with ❤️ for the European hacking community**
-
-</div>
+Maintained by Gabriele Viganò ([info@viganogabriele.com](mailto:info@viganogabriele.com)). Issues and pull requests are welcome on [GitHub](https://github.com/viganogabriele/FindHackEU).
