@@ -169,15 +169,23 @@ export async function isAdminUserInTable(
 ): Promise<boolean> {
   const normalized = normalizeEmail(email);
 
-  const { data, error } = await client
-    .from("admin_users")
-    .select("email")
-    .eq("email", normalized)
-    .maybeSingle();
+  try {
+    const { data, error } = await client
+      .from("admin_users")
+      .select("email")
+      .eq("email", normalized)
+      .maybeSingle();
 
-  if (error) {
+    if (error) {
+      return false;
+    }
+
+    return Boolean(data);
+  } catch {
+    // A network-level failure (e.g. DNS/connection error) rejects the
+    // client call instead of returning a Postgrest `{ error }` shape -
+    // still deny, matching the fail-closed behavior above rather than
+    // letting an unhandled rejection propagate out of an auth check.
     return false;
   }
-
-  return Boolean(data);
 }
