@@ -18,6 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 const EMPTY_FIELDS = {
   url: "",
@@ -27,7 +28,7 @@ const EMPTY_FIELDS = {
   dateStart: "",
 };
 
-export function PublicSubmitForm() {
+export function PublicSubmitForm({ className }: { className?: string }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [fields, setFields] = useState(EMPTY_FIELDS);
@@ -76,6 +77,7 @@ export function PublicSubmitForm() {
           size="sm"
           aria-label={t("submit.button")}
           title={t("submit.button")}
+          className={cn("h-10 gap-2", className)}
         >
           <Megaphone className="size-4" aria-hidden="true" />
           <span className="hidden sm:inline">{t("submit.button")}</span>

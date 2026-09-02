@@ -29,6 +29,7 @@ import {
   ActiveFilterChips,
   type ActiveFilterChip,
 } from "@/components/active-filter-chips";
+import { PublicSubmitForm } from "@/components/public-submit-form";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -259,6 +260,7 @@ export function FiltersPanel({
           />
         </div>
         <div className="flex flex-wrap gap-2">
+          <PublicSubmitForm className="hidden sm:inline-flex" />
           <Button
             variant={filters.showBookmarked ? "default" : "outline"}
             className="h-10 gap-2"
