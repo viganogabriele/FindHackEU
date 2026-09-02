@@ -26,8 +26,17 @@ const LIGHT_TILE_ATTRIBUTION =
 // World Dark Gray Canvas is used instead: also free, no API key, verified
 // live to return real (non-watermarked) tiles. Attribution text is Esri's
 // own published copyright string for this service.
-const DARK_TILE_URL =
+//
+// Esri's Dark Gray Canvas is split into two layers by design: "Base" (just
+// muted landmass/water, no roads/labels/borders) and "Reference" (roads,
+// place labels, boundaries - meant to be layered on TOP of Base). Using
+// only Base renders a dark map with no streets or place names at all - a
+// real bug found via live testing, not a Base-only style choice - so both
+// layers are used together, Reference stacked above Base.
+const DARK_TILE_BASE_URL =
   "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}";
+const DARK_TILE_REFERENCE_URL =
+  "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}";
 const DARK_TILE_ATTRIBUTION =
   "Esri, HERE, Garmin, &copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors, and the GIS user community";
 
@@ -113,11 +122,22 @@ export default function HackathonMap({
         className="h-[min(70vh,42rem)] min-h-[24rem] w-full sm:min-h-[30rem]"
         zoomControl
       >
-        <TileLayer
-          key={currentMode}
-          attribution={isDark ? DARK_TILE_ATTRIBUTION : LIGHT_TILE_ATTRIBUTION}
-          url={isDark ? DARK_TILE_URL : LIGHT_TILE_URL}
-        />
+        {isDark ? (
+          <>
+            <TileLayer key="dark-base" url={DARK_TILE_BASE_URL} />
+            <TileLayer
+              key="dark-reference"
+              attribution={DARK_TILE_ATTRIBUTION}
+              url={DARK_TILE_REFERENCE_URL}
+            />
+          </>
+        ) : (
+          <TileLayer
+            key="light"
+            attribution={LIGHT_TILE_ATTRIBUTION}
+            url={LIGHT_TILE_URL}
+          />
+        )}
         <MapViewport hackathons={mappedHackathons} />
         <MarkerClusterGroup
           chunkedLoading
