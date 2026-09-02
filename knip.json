@@ -13,7 +13,8 @@
     "!node_modules/**",
     "!.next/**",
     "!.claude/**",
-    "!redesign/**"
+    "!redesign/**",
+    "!.worktrees/**"
   ],
   "ignore": ["next-sitemap.config.js"],
   "ignoreDependencies": [

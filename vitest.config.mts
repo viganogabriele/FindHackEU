@@ -8,7 +8,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["**/__tests__/**/*.test.ts", "**/__tests__/**/*.test.tsx"],
-    exclude: ["node_modules", ".next", ".claude", "redesign"],
+    exclude: ["node_modules", ".next", ".claude", "redesign", ".worktrees"],
   },
   resolve: {
     alias: {
