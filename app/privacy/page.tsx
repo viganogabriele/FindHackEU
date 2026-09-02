@@ -4,8 +4,8 @@ import Link from "next/link";
 import { ArrowLeft, Shield, Eye, Database, Users } from "lucide-react";
 
 export const metadata = {
-  title: "Privacy Policy - HackTrack EU",
-  description: "Privacy Policy for HackTrack EU platform",
+  title: "Privacy Policy - FindHackEU",
+  description: "Privacy Policy for FindHackEU platform",
 };
 
 export default function PrivacyPage() {
@@ -43,7 +43,7 @@ export default function PrivacyPage() {
               1. Information We Collect
             </h2>
             <p>
-              HackTrack EU is committed to protecting your privacy. We collect
+              FindHackEU is committed to protecting your privacy. We collect
               minimal information necessary to provide our service effectively.
             </p>
             <h3 className="mb-2 mt-4 text-xl font-medium">
@@ -51,17 +51,20 @@ export default function PrivacyPage() {
             </h3>
             <ul className="space-y-1 list-disc pl-5">
               <li>Feedback or bug reports submitted through GitHub</li>
-              <li>Messages sent through our Discord server</li>
+              <li>
+                Hackathon suggestions submitted through our public submission
+                form (name, URL, and optional event details you choose to
+                provide)
+              </li>
             </ul>
           </section>
 
           <section className="mb-8">
             <h2 className="mb-4 text-2xl font-semibold">What&apos;s New</h2>
             <p>
-              Recent frontend improvements added theme management (stored in
-              browser localStorage) and enhanced filtering options. These
-              features store only non-personal preferences (theme choice,
-              selected filters) locally in your browser; we do not collect
+              The site stores bookmarks, theme choice, and filter preferences
+              only in your browser&apos;s local storage &mdash; these never
+              leave your device or reach our servers. We do not collect
               additional personal data for these features. Cookies remain
               minimal and used only for essential functionality.
             </p>
@@ -133,15 +136,13 @@ export default function PrivacyPage() {
                   </Link>
                 </p>
               </div>
-
-              <div>
-                <h3 className="font-medium">Discord, Telegram, Twitter</h3>
-                <p className="text-sm text-muted-foreground">
-                  Used for notifications and community engagement. Each platform
-                  has its own privacy policy.
-                </p>
-              </div>
             </div>
+            <p className="mt-4 text-sm text-muted-foreground">
+              Discord, Telegram, and X (Twitter) notification channels are not
+              currently active on the site. If they return in the future, this
+              policy will be updated to reflect what data those integrations
+              process.
+            </p>
           </section>
 
           <section className="mb-8">
@@ -216,12 +217,32 @@ export default function PrivacyPage() {
           </section>
 
           <section className="mb-8">
+            <h2 className="mb-4 text-2xl font-semibold">9. Maintainer</h2>
+            <p>
+              FindHackEU is maintained by Gabriele Viganò (Politecnico di
+              Milano). Originally inspired by and born from HackTrack EU by
+              Lorenzo Palaia, it is now an independent, MIT-licensed project
+              with its own infrastructure and development direction.
+            </p>
+          </section>
+
+          <section className="mb-8">
             <h2 className="mb-4 text-2xl font-semibold">10. Contact Us</h2>
             <p>
-              If you have any questions about this Privacy Policy or our data
-              practices, please contact us:
+              If you have any questions about this Privacy Policy, or want to
+              request access, correction, or deletion of your data, please
+              contact us:
             </p>
             <ul className="mt-2 space-y-1 list-disc pl-5">
+              <li>
+                Email:{" "}
+                <Link
+                  href="mailto:info@viganogabriele.com"
+                  className="text-primary hover:underline"
+                >
+                  info@viganogabriele.com
+                </Link>
+              </li>
               <li>
                 GitHub:{" "}
                 <Link
