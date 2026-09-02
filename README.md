@@ -54,7 +54,7 @@ The ingestion stages report independently: a source failure does not prevent the
 | `npm run build`          | Build for production.               |
 | `npm run trigger-update` | Run the ingestion pipeline locally. |
 
-For architecture and environment details, see [CLAUDE.md](./CLAUDE.md), [AGENTS.md](./AGENTS.md), and [.env.example](./.env.example). The public product and API documentation lives at `/docs`.
+For architecture and environment details, see [CLAUDE.md](./CLAUDE.md), [AGENTS.md](./AGENTS.md), and [.env.example](./.env.example). The public product and API documentation lives at `/docs`. To deploy your own instance to Vercel + Supabase, see [`docs/production-deployment.md`](./docs/production-deployment.md).
 
 ## Origin and stewardship
 
