@@ -12,6 +12,7 @@ import { dedupeByNormalizedUrl } from "@/lib/dedup/url-normalizer";
 import { useTranslation } from "@/contexts/translation-context";
 import { AlertCircle } from "lucide-react";
 import { FiltersPanel } from "@/components/filters-panel";
+import { PublicSubmitForm } from "@/components/public-submit-form";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { useFilters } from "@/contexts/filter-context";
@@ -183,7 +184,7 @@ function HomeContent({
       <SiteHeader />
       <main className="mx-auto w-full max-w-screen-2xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
         <TranslatedHeader />
-        <Separator className="my-6" />
+        <Separator className="my-8 [mask-image:linear-gradient(to_right,transparent,black_15%,black_85%,transparent)]" />
         <FiltersPanel
           uniqueUpcomingLocations={uniqueUpcomingLocations}
           uniquePastLocations={uniquePastLocations}
@@ -194,12 +195,13 @@ function HomeContent({
         ) : (
           <>
             {!loading && (
-              <div
-                className="mb-6 flex justify-end"
-                role="group"
-                aria-label={t("view.label")}
-              >
-                <div className="inline-flex rounded-md border bg-muted/30 p-1">
+              <div className="mb-6 flex items-center gap-2">
+                <PublicSubmitForm className="sm:hidden" />
+                <div
+                  className="ml-auto inline-flex rounded-md border bg-muted/30 p-1"
+                  role="group"
+                  aria-label={t("view.label")}
+                >
                   <Button
                     variant={view === "list" ? "secondary" : "ghost"}
                     size="sm"
@@ -221,6 +223,7 @@ function HomeContent({
                 </div>
               </div>
             )}
+
             {view === "map" && !loading ? (
               <HackathonMap hackathons={filteredHackathons} />
             ) : (

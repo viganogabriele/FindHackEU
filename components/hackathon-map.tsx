@@ -6,10 +6,19 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import { useTranslation } from "@/contexts/translation-context";
 import { resolveMapCoordinates } from "@/lib/country-centroids";
-import { europeanCountries } from "@/lib/european-countries";
+import { useThemeStore } from "@/lib/theme-store";
+import { HackathonCard } from "@/components/hackathon-card";
 import type { Hackathon } from "@/types/hackathon";
 
 const EUROPE_CENTER: [number, number] = [50.5, 10.5];
+
+// Smaller than react-leaflet-cluster's 80px default so individual pins
+// separate out of a cluster at a more reasonable zoom level.
+const MAX_CLUSTER_RADIUS = 45;
+
+const TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const TILE_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 // Leaflet's image paths are not discoverable by Next's bundler on their own.
 // Keep the standard assets in public/leaflet so markers work in production too.
@@ -79,11 +88,13 @@ export default function HackathonMap({
 }: {
   hackathons: Hackathon[];
 }) {
-  const { t, formatDateRange } = useTranslation();
+  const { t } = useTranslation();
   const mappedHackathons = mapHackathons(hackathons);
+  const { currentMode } = useThemeStore();
+  const isDark = currentMode === "dark";
 
   return (
-    <div className="relative overflow-hidden rounded-lg border bg-muted/20">
+    <div className="relative z-0 overflow-hidden rounded-lg border bg-muted/20">
       <MapContainer
         center={EUROPE_CENTER}
         zoom={4}
@@ -92,11 +103,16 @@ export default function HackathonMap({
         zoomControl
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          key={currentMode}
+          attribution={TILE_ATTRIBUTION}
+          url={TILE_URL}
+          className={isDark ? "hackathon-map-dark-tiles" : undefined}
         />
         <MapViewport hackathons={mappedHackathons} />
-        <MarkerClusterGroup chunkedLoading>
+        <MarkerClusterGroup
+          chunkedLoading
+          maxClusterRadius={MAX_CLUSTER_RADIUS}
+        >
           {mappedHackathons.map(({ hackathon, coordinates, approximate }) => (
             <Marker
               key={hackathon.id}
@@ -104,31 +120,19 @@ export default function HackathonMap({
               title={hackathon.name}
               {...(approximate ? { icon: APPROXIMATE_MARKER_ICON } : {})}
             >
-              <Popup>
-                <div className="space-y-1.5 text-sm">
-                  <h3 className="font-semibold">{hackathon.name}</h3>
+              <Popup minWidth={280} maxWidth={320}>
+                <div className="hackathon-map-popup-card">
                   {approximate && (
-                    <p className="font-medium text-amber-700">
+                    <p className="mb-1.5 text-xs font-medium text-amber-700 dark:text-amber-500">
                       {t("map.approximateLocation")}
                     </p>
                   )}
-                  <p>
-                    {europeanCountries.formatLocation(
-                      hackathon.city,
-                      hackathon.country_code,
-                    )}
-                  </p>
-                  <p>
-                    {formatDateRange(hackathon.date_start, hackathon.date_end)}
-                  </p>
-                  <a
-                    href={hackathon.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-primary underline underline-offset-2"
-                  >
-                    {t("action.viewEvent")}
-                  </a>
+                  <HackathonCard
+                    hackathon={hackathon}
+                    compact
+                    titleLink
+                    className="border-0 shadow-none"
+                  />
                 </div>
               </Popup>
             </Marker>

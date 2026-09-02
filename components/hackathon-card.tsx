@@ -16,7 +16,9 @@ import {
   MapPin,
   Calendar as CalendarIcon,
   Heart,
-  Sparkles,
+  Globe,
+  Shuffle,
+  CircleHelp,
 } from "lucide-react";
 import { europeanCountries } from "@/lib/european-countries";
 import { getTopicDisplay } from "@/lib/constants/topics";
@@ -44,9 +46,38 @@ export interface HackathonCardData {
   location_type?: "physical" | "online" | "hybrid" | "tbd";
   topics?: string[] | null;
   notes?: string | null;
+  // Still present in the underlying data/pipeline (see app/api/update) -
+  // deliberately no longer rendered as a badge on this card (maintainer
+  // feedback: presentation-only removal, not a data change).
   is_new?: boolean;
   preview_image_url?: string | null;
 }
+
+/**
+ * Icon + style per `location_type`. Deliberately not color-coded at all
+ * (round 2 of the badge redesign, maintainer feedback: "online" still read
+ * as a distinct hue and shouldn't) - a location type isn't good, bad, or a
+ * category worth its own accent color, so every variant shares one flat,
+ * neutral treatment (`bg-muted`/`text-muted-foreground`) and only the icon
+ * + label differ. `tbd` keeps a dashed border to read as "unconfirmed"
+ * without introducing color. Color is never the only signal either way
+ * (WCAG 1.4.1). `physical` isn't listed here: it's implied by the
+ * city/country text already shown next to it, so it gets no badge.
+ */
+const LOCATION_TYPE_BADGE = {
+  online: {
+    icon: Globe,
+    className: "border-transparent bg-muted text-muted-foreground",
+  },
+  hybrid: {
+    icon: Shuffle,
+    className: "border-transparent bg-muted text-muted-foreground",
+  },
+  tbd: {
+    icon: CircleHelp,
+    className: "border-dashed text-muted-foreground",
+  },
+} as const;
 
 interface HackathonCardProps {
   hackathon: HackathonCardData;
@@ -131,44 +162,40 @@ export function HackathonCard({
               hackathon.name
             )}
           </CardTitle>
-          <div className="flex shrink-0 items-center gap-2">
-            {!adminTheme && !compact && (
-              <button
-                type="button"
-                onClick={() => toggleBookmark(hackathon.id)}
-                aria-label={t(
-                  isBookmarked ? "bookmark.remove" : "bookmark.add",
-                  { name: hackathon.name },
-                )}
-                aria-pressed={isBookmarked}
-                title={t(isBookmarked ? "bookmark.remove" : "bookmark.add", {
-                  name: hackathon.name,
-                })}
-                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <Heart
-                  className={cn(
-                    "size-5",
-                    isBookmarked && "fill-current text-red-500",
-                  )}
-                  aria-hidden="true"
-                />
-              </button>
-            )}
-            {hackathon.is_new && (
-              <Badge
-                variant="default"
+          {/*
+            The bookmark button's own hit-area (p-1.5 + a size-5 icon = 32px)
+            is taller than a single line of the title text next to it, so
+            top-aligning the two by their box edges (items-start on the row)
+            left the heart visibly floating above the title's cap-height -
+            most noticeable on a short, one-line title. Negative margins
+            here pull the button's padding back into the title's own line
+            box so the icon glyph (not the invisible padding around it)
+            lines up with the first line of text, for both a one-line and a
+            two-line (line-clamp-2) title - the hit target stays full size
+            for touch/pointer users, only the visual alignment changes.
+          */}
+          {!adminTheme && !compact && (
+            <button
+              type="button"
+              onClick={() => toggleBookmark(hackathon.id)}
+              aria-label={t(isBookmarked ? "bookmark.remove" : "bookmark.add", {
+                name: hackathon.name,
+              })}
+              aria-pressed={isBookmarked}
+              title={t(isBookmarked ? "bookmark.remove" : "bookmark.add", {
+                name: hackathon.name,
+              })}
+              className="-mt-1.5 -mr-1.5 shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Heart
                 className={cn(
-                  "shrink-0",
-                  !adminTheme &&
-                    "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm hover:from-emerald-600 hover:to-teal-700",
+                  "size-5",
+                  isBookmarked && "fill-current text-red-500",
                 )}
-              >
-                <Sparkles className="mr-1 h-3 w-3" />
-                {t("badge.new")}
-              </Badge>
-            )}
-          </div>
+                aria-hidden="true"
+              />
+            </button>
+          )}
         </div>
         {meta}
         {hackathon.notes && hackathon.notes.trim() && (
@@ -222,19 +249,14 @@ export function HackathonCard({
               // Issue #21: no city/country resolved (online/hybrid/tbd
               // event) - show a badge explaining why instead of leaving
               // blank space where a location would normally be.
-              (locationType === "online" || locationType === "hybrid") && (
+              locationType !== "physical" && (
                 <div
                   className={cn(
                     "flex items-center gap-2 text-sm text-muted-foreground md:w-1/2",
                     compact && "text-xs leading-5",
                   )}
                 >
-                  <MapPin className="h-4 w-4 shrink-0" />
-                  <Badge variant="secondary" className="text-xs">
-                    {locationType === "online"
-                      ? t("location.online")
-                      : t("location.hybrid")}
-                  </Badge>
+                  <LocationTypeBadge type={locationType} />
                 </div>
               )
             )}
@@ -252,7 +274,7 @@ export function HackathonCard({
                     key={`${topic}-${index}`}
                     variant="outline"
                     className={cn(
-                      "text-xs",
+                      "topic-chip",
                       adminTheme ? "admin-topic-badge" : topicConfig.color,
                     )}
                   >
@@ -261,7 +283,7 @@ export function HackathonCard({
                 );
               })}
             {hackathon.topics.length > 4 && (
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="topic-chip topic-chip-more">
                 {`+${hackathon.topics.length - 4} ${t("topics.more")}`}
               </Badge>
             )}
@@ -280,5 +302,25 @@ export function HackathonCard({
         </CardFooter>
       )}
     </Card>
+  );
+}
+
+function LocationTypeBadge({ type }: { type: "online" | "hybrid" | "tbd" }) {
+  const { t } = useTranslation();
+  const { icon: Icon, className } = LOCATION_TYPE_BADGE[type];
+  const label =
+    type === "online"
+      ? t("location.online")
+      : type === "hybrid"
+        ? t("location.hybrid")
+        : t("location.tbd");
+  return (
+    <Badge
+      variant="outline"
+      className={cn("rounded-full text-xs font-medium", className)}
+    >
+      <Icon className="size-3" aria-hidden="true" />
+      {label}
+    </Badge>
   );
 }

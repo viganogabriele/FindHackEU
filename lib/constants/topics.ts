@@ -27,54 +27,59 @@ export const TOPIC_DISPLAY_CONFIG: Record<
     description: string;
   }
 > = {
+  // `color` cycles through the theme-aware `.topic-badge-1`..`.topic-badge-5`
+  // utility classes (see `app/globals.css`) instead of hardcoded Tailwind
+  // grays - each class maps to that theme preset's own --chart-N token, so
+  // topic tags stay distinct-but-harmonious and correctly themed (light,
+  // dark, and every preset) without a hand-maintained hex palette.
   AI: {
     label: "AI & ML",
-    color: "bg-blue-100 text-blue-800 border-blue-200",
+    color: "topic-badge-1",
     description: "Artificial Intelligence and Machine Learning",
   },
   Crypto: {
     label: "Crypto",
-    color: "bg-orange-100 text-orange-800 border-orange-200",
+    color: "topic-badge-2",
     description: "Cryptocurrency and Blockchain",
   },
   Web3: {
     label: "Web3",
-    color: "bg-purple-100 text-purple-800 border-purple-200",
+    color: "topic-badge-3",
     description: "Decentralized Web Technologies",
   },
   Fintech: {
     label: "Fintech",
-    color: "bg-green-100 text-green-800 border-green-200",
+    color: "topic-badge-4",
     description: "Financial Technology",
   },
   Healthcare: {
     label: "Healthcare",
-    color: "bg-red-100 text-red-800 border-red-200",
+    color: "topic-badge-5",
     description: "Medical and Health Technology",
   },
   Sustainability: {
     label: "Climate",
-    color: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    color: "topic-badge-1",
     description: "Climate and Sustainability",
   },
   Gaming: {
     label: "Gaming",
-    color: "bg-pink-100 text-pink-800 border-pink-200",
+    color: "topic-badge-2",
     description: "Game Development and Metaverse",
   },
   Defense: {
     label: "Defense",
-    color: "bg-slate-100 text-slate-800 border-slate-200",
+    color: "topic-badge-3",
     description: "Defense and Security",
   },
   IoT: {
     label: "IoT",
-    color: "bg-indigo-100 text-indigo-800 border-indigo-200",
+    color: "topic-badge-4",
     description: "Internet of Things and Hardware",
   },
   Education: {
     label: "Education",
-    color: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    color: "topic-badge-5",
     description: "Educational Technology",
   },
 };
@@ -86,7 +91,7 @@ export function getTopicDisplay(topic: string) {
   return (
     TOPIC_DISPLAY_CONFIG[topic as HackathonTopic] || {
       label: topic,
-      color: "bg-gray-100 text-gray-800 border-gray-200",
+      color: "bg-muted text-muted-foreground border-transparent",
       description: topic,
     }
   );

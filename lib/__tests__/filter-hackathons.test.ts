@@ -25,6 +25,7 @@ describe("filterAndSortHackathons", () => {
       status: "upcoming" as const,
       sort: "asc" as const,
       includeNonEnglish: false,
+      includeOnline: true,
       showBookmarked: false,
     };
 
@@ -51,6 +52,7 @@ describe("filterAndSortHackathons", () => {
       status: "upcoming" as const,
       sort: "asc" as const,
       includeNonEnglish: false,
+      includeOnline: true,
       showBookmarked: false,
     };
 
@@ -77,6 +79,7 @@ describe("filterAndSortHackathons", () => {
       status: "upcoming" as const,
       sort: "asc" as const,
       includeNonEnglish: false,
+      includeOnline: true,
       showBookmarked: true,
     };
 
@@ -84,6 +87,56 @@ describe("filterAndSortHackathons", () => {
       filterAndSortHackathons([baseHackathon, otherHackathon], filters, "en", [
         baseHackathon.id,
       ]),
+    ).toEqual([baseHackathon]);
+  });
+
+  it("includes online events by default", () => {
+    const onlineHackathon = {
+      ...baseHackathon,
+      id: "2",
+      name: "Remote Web Hackathon",
+      location_type: "online" as const,
+    };
+    const filters = {
+      search: "",
+      locations: [],
+      radius: null,
+      topics: [],
+      dateRange: undefined,
+      status: "upcoming" as const,
+      sort: "asc" as const,
+      includeNonEnglish: false,
+      includeOnline: true,
+      showBookmarked: false,
+    };
+
+    expect(
+      filterAndSortHackathons([baseHackathon, onlineHackathon], filters, "en"),
+    ).toEqual([baseHackathon, onlineHackathon]);
+  });
+
+  it("hides online events when includeOnline is false", () => {
+    const onlineHackathon = {
+      ...baseHackathon,
+      id: "2",
+      name: "Remote Web Hackathon",
+      location_type: "online" as const,
+    };
+    const filters = {
+      search: "",
+      locations: [],
+      radius: null,
+      topics: [],
+      dateRange: undefined,
+      status: "upcoming" as const,
+      sort: "asc" as const,
+      includeNonEnglish: false,
+      includeOnline: false,
+      showBookmarked: false,
+    };
+
+    expect(
+      filterAndSortHackathons([baseHackathon, onlineHackathon], filters, "en"),
     ).toEqual([baseHackathon]);
   });
 });

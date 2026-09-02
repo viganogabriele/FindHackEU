@@ -3610,4 +3610,124 @@ export const defaultPresets: Record<string, ThemePreset> = {
       },
     },
   },
+
+  "cosmic-glass": {
+    label: "Cosmic Glass",
+    createdAt: "2026-09-02",
+    // Round 2 (maintainer feedback): the navbar glass treatment was liked,
+    // but (a) every other translucent surface (cards, filters sheet,
+    // dialogs/popovers, footer) needs the same glass treatment, not just the
+    // navbar - see the [data-theme-id=cosmic-glass] rules in
+    // app/globals.css this preset drives, plus the decorative background
+    // gradient there that gives the blur something to blur - and (b) no pink
+    // anywhere: every color that was pink/magenta/fuchsia (primary, accent,
+    // ring, chart-1..5, sidebar-accent) moved to a purple/violet-only
+    // palette. destructive intentionally stays red/rose - that is the
+    // shared semantic danger token every theme preset uses, not part of
+    // this theme's decorative accent palette.
+    styles: {
+      light: {
+        background: "#f7f5fc",
+        foreground: "#1e1533",
+        card: "rgba(255, 255, 255, 0.55)",
+        "card-foreground": "#1e1533",
+        popover: "rgba(255, 255, 255, 0.75)",
+        "popover-foreground": "#1e1533",
+        primary: "#7c3aed",
+        "primary-foreground": "#ffffff",
+        secondary: "#ede9fe",
+        "secondary-foreground": "#4c1d95",
+        muted: "rgba(124, 58, 237, 0.06)",
+        "muted-foreground": "#655a78",
+        accent: "#ede9fe",
+        "accent-foreground": "#5b21b6",
+        destructive: "#e11d48",
+        "destructive-foreground": "#ffffff",
+        border: "rgba(124, 58, 237, 0.16)",
+        input: "rgba(124, 58, 237, 0.18)",
+        ring: "#7c3aed",
+        // Chosen (and contrast-checked, see the doc comment above) so each
+        // of the 5 chart colors independently clears 4.5:1 as topic-chip
+        // text against this theme's own ~16%-tinted chip background - the
+        // lighter violet-500/-400 shades in the earlier revision read fine
+        // as solid swatches but dropped under 4.5:1 once used as text on a
+        // low-opacity tint of themselves.
+        "chart-1": "#6d28d9",
+        "chart-2": "#7e22ce",
+        "chart-3": "#4f46e5",
+        "chart-4": "#5b21b6",
+        "chart-5": "#6b21a8",
+        sidebar: "rgba(255, 255, 255, 0.6)",
+        "sidebar-foreground": "#1e1533",
+        "sidebar-primary": "#7c3aed",
+        "sidebar-primary-foreground": "#ffffff",
+        "sidebar-accent": "#ede9fe",
+        "sidebar-accent-foreground": "#5b21b6",
+        "sidebar-border": "rgba(124, 58, 237, 0.16)",
+        "sidebar-ring": "#7c3aed",
+        "font-sans": "Plus Jakarta Sans, sans-serif",
+        "font-serif": "Lora, serif",
+        "font-mono": "IBM Plex Mono, monospace",
+        radius: "0.85rem",
+        "shadow-color": "hsl(263 70% 45%)",
+        "shadow-opacity": "0.12",
+        "shadow-blur": "16px",
+        "shadow-spread": "0px",
+        "shadow-offset-x": "0px",
+        "shadow-offset-y": "6px",
+        "letter-spacing": "-0.01em",
+      },
+
+      dark: {
+        background: "#0a0a12",
+        foreground: "#f3f1fb",
+        card: "rgba(32, 22, 54, 0.45)",
+        "card-foreground": "#f3f1fb",
+        popover: "rgba(20, 14, 34, 0.9)",
+        "popover-foreground": "#f3f1fb",
+        // #8b5cf6 (violet-500) against white foreground text only cleared
+        // 4.23:1 - just under AA's 4.5:1 for normal-size button text - so
+        // primary/ring/sidebar-primary/sidebar-ring use the darker #7c3aed
+        // here too (5.7:1), matching the light palette instead of a
+        // separate dark-mode shade.
+        primary: "#7c3aed",
+        "primary-foreground": "#ffffff",
+        secondary: "#2e1065",
+        "secondary-foreground": "#e9d5ff",
+        muted: "rgba(255, 255, 255, 0.06)",
+        "muted-foreground": "#b9b3c9",
+        accent: "#7c3aed",
+        "accent-foreground": "#ffffff",
+        destructive: "#f43f5e",
+        "destructive-foreground": "#ffffff",
+        border: "rgba(255, 255, 255, 0.12)",
+        input: "rgba(255, 255, 255, 0.16)",
+        ring: "#7c3aed",
+        "chart-1": "#a78bfa",
+        "chart-2": "#c084fc",
+        "chart-3": "#a5b4fc",
+        "chart-4": "#ddd6fe",
+        "chart-5": "#c4b5fd",
+        sidebar: "rgba(20, 14, 34, 0.6)",
+        "sidebar-foreground": "#f3f1fb",
+        "sidebar-primary": "#7c3aed",
+        "sidebar-primary-foreground": "#ffffff",
+        "sidebar-accent": "#7c3aed",
+        "sidebar-accent-foreground": "#ffffff",
+        "sidebar-border": "rgba(255, 255, 255, 0.12)",
+        "sidebar-ring": "#7c3aed",
+        "font-sans": "Plus Jakarta Sans, sans-serif",
+        "font-serif": "Lora, serif",
+        "font-mono": "IBM Plex Mono, monospace",
+        radius: "0.85rem",
+        "shadow-color": "hsl(263 80% 55%)",
+        "shadow-opacity": "0.3",
+        "shadow-blur": "24px",
+        "shadow-spread": "0px",
+        "shadow-offset-x": "0px",
+        "shadow-offset-y": "8px",
+        "letter-spacing": "-0.01em",
+      },
+    },
+  },
 };

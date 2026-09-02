@@ -1,128 +1,71 @@
 # AGENTS.md
 
-Instructions for AI coding agents working in this repository. See `CLAUDE.md` for Claude Code-specific guidance (they should stay consistent).
+Instructions for AI coding agents working in this repository. See `CLAUDE.md` for the fuller architecture reference — they should stay consistent; this file is the shorter, agent-facing summary.
 
 ## Project overview
 
-FindHackEU is an independent Next.js 16 (App Router, TypeScript) app that aggregates European hackathons. It was originally inspired by HackTrack EU by Lorenzo Palaia, but is now developed independently. Data flows: external sources → parsers → Supabase (Postgres) → public API / web UI, with a README table and Discord/Telegram/Twitter notifications regenerated on every update run.
+FindHackEU is an independent Next.js 16 (App Router, TypeScript) app that aggregates European hackathons. It was originally inspired by HackTrack EU by Lorenzo Palaia, but is now developed independently, MIT-licensed. Maintained by Gabriele Viganò (info@viganogabriele.com). Data flows: external sources → parsers → dedup/geocoding → Supabase (Postgres) → public API / web UI. A moderated web-search discovery queue (`/admin`) supplements the automated scrapers. Discord/Telegram/Twitter notification bots exist in the codebase but are currently inactive/unconfigured.
 
 ## Discovery coverage & data quality roadmap
 
-Phase 1 (make every hackathon already discoverable via Luma actually surface) and most of Phase 2 (additional free sources, web-search discovery) are **done** as of 2026-09-01 — 20+ issues closed in one large session, all verified live (not just unit-tested) before closing. Current state, not history:
+Coverage work — pagination, date windows, geographic filtering, multilingual classification, topic extraction, honest per-source status, deduplication, six provider parsers (Luma, Devfolio, MLH, ETHGlobal, Eventbrite, Devpost — LabLab is disabled, its old JSON endpoint no longer exists), and moderated web-search discovery — is largely implemented; verify current code and issue history before starting new coverage work.
 
-- **Six active `Provider` parsers**: Luma (reference implementation, accepted ToS risk — see issue #65), Devfolio, MLH, ETHGlobal, Eventbrite, and Devpost. LabLab is disabled because its former JSON endpoint no longer exists after a framework migration — not Cloudflare.
-- **Web-search discovery** (`lib/search/*`, `lib/discovery/*`) is a _second, distinct_ pipeline — never feeds `hackathons` directly. It writes to a moderated `hackathon_candidates` review queue (`/admin`, now gated behind real Google sign-in — issue #67), whose Approved tab also doubles as the manager for already-published rows regardless of source (issue #82; `/admin/hackathons` was retired as a separate route and now just redirects there). See `CLAUDE.md`'s "Web-search discovery and candidate review" section for the full mechanics (search-provider fallback chain, JSON-LD/OG extraction with conflict detection, robots.txt-gated fetch classification, multilingual/site-scoped query generation, a persistent daily query budget).
-- Tracking issue: [#2 (EPIC) Improve hackathon discovery coverage and data quality](https://github.com/viganogabriele/FindHackEU/issues/2) — kept open as an index, not itself actionable.
-- Genuinely still open, real work: #29 (split the update route into independent phases — a large architecture change, needs the maintainer's explicit go-ahead before starting, don't just do it), #72 (archive/un-publish a wrong or stale hackathon), #73 (filter by country, not just city), #74 (Meetup — investigated and found low-value today, informational only).
-- Deliberately deferred (their own issue text says so, don't second-guess it): #19 (headless-browser rendering), #33 (re-evaluate update frequency — needs `update_runs` history to accumulate real data first).
-
-Before picking up any issue, read it in full and check it isn't already covered by a merged PR — this repo's issue history has closed 40+ issues, re-deriving from scratch wastes effort.
-
-### Known structural limits on Luma coverage
-
-Not every "missing" hackathon is a bug: Luma events can be set to `visibility: "private"` by their organizer, making them structurally invisible to the public discovery API — no pagination or geography fix will surface those. Before filing a coverage-gap issue, check the event directly (`https://api.luma.com/url?url=<slug>`); issue #53 in the project's history was opened and then closed for exactly this reason.
+- Tracking issue: [#2 (EPIC)](https://github.com/viganogabriele/FindHackEU/issues/2) — kept open as an index, not itself actionable.
+- Before picking up any issue, read it in full and check it isn't already covered by a merged PR — this repo's issue history is long; re-deriving from scratch wastes effort.
+- Not every "missing" hackathon is a bug: Luma events can be set `visibility: "private"` by their organizer, making them structurally invisible to the discovery API — check the event's own Luma page before filing a coverage-gap issue.
 
 ### Infrastructure ownership note (important for local testing)
 
-FindHackEU owns its current Supabase/deployment configuration and does not depend on any earlier project's production infrastructure. The repo ships its own Supabase schema (`supabase/migrations/20260101000000_init.sql`) so local development is fully self-contained: run `npx supabase start` (Docker-based CLI, devDependency) to get a local Postgres/Studio instance with that schema applied, then point `.env.local` at it. Any issue that needs an external API key assumes your own free-tier personal key for local development; deployment secrets are configured separately for the FindHackEU deployment.
+FindHackEU owns its current Supabase/deployment configuration and does not depend on any earlier project's production infrastructure. The repo ships its own schema (`supabase/migrations/`), so local development is fully self-contained.
 
 ## Setup
 
 ```bash
+git clone https://github.com/viganogabriele/FindHackEU.git && cd FindHackEU
 npm install
-cp .env.example .env.local   # fill in Supabase, geocoding, bot, and CRON_SECRET values
-npx supabase start           # optional but recommended: local Postgres/Studio via Docker, migrations auto-applied
+cp .env.example .env.local   # fill in Supabase keys and CRON_SECRET at minimum
+npx supabase start           # local Postgres/Studio via Docker; migrations + seed.sql auto-applied
 npm run dev
 ```
 
-For local Supabase, `.env.local` only strictly needs the three Supabase keys `npx supabase start` prints plus `CRON_SECRET` (any string) to exercise the pipeline end-to-end.
+`/admin` works locally with zero Google OAuth setup by default (see CLAUDE.md's "Admin auth" section for the exact bypass mechanics and its production-safety guarantee). For local Supabase, `.env.local` only strictly needs the three Supabase keys `npx supabase start` prints plus `CRON_SECRET` (any string) to exercise the pipeline end-to-end.
 
 ## Dev environment
 
 - Package manager: npm (see `package-lock.json`; do not switch to yarn/pnpm).
-- Node/Next: Next.js 16 with Turbopack, React 19, TypeScript in strict mode (pinned `^5.9.3` — see "Dependency version constraints" below, don't bump to 6.x without checking `typescript-eslint`'s support first).
-- Styling: Tailwind CSS v4 + shadcn/ui (Radix primitives, `class-variance-authority`, `tailwind-merge`).
-- State: Zustand + React context (`contexts/filter-context.tsx`, `contexts/translation-context.tsx`). Any persisted Zustand store must avoid synchronous `localStorage` reads in initial state — use `persist({ skipHydration: true })` plus a post-mount `rehydrate()` call, per `lib/locale-store.ts`, to avoid SSR/client hydration mismatches.
-- Database: Supabase (Postgres). `lib/supabase.ts` exports `supabase` (anon key) and `supabaseAdmin` (service role key, server-only). A direct `.select()` result currently resolves to TypeScript `never` in this project's client setup (a known, pre-existing rough edge, not something to "fix" globally) — cast to the relevant `Database[...]["Row"]` type instead; see `lib/services/promote-candidate.ts`'s doc comment for the full explanation.
-- Testing: Vitest (`npm run test`), 150+ tests under `lib/**/__tests__/*.test.ts` (parsers, classifier, dedup, geo, search/discovery pipeline). Route handlers (`app/api/update/route.ts`, `app/api/hackathons/route.ts`) have no direct unit tests by convention — verify those live instead (see "Testing / verification instructions" below).
+- Node/Next: Next.js 16 with Turbopack, React 19, TypeScript in strict mode (pinned `^5.9.3` — see "Dependency version constraints" in CLAUDE.md, don't bump to 6.x without checking `typescript-eslint`'s support first).
+- Styling: Tailwind CSS v4 + shadcn/ui (Radix primitives, `class-variance-authority`, `tailwind-merge`). Public-site badges/tags use theme-token-driven styling (`--chart-1..5`, etc.), not hardcoded per-category colors — follow the existing pattern in `components/hackathon-card.tsx` for any new categorical UI.
+- State: Zustand + React context. Any persisted Zustand store backing SSR-visible state (locale, theme) must avoid synchronous `localStorage` reads in initial state — use `persist({ skipHydration: true })` plus a post-mount rehydrate call, per `lib/locale-store.ts`, to avoid SSR/client hydration mismatches.
+- Database: Supabase (Postgres). `lib/supabase.ts` exports `supabase` (anon key) and `supabaseAdmin` (service role key, server-only). A direct `.select()` result currently resolves to TypeScript `never` in this project's client setup (a known, pre-existing rough edge) — cast to the relevant `Database[...]["Row"]` type instead.
+- Testing: Vitest (`npm run test`), covering `lib/**/__tests__/*.test.ts` and select `app/**/__tests__/*`. Route handlers have no direct unit tests by convention — verify those live instead.
 - Path alias: `@/*` → repo root.
 
 ## Commands
 
-| Purpose                                     | Command                                                                                                                                           |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Dev server                                  | `npm run dev`                                                                                                                                     |
-| Production build (also runs format + knip)  | `npm run build`                                                                                                                                   |
-| Start production server                     | `npm run start`                                                                                                                                   |
-| Lint                                        | `npm run lint` (flat-config `eslint .`, not `next lint`)                                                                                          |
-| Format                                      | `npm run format`                                                                                                                                  |
-| Test suite                                  | `npm run test` (Vitest)                                                                                                                           |
-| Dead code / unused deps                     | `npm run knip`                                                                                                                                    |
-| Regenerate sitemap                          | `npm run sitemap`                                                                                                                                 |
-| Regenerate theme constants                  | `npm run update-themes`                                                                                                                           |
-| Re-run topic extractor over existing rows   | `npm run backfill-topics`                                                                                                                         |
-| Manually trigger the update pipeline        | `npm run trigger-update` (add `-- --live` for a real run with notifications/README commit)                                                        |
-| Manually run web-search candidate discovery | `npx tsx scripts/discover-web-candidates.ts` (`--max-queries=N`, `--results-per-query=N`; consumes real search-API quota, keep N low for testing) |
-| Bump dependencies                           | `npm run update`                                                                                                                                  |
-| Clean reinstall                             | `npm run reinstall`                                                                                                                               |
+| Purpose                                    | Command                                                  |
+| ------------------------------------------ | -------------------------------------------------------- |
+| Dev server                                 | `npm run dev`                                            |
+| Production build (also runs format + knip) | `npm run build`                                          |
+| Start production server                    | `npm run start`                                          |
+| Lint                                       | `npm run lint` (flat-config `eslint .`, not `next lint`) |
+| Format                                     | `npm run format`                                         |
+| Test suite                                 | `npm run test` (Vitest)                                  |
+| Dead code / unused deps                    | `npm run knip`                                           |
+| Regenerate sitemap                         | `npm run sitemap`                                        |
 
-`npm run test` exists now — use it, don't assume there's no test suite. When running lint/knip/vitest from the repo root, scope to real source dirs if stray untracked directories exist locally (e.g. `.claude/worktrees/*`, `redesign/`) — e.g. `npx eslint app components contexts lib types scripts` — otherwise stale copies produce spurious failures; `knip.json` already excludes `.claude`/`redesign`.
+When running lint/knip/vitest from the repo root, scope them to real source directories if stray untracked dirs exist locally (e.g. `.worktrees/*`, `redesign/`) — otherwise stale copies produce spurious failures.
 
-## Code style
+## Verification before considering a change done
 
-- TypeScript strict mode; avoid `any` and avoid loosening types to work around a type error — prefer a scoped `@ts-expect-error` with a comment when the Supabase-generated types genuinely don't match (this pattern already exists in `app/api/update/route.ts` for `update`/`insert` calls).
-- Run `npm run format` (Prettier, with `prettier-plugin-tailwindcss` for class sorting) before finishing a change — don't hand-format.
-- Keep new UI-facing strings synced across every file in `i18n/` (en, it, de, es, fr, nl, pl, pt, ro, sv) — don't add a key to only one locale.
-- New scraping sources should extend `BaseParser` (`lib/parsers/base-parser.ts`), implement `discover()` per the `Provider`/`ProviderResult`/`ParseStatus` contract in `lib/providers/provider.interface.ts`, and return `ParsedHackathon[]`; wire them into `sourceResults` and the parse stage in `app/api/update/route.ts`. Report an honest `status` (`"ok"|"partial"|"failed"`) rather than masking partial failures as success.
-- Add or update a Vitest test under the relevant `__tests__/` directory for any bugfix in `lib/classification`, `lib/dedup`, `lib/parsers`, `lib/european-countries.ts`, or `lib/services/fetch-all-rows.ts` — this project has caught several real regressions this way.
+`npx tsc --noEmit`, `npx eslint <touched dirs>`, `npx vitest run`, and `npm run build` should all be clean. For anything UI-facing (layout, hydration, z-index/stacking, dark mode), verify live in a real browser rather than reasoning from code alone — several real bugs in this repo's history looked plausible on paper but had a different actual root cause once tested (e.g. a map crash initially attributed to React Strict Mode turned out to be an unrelated `icon={undefined}` bug, only found by reproducing it live).
 
-### Dependency version constraints
-
-`eslint-config-next` must track `next`'s minor exactly (currently `^16.3.3`); `eslint` is pinned `^9.39.5` and `typescript` is pinned `^5.9.3` — not the newer majors `npm outdated`/`update` may suggest — because `typescript-eslint@8.55.0`'s peer range doesn't support those yet. Verify `npm ls` shows zero "invalid" peer-dep warnings before bumping any of these three together.
-
-## Architecture notes
-
-- `app/api/update/route.ts` is the cron-triggered ingestion pipeline (reset flags → parse sources with per-source `status` → dedupe via URL normalization + fuzzy matching → geocode/enhance locations, keeping `"not_found"` results rather than dropping them → insert new rows and `update` changed existing rows → recompute statuses via the `update_hackathon_statuses` RPC → notify bots → regenerate and commit `README.md` via the GitHub API). Each stage catches its own errors and reports them independently in the JSON response (plus a top-level `degraded` flag) instead of throwing — preserve that pattern when touching this file. Auth is fail-closed: a missing `CRON_SECRET` returns 500, never a silent bypass.
-- `app/api/hackathons/route.ts` is the public read-only API (`GET /api/hackathons?status=upcoming|past`) — keep it separate from the write-only `/api/update` endpoint (needs `Authorization: Bearer $CRON_SECRET`) and the dev-only `app/api/dev/trigger-update` endpoint (404s outside `NODE_ENV=development`, always forces test mode).
-- Any query that might exceed 1000 rows must use `lib/services/fetch-all-rows.ts`'s `fetchAllRows<T>()` — PostgREST silently truncates past its default `max_rows`; several past bugs here came from a raw unpaginated `.select()`.
-- Notification bots (`lib/bots/discord-bot.ts`, `telegram-bot.ts`, `twitter-bot.ts`) are invoked together via `Promise.allSettled` so one platform's failure doesn't block the others — keep new bots consistent with that contract (`notifyNewHackathons(hackathons)`).
-- `lib/parsers/luma-parser.ts` is the reference parser: cursor pagination against `api.luma.com/discover/get-paginated-events`, an explicit non-European drop check via `classifyCountryCode()` in `lib/european-countries.ts` that must run first against only `geo.country_code` (before any regional/city fallback — reordering it after fallbacks reintroduces false-positive drops on things like US state abbreviations). Note `classifyCountryCode()` is designed for exactly-2-letter codes vs. free text — a source giving a full country name instead (e.g. Devfolio's `country: "Germany"`) needs its own explicit-name-drop handling, not this function directly (see `devfolio-parser.ts`'s doc comment for why).
-- `types/database.ts` is hand-maintained (not Supabase-generated) — every schema migration in `supabase/migrations/*.sql` needs a matching manual update here.
-- `/admin` is a real review queue backed by its own `hackathon_candidates` table (never auto-published into `hackathons`); its Approved tab also manages published `hackathons` rows directly, regardless of source (issue #82 — `/admin/hackathons` is retired and now just redirects there). See `CLAUDE.md`'s "Web-search discovery and candidate review" section before touching anything under `app/admin/`, `lib/search/`, `lib/discovery/`, or `lib/services/{promote-candidate,submit-manual-candidate,require-admin-auth}.ts`.
-- The active provider set is Luma, Devfolio, MLH, ETHGlobal, Eventbrite, and Devpost. LabLab remains disabled because its former JSON endpoint disappeared after a framework migration. Generic web search is a separate moderated candidate pipeline and must never insert directly into `hackathons`.
-- `lib/detect-non-english.ts` applies a conservative locale-aware display filter: English and ambiguous titles remain visible; a title is hidden only when one supported non-English language is detected and it differs from the current locale.
-- `lib/services/geocode-cache.ts` stores normalized geocoding results in Supabase with a 180-day TTL and bounded pruning. The primary geocoder has a Nominatim fallback; cache and fallback errors are best-effort.
-- `preview_image_url` is optional, populated during ingestion when a validated image URL is available, exposed by the public API, and rendered by the shared hackathon card.
-- Public bookmarks use `lib/bookmarks-store.ts`, Zustand, and `localStorage`; hydration is deferred until mount. `components/hackathon-map.tsx` uses Leaflet/OpenStreetMap with clustering and country-centroid fallbacks from `lib/country-centroids.ts`.
-- `POST /api/submit-hackathon` and `components/public-submit-form.tsx` submit suggestions into the moderated candidate queue. The shared `lib/http/rate-limit.ts` limits public submissions to 10 per hour per client key. `components/copy-link-button.tsx` provides clipboard links in admin review.
-- The public layout uses `site-header.tsx`, `site-footer.tsx`, and `filters-panel.tsx`; the admin dashboard uses unified navigation, shared cards, consistent action ordering, and visible-but-disabled actions when an operation is not applicable.
-- Monitoring consists of Sentry error tracking (`SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN`, no analytics or PII-oriented features), `GET /api/health`, and `.github/workflows/uptime.yml`, which checks the deployment every 15 minutes via `APP_URL`.
-
-## Testing / verification instructions
-
-Before considering a change complete:
-
-1. `npm run lint`
-2. `npx tsc --noEmit`
-3. `npm run test` (Vitest)
-4. `npm run build` (also runs `format` + `knip` via `prebuild`)
-5. If you touched the update pipeline, exercise it locally rather than trusting a hosted cron run — use `npm run trigger-update`, the dev-only sidebar button, or:
-
-```bash
-curl -X POST http://localhost:3000/api/update \
-  -H "Authorization: Bearer $CRON_SECRET" \
-  -H "x-test-mode: true"
-```
-
-Test mode skips bot notifications and the README/GitHub commit, so it's safe to run repeatedly. Point it at FindHackEU's own Supabase project or a local instance (see the "Infrastructure ownership note" above).
-
-When verifying a fix — your own, a subagent's, or an external review tool's suggestion — prefer checking it against real code and, where feasible, a real local run (local Supabase + a live provider fetch, or a real headless-browser check for UI/hydration issues) over accepting it on trust.
+When verifying a fix — your own, a subagent's, or an external review tool's suggestion — prefer checking it against real code and, where feasible, a real local run (local Supabase + a live provider fetch, or a real browser check for UI/hydration issues) over accepting it on trust.
 
 ## PR / commit guidance
 
 - Do not commit `.env*` files or any Supabase/bot credentials.
-- `README.md` is a normal, hand-maintained project document (issue #3, 2026-09-02 removed the pipeline step that used to auto-generate hackathon tables into it via `ReadmeUpdater`/Octokit) — edit it directly like any other doc.
-- Keep commit messages focused on a single logical change; this repo's automated commits use a `🔄 ... [Automated]` convention — human commits don't need to follow that pattern.
+- `README.md` is a normal, hand-maintained project document — edit it directly like any other doc; the pipeline no longer auto-generates hackathon tables into it.
+- Keep commit messages focused on a single logical change.
 - `.github/workflows/update.yml` should run once a day against the FindHackEU deployment's `APP_URL` repository variable rather than a hardcoded URL.
 
 <!-- BEGIN:nextjs-agent-rules -->

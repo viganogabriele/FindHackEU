@@ -4,6 +4,17 @@ import { fetchAllRows } from "@/lib/services/fetch-all-rows";
 import { parseHackathonsQuery } from "@/lib/api/hackathons-query";
 import { createRateLimiter, getClientKey } from "@/lib/http/rate-limit";
 
+// This rate limit protects the PUBLIC read API from abuse in production -
+// it has nothing to do with Luma/Devfolio/MLH/etc: those provider APIs are
+// only ever called server-side, once a day, by the discovery pipeline
+// (app/api/update/route.ts), never from a browser and never subject to this
+// limiter. In local development, the same browser tab (and any tooling
+// hitting localhost) shares one IP with itself, so the production-tuned
+// burst limit trips almost immediately during normal testing - skip it
+// entirely outside production rather than raising it to an arbitrary
+// larger number that would still eventually trip during a real dev session.
+const isProduction = process.env.NODE_ENV === "production";
+
 const hourlyRateLimiter = createRateLimiter({
   windowMs: 60 * 60 * 1000,
   max: 100,
@@ -19,7 +30,7 @@ export async function GET(request: Request) {
   const burstRateLimit = burstRateLimiter.check(ip);
   const rateLimit = hourlyRateLimit.allowed ? burstRateLimit : hourlyRateLimit;
 
-  if (!rateLimit.allowed) {
+  if (isProduction && !rateLimit.allowed) {
     return NextResponse.json(
       { error: "Rate limit exceeded" },
       {

@@ -34,7 +34,9 @@
   "topics.searchPlaceholder": "Sök ämne",
   "topics.noneFound": "Inget ämne hittades.",
   "dates": "Datum",
-  "filters.includeOtherLanguages": "Inkludera hackathons som inte är på {language}",
+  "filters.includeOtherLanguages": "Visa hackathons utanför {language}",
+  "filters.showOnlineEvents": "Visa onlineevenemang",
+  "filters.onlineHidden": "Onlineevenemang dolda",
   "dates.select": "Välj datum",
   "sorting": "Sortering",
   "sort.byDate": "Sortera efter datum",
@@ -65,6 +67,7 @@
   "external.docs": "Dokumentation",
   "external.privacy": "Integritetspolicy",
   "external.terms": "Användarvillkor",
+  "external.contact": "Kontakt",
   "theme": "Tema",
   "theme.switchToDark": "Byt till mörkt",
   "theme.switchToLight": "Byt till ljust",
@@ -102,11 +105,13 @@
   "share.date": "📅",
   "share.location": "📍",
   "share.in": "i",
+  "share.via": "via FindHackEU",
   "share.option.twitter": "Twitter",
   "share.option.linkedin": "LinkedIn",
   "share.option.reddit": "Reddit",
   "share.option.copy": "Kopiera länk",
   "badge.new": "Ny",
   "location.online": "Online",
-  "location.hybrid": "Hybrid"
+  "location.hybrid": "Hybrid",
+  "location.tbd": "Ej fastställt"
 }

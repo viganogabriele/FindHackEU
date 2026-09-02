@@ -34,7 +34,9 @@
   "topics.searchPlaceholder": "Zoek onderwerp",
   "topics.noneFound": "Geen onderwerp gevonden.",
   "dates": "Data",
-  "filters.includeOtherLanguages": "Hackathons in andere talen dan {language} opnemen",
+  "filters.includeOtherLanguages": "Toon hackathons niet in {language}",
+  "filters.showOnlineEvents": "Online evenementen tonen",
+  "filters.onlineHidden": "Online evenementen verborgen",
   "dates.select": "Selecteer data",
   "sorting": "Sortering",
   "sort.byDate": "Sorteer op datum",
@@ -65,6 +67,7 @@
   "external.docs": "Documentatie",
   "external.privacy": "Privacybeleid",
   "external.terms": "Gebruiksvoorwaarden",
+  "external.contact": "Contact",
   "theme": "Thema",
   "theme.switchToDark": "Overschakelen naar donker",
   "theme.switchToLight": "Overschakelen naar licht",
@@ -102,11 +105,13 @@
   "share.date": "📅",
   "share.location": "📍",
   "share.in": "in",
+  "share.via": "via FindHackEU",
   "share.option.twitter": "Twitter",
   "share.option.linkedin": "LinkedIn",
   "share.option.reddit": "Reddit",
   "share.option.copy": "Kopieer link",
   "badge.new": "Nieuw",
   "location.online": "Online",
-  "location.hybrid": "Hybride"
+  "location.hybrid": "Hybride",
+  "location.tbd": "Nog te bepalen"
 }

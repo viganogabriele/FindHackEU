@@ -4,8 +4,8 @@ import Link from "next/link";
 import { Github } from "lucide-react";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import LanguageSelect from "@/components/language-select";
-import { PublicSubmitForm } from "@/components/public-submit-form";
 import { useTranslation } from "@/contexts/translation-context";
 import { useAdminHomeHref } from "@/lib/use-admin-home-href";
 
@@ -14,31 +14,32 @@ export function SiteHeader() {
   const logoHref = useAdminHomeHref();
 
   return (
-    <header className="border-b bg-background/95">
-      <div className="mx-auto flex min-h-16 max-w-screen-2xl flex-wrap items-center justify-between gap-y-2 gap-x-3 px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
+      <div className="mx-auto flex h-16 max-w-screen-2xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link
           href={logoHref}
-          className="shrink-0 text-base font-semibold tracking-tight"
+          className="flex shrink-0 items-center gap-2 text-base font-semibold tracking-tight transition-opacity hover:opacity-80"
         >
-          FindHackEU
+          <span className="flex size-7 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
+            H
+          </span>
+          <span>FindHackEU</span>
         </Link>
-        <div className="flex items-center gap-2">
-          <PublicSubmitForm />
-          <div className="flex items-center gap-1">
-            <Button asChild variant="ghost" size="icon" className="size-9">
-              <Link
-                href="https://github.com/viganogabriele/FindHackEU"
-                target="_blank"
-                rel="noreferrer"
-                aria-label={t("external.github")}
-                title={t("external.github")}
-              >
-                <Github className="size-4" aria-hidden="true" />
-              </Link>
-            </Button>
-            <ThemeSwitcher compact />
-            <LanguageSelect />
-          </div>
+        <div className="flex items-center gap-1">
+          <Button asChild variant="ghost" size="icon" className="size-9">
+            <Link
+              href="https://github.com/viganogabriele/FindHackEU"
+              target="_blank"
+              rel="noreferrer"
+              aria-label={t("external.github")}
+              title={t("external.github")}
+            >
+              <Github className="size-4" aria-hidden="true" />
+            </Link>
+          </Button>
+          <Separator orientation="vertical" className="mx-1 h-6" />
+          <ThemeSwitcher compact />
+          <LanguageSelect />
         </div>
       </div>
     </header>

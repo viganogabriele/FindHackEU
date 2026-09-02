@@ -165,10 +165,159 @@
   border-color: var(--border);
 }
 
+/*
+ * Public-site topic tags (round 2 of the badge redesign - flagged twice by
+ * the maintainer as "hideous"). Round 1 only changed the color source
+ * (hardcoded hex -> --chart-1..5 tokens) but kept the default Badge shape:
+ * a bordered, rounded-md, solid-tint chip. That shape reads as a form
+ * control, not a tag. `.topic-chip` replaces the shape/typography with the
+ * pill conventions of Linear/Notion/Vercel-style tag chips - fully rounded,
+ * no border (a tinted background alone carries the "chip" affordance),
+ * tighter vertical padding, and a slightly smaller, medium-weight label -
+ * while `.topic-badge-1..5` keep only the per-topic tint, still cycling
+ * through a preset's own --chart-1..5 tokens so every theme preset gets a
+ * distinct-but-harmonious set of tag colors without a hand-maintained
+ * palette, at a uniform 16% tint (bumped up from round 1's 14%, to
+ * compensate for the dropped border keeping each chip legible as a
+ * discrete shape against the card background).
+ *
+ * The text color is NOT the raw chart-N value. This app has dozens of
+ * theme presets (lib/theme-presets.ts, fetched from tweakcn) beyond the
+ * one or two this project maintains by hand, and a chart color tuned to
+ * look good as a solid dataviz swatch is not automatically legible as
+ * small chip text at 16% opacity - several presets' chart-1..5 (including
+ * "Clean Slate", this site's own default) measured well under 4.5:1
+ * contrast that way once a real theme-application bug (camelToKebab in
+ * lib/theme-utils.ts not hyphenating keys ending in a digit - chart1..5 -
+ * so `--chart-1` was silently never set by theme selection) was fixed and
+ * per-theme chart colors actually started reaching these rules for the
+ * first time. Blending each chart color toward the theme's own
+ * `--foreground` token - guaranteed high-contrast against `--card` in any
+ * preset, since body text depends on it - keeps a visible per-topic hue
+ * while making every preset's chips legible without hand-tuning each
+ * preset's palette individually. Verified (see the contrast-check script
+ * used during development) to clear 4.5:1 for all 5 slots on both the
+ * default preset and "Cosmic Glass", light and dark.
+ */
+.topic-chip {
+  gap: 0.25rem;
+  border-radius: 9999px;
+  border-color: transparent;
+  padding-inline: 0.625rem;
+  padding-block: 0.1875rem;
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+.topic-chip-more {
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+}
+.topic-badge-1 {
+  background-color: color-mix(in oklch, var(--chart-1) 16%, transparent);
+  color: color-mix(in oklch, var(--chart-1) 45%, var(--foreground) 55%);
+}
+.topic-badge-2 {
+  background-color: color-mix(in oklch, var(--chart-2) 16%, transparent);
+  color: color-mix(in oklch, var(--chart-2) 45%, var(--foreground) 55%);
+}
+.topic-badge-3 {
+  background-color: color-mix(in oklch, var(--chart-3) 16%, transparent);
+  color: color-mix(in oklch, var(--chart-3) 45%, var(--foreground) 55%);
+}
+.topic-badge-4 {
+  background-color: color-mix(in oklch, var(--chart-4) 16%, transparent);
+  color: color-mix(in oklch, var(--chart-4) 45%, var(--foreground) 55%);
+}
+.topic-badge-5 {
+  background-color: color-mix(in oklch, var(--chart-5) 16%, transparent);
+  color: color-mix(in oklch, var(--chart-5) 45%, var(--foreground) 55%);
+}
+
 .admin-theme input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
   filter: invert(1);
   opacity: 0.85;
+}
+
+/*
+ * "Cosmic Glass" theme preset (see lib/theme-presets.ts /
+ * constants/additional-themes.js) pairs a near-black (dark) or lavender-white
+ * (light) background with translucent surfaces - the blur has to be applied
+ * here rather than baked into a CSS color, since backdrop-filter isn't a
+ * color value. Scoped to this one preset via the data-theme-id attribute
+ * ThemeProvider sets (lib/theme-utils.ts), so every other preset's opaque
+ * surfaces render exactly as before.
+ *
+ * Round 1 only glassed the navbar (a hand-rolled backdrop-blur in
+ * site-header.tsx) plus card/popover/sheet/dialog. Round 2 (maintainer:
+ * "everything should be glass, not just the navbar") extends the same
+ * treatment to every other floating/elevated surface driven by this
+ * preset's own translucent card/popover tokens - dropdown/select menus,
+ * the command palette used by the location/topic pickers, and
+ * alert-dialogs - plus the page footer, which isn't a Radix primitive with
+ * its own data-slot so it's targeted by tag selector instead.
+ */
+[data-theme-id="cosmic-glass"] [data-slot="card"],
+[data-theme-id="cosmic-glass"] [data-slot="popover-content"],
+[data-theme-id="cosmic-glass"] [data-slot="sheet-content"],
+[data-theme-id="cosmic-glass"] [data-slot="dialog-content"],
+[data-theme-id="cosmic-glass"] [data-slot="alert-dialog-content"],
+[data-theme-id="cosmic-glass"] [data-slot="dropdown-menu-content"],
+[data-theme-id="cosmic-glass"] [data-slot="select-content"],
+[data-theme-id="cosmic-glass"] [data-slot="command"],
+[data-theme-id="cosmic-glass"] footer {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/*
+ * sheet-content/dialog-content/alert-dialog-content use the shared
+ * `bg-background` utility (the opaque page-background token, correctly so
+ * for every other preset) rather than `bg-card`/`bg-popover` - so on their
+ * own they'd render opaque here and the blur above would have nothing
+ * translucent to show. Give them this preset's translucent popover surface
+ * instead, without touching `--background` itself (which must stay opaque:
+ * it is also the <body> color, and a translucent body has nothing behind
+ * it to blur).
+ */
+[data-theme-id="cosmic-glass"] [data-slot="sheet-content"],
+[data-theme-id="cosmic-glass"] [data-slot="dialog-content"],
+[data-theme-id="cosmic-glass"] [data-slot="alert-dialog-content"] {
+  background-color: var(--popover);
+}
+
+[data-theme-id="cosmic-glass"] footer {
+  background-color: color-mix(in oklch, var(--card) 80%, transparent);
+  border-color: var(--border);
+}
+
+/*
+ * A flat, textureless page background makes translucency invisible - blurring
+ * a solid color looks identical to a solid color. This decorative,
+ * fixed-position gradient (purple/violet only, no pink) sits behind all page
+ * content so every glass surface above has something soft to blur, in both
+ * color modes.
+ */
+[data-theme-id="cosmic-glass"] body {
+  background-image:
+    radial-gradient(
+      ellipse 60% 50% at 15% 0%,
+      color-mix(in oklch, var(--chart-1) 22%, transparent),
+      transparent
+    ),
+    radial-gradient(
+      ellipse 55% 45% at 85% 20%,
+      color-mix(in oklch, var(--chart-3) 20%, transparent),
+      transparent
+    ),
+    radial-gradient(
+      ellipse 50% 40% at 50% 100%,
+      color-mix(in oklch, var(--chart-5) 16%, transparent),
+      transparent
+    );
+  background-attachment: fixed;
 }
 
 .hackathon-map-approximate-marker {
@@ -195,6 +344,54 @@
   border-radius: 9999px;
   background: white;
   content: "";
+}
+
+/*
+ * Leaflet's default popup chrome (padding, max-width, wrapper border-radius)
+ * is tuned for a couple of lines of plain text, not a full HackathonCard.
+ * Scope overrides to popups holding our card so they don't affect other
+ * Leaflet popups, and let the card supply its own border/background/padding
+ * instead of stacking Leaflet's on top of it.
+ *
+ * Leaflet's own CSS hardcodes `.leaflet-popup-content-wrapper,
+ * .leaflet-popup-tip { background: white; color: #333; }` regardless of the
+ * site's theme - a real dark-mode bug found via live testing (a bright
+ * white popup with dark text over an otherwise dark-themed page). Both
+ * are overridden here to theme tokens so the popup matches whichever
+ * theme/mode is active, same as every other card on the site.
+ */
+.leaflet-popup-content-wrapper:has(.hackathon-map-popup-card) {
+  padding: 0;
+  overflow: hidden;
+  background: var(--card);
+  color: var(--card-foreground);
+}
+
+.leaflet-popup:has(.hackathon-map-popup-card) .leaflet-popup-tip {
+  background: var(--card);
+}
+
+.leaflet-popup-content:has(.hackathon-map-popup-card) {
+  width: 280px !important;
+  margin: 0;
+}
+
+.hackathon-map-popup-card {
+  padding: 0.5rem;
+}
+
+/*
+ * Dark-mode map tiles (issue #8 follow-up): rather than a separate,
+ * deliberately low-detail free dark basemap (Esri's Dark Gray Canvas has
+ * far fewer streets/labels than OpenStreetMap by design), the same
+ * OpenStreetMap tiles used in light mode are recolored with a CSS filter.
+ * This keeps identical map detail/precision between light and dark mode -
+ * only the color treatment differs - and needs no extra tile provider or
+ * API key. Standard "invert + hue-rotate" trick for OSM night styling.
+ */
+.hackathon-map-dark-tiles {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9)
+    saturate(0.6);
 }
 
 @theme inline {
