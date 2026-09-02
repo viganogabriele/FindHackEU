@@ -858,9 +858,9 @@ async function AdminsTab({
       <div className="mb-4 space-y-1">
         <h2 className="text-lg font-semibold">Manage admins</h2>
         <p className="text-sm text-muted-foreground">
-          Anyone listed below can sign in with their own Google account and
-          get full access to this dashboard. Removing someone here takes
-          effect on their next sign-in check.
+          Anyone listed below can sign in with their own Google account and get
+          full access to this dashboard. Removing someone here takes effect on
+          their next sign-in check.
         </p>
       </div>
 
@@ -877,8 +877,8 @@ async function AdminsTab({
               {fallbackEmail}
             </p>
             <p className="text-xs text-muted-foreground">
-              Fallback admin (ADMIN_ALLOWED_EMAIL) - always allowed, can only
-              be changed via the deployment&apos;s environment variables.
+              Fallback admin (ADMIN_ALLOWED_EMAIL) - always allowed, can only be
+              changed via the deployment&apos;s environment variables.
             </p>
           </div>
           <Badge variant="secondary">Fallback</Badge>

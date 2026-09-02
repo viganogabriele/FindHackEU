@@ -100,8 +100,12 @@ export function RemoveAdminButton({
         type="submit"
         variant="destructive"
         size="icon"
-        title={isSelf ? "You can't remove your own admin access" : "Remove admin"}
-        aria-label={isSelf ? "You can't remove your own admin access" : "Remove admin"}
+        title={
+          isSelf ? "You can't remove your own admin access" : "Remove admin"
+        }
+        aria-label={
+          isSelf ? "You can't remove your own admin access" : "Remove admin"
+        }
         disabled={isSelf || isPending}
       >
         <Trash2 aria-hidden="true" />
