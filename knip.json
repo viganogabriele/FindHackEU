@@ -16,7 +16,6 @@
     "!redesign/**",
     "!.worktrees/**"
   ],
-  "ignore": ["next-sitemap.config.js"],
   "ignoreDependencies": [
     "@eslint/eslintrc",
     "eslint-config-next",
