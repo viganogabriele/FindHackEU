@@ -10,6 +10,7 @@ import {
   getMaxFutureCutoff,
 } from "@/lib/config/discovery-config";
 import { fetchWithRetry } from "@/lib/http/fetch-with-retry";
+import { BROWSER_USER_AGENT } from "@/lib/http/user-agent";
 import { validatePreviewImageUrl } from "@/lib/services/preview-image";
 
 interface DevpostTheme {
@@ -168,7 +169,12 @@ export class DevpostParser extends BaseParser {
 
     const url = `${this.baseUrl}?${params.toString()}`;
     const response = await fetchWithRetry(url, {
-      headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
+      headers: {
+        Accept: "application/json",
+        // A bare "Mozilla/5.0" is answered with HTTP 403 by Devpost (and 403
+        // is not retried), which failed this provider on every run.
+        "User-Agent": BROWSER_USER_AGENT,
+      },
     });
 
     if (!response.ok) {

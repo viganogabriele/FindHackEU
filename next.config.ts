@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { PREVIEW_IMAGE_HOSTS } from "./lib/constants/preview-image-hosts";
 
 const nextConfig: NextConfig = {
   compress: true,
@@ -21,12 +22,16 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
 
   images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "*",
-      },
-    ],
+    // An explicit allowlist, NOT a wildcard. `hostname: "*"` here means
+    // "any host" to Next, which made /_next/image an open image proxy on
+    // the deployment: an arbitrary third-party image could be fetched and
+    // re-served through this domain, consuming its metered image
+    // optimization quota. See lib/constants/preview-image-hosts.ts - that
+    // module is also what keeps an unfetchable URL out of the database.
+    remotePatterns: PREVIEW_IMAGE_HOSTS.map((hostname) => ({
+      protocol: "https" as const,
+      hostname,
+    })),
     formats: ["image/webp", "image/avif"],
     minimumCacheTTL: 60,
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
