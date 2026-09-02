@@ -84,6 +84,7 @@
   "view.label": "Choisir la vue des résultats",
   "view.list": "Liste",
   "view.map": "Carte",
+  "view.calendar": "Calendrier",
   "action.viewEvent": "Voir l’événement",
   "map.markers": "{count} événements avec une position sur la carte",
   "map.approximateLocation": "Emplacement approximatif du pays",
@@ -113,5 +114,12 @@
   "badge.new": "Nouveau",
   "location.online": "En ligne",
   "location.hybrid": "Hybride",
-  "location.tbd": "À confirmer"
+  "location.tbd": "À confirmer",
+  "calendarView.today": "Aujourd'hui",
+  "calendarView.previousMonth": "Mois précédent",
+  "calendarView.nextMonth": "Mois suivant",
+  "calendarView.gridCaption": "Calendrier de {month}",
+  "calendarView.moreEvents": "+{count} autres",
+  "calendarView.eventCount": "{count} événements",
+  "calendarView.empty": "Aucun hackathon ce mois-ci"
 }

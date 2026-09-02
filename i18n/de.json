@@ -84,6 +84,7 @@
   "view.label": "Ansicht der Ergebnisse auswählen",
   "view.list": "Liste",
   "view.map": "Karte",
+  "view.calendar": "Kalender",
   "action.viewEvent": "Event ansehen",
   "map.markers": "{count} Events mit Kartenposition",
   "map.approximateLocation": "Ungefährer Standort des Landes",
@@ -113,5 +114,12 @@
   "badge.new": "Neu",
   "location.online": "Online",
   "location.hybrid": "Hybrid",
-  "location.tbd": "Noch nicht bekannt"
+  "location.tbd": "Noch nicht bekannt",
+  "calendarView.today": "Heute",
+  "calendarView.previousMonth": "Vorheriger Monat",
+  "calendarView.nextMonth": "Nächster Monat",
+  "calendarView.gridCaption": "Kalender für {month}",
+  "calendarView.moreEvents": "+{count} weitere",
+  "calendarView.eventCount": "{count} Veranstaltungen",
+  "calendarView.empty": "Keine Hackathons in diesem Monat"
 }
