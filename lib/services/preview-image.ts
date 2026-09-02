@@ -1,6 +1,17 @@
 import { assertPublicHttpUrl } from "@/lib/http/fetch-public-url";
+import { isAllowedPreviewImageHost } from "@/lib/constants/preview-image-hosts";
 
-/** Validate a source-provided image URL without fetching it. */
+/**
+ * Validate a source-provided image URL without fetching it.
+ *
+ * Two independent conditions, both required: the URL must be a public
+ * HTTP(S) destination (no loopback/private/metadata address - see
+ * `assertPublicHttpUrl`), and its host must be one `next/image` is
+ * configured to fetch (see lib/constants/preview-image-hosts.ts). The
+ * second check keeps a URL the image optimizer would reject with a 400 out
+ * of the database entirely, so the card renders with no image rather than
+ * a broken one.
+ */
 export function validatePreviewImageUrl(
   rawUrl: string | undefined | null,
 ): string | undefined {
@@ -11,7 +22,8 @@ export function validatePreviewImageUrl(
     : rawUrl.trim();
 
   try {
-    return assertPublicHttpUrl(candidate).toString();
+    const url = assertPublicHttpUrl(candidate);
+    return isAllowedPreviewImageHost(url.hostname) ? url.toString() : undefined;
   } catch {
     return undefined;
   }

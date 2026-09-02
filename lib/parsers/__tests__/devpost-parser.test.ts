@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DevpostParser } from "@/lib/parsers/devpost-parser";
+import { PREVIEW_IMAGE_HOSTS } from "@/lib/constants/preview-image-hosts";
 
 interface MockHackathon {
   id: number;
@@ -46,6 +47,11 @@ function mockFetch(
 }
 
 const NOW = new Date("2026-09-01T00:00:00.000Z");
+
+// Devpost's real thumbnail CDN, and the host next/image is configured to
+// fetch - a thumbnail on any other host is dropped by
+// validatePreviewImageUrl (see lib/constants/preview-image-hosts.ts).
+const THUMBNAIL_HOST = PREVIEW_IMAGE_HOSTS[0];
 
 describe("DevpostParser", () => {
   beforeEach(() => {
@@ -111,7 +117,7 @@ describe("DevpostParser", () => {
           open_state: "upcoming",
           displayed_location: "Berlin, Germany",
           themes: [],
-          thumbnail_url: "//cdn.example.com/thumb.jpg",
+          thumbnail_url: `//${THUMBNAIL_HOST}/thumb.jpg`,
         },
       ],
     ]);
@@ -121,7 +127,7 @@ describe("DevpostParser", () => {
     const [hackathon] = (await pendingParse).hackathons;
 
     expect(hackathon.preview_image_url).toBe(
-      "https://cdn.example.com/thumb.jpg",
+      `https://${THUMBNAIL_HOST}/thumb.jpg`,
     );
   });
 
@@ -136,7 +142,7 @@ describe("DevpostParser", () => {
           open_state: "upcoming",
           displayed_location: "Berlin, Germany",
           themes: [],
-          thumbnail_url: "https://cdn.example.com/thumb.jpg",
+          thumbnail_url: `https://${THUMBNAIL_HOST}/thumb.jpg`,
         },
       ],
     ]);
@@ -146,7 +152,7 @@ describe("DevpostParser", () => {
     const [hackathon] = (await pendingParse).hackathons;
 
     expect(hackathon.preview_image_url).toBe(
-      "https://cdn.example.com/thumb.jpg",
+      `https://${THUMBNAIL_HOST}/thumb.jpg`,
     );
   });
 
