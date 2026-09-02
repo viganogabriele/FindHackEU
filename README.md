@@ -37,7 +37,7 @@ cp .env.example .env.local
 npx supabase start
 ```
 
-`supabase start` boots a local Postgres/Studio stack and applies the repository's migrations automatically (`supabase/seed.sql` is intentionally empty — real data comes from running the pipeline, not seed fixtures). Copy the API URL, anon key, and service-role key it prints into `.env.local` as `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`, set `CRON_SECRET` to any value you choose, then start the app:
+`supabase start` boots a local Postgres/Studio stack, applies the repository's migrations, and loads `supabase/seed.sql` — a small set of realistic, clearly-fake sample hackathons and moderation-queue candidates, so the site and `/admin` have something to look at immediately with zero API keys configured. Copy the API URL, anon key, and service-role key it prints into `.env.local` as `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`, set `CRON_SECRET` to any value you choose, then start the app:
 
 ```bash
 npm run dev
@@ -60,14 +60,14 @@ Every stage of the ingestion pipeline reports its own status independently, so o
 
 ## Useful commands
 
-| Command                  | Purpose                                    |
-| ------------------------ | ------------------------------------------- |
-| `npm run dev`             | Start the development server.               |
-| `npm run lint`             | Run ESLint.                                  |
-| `npm run test`              | Run the Vitest test suite.                    |
-| `npx tsc --noEmit`           | Type-check the project.                        |
-| `npm run build`               | Build for production.                           |
-| `npm run trigger-update`         | Run the discovery pipeline against your local Supabase instance. |
+| Command                  | Purpose                                                          |
+| ------------------------ | ---------------------------------------------------------------- |
+| `npm run dev`            | Start the development server.                                    |
+| `npm run lint`           | Run ESLint.                                                      |
+| `npm run test`           | Run the Vitest test suite.                                       |
+| `npx tsc --noEmit`       | Type-check the project.                                          |
+| `npm run build`          | Build for production.                                            |
+| `npm run trigger-update` | Run the discovery pipeline against your local Supabase instance. |
 
 For architecture and environment details, see [CLAUDE.md](./CLAUDE.md), [AGENTS.md](./AGENTS.md), and [.env.example](./.env.example). Product and API documentation lives at `/docs` on the running site. To deploy your own instance to Vercel + Supabase, see [`docs/production-deployment.md`](./docs/production-deployment.md).
 
