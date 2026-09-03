@@ -59,51 +59,6 @@ describe("HackathonCard", () => {
     expect(document.querySelector(".lucide-calendar")).toBeTruthy();
   });
 
-  it("only defers off-screen rendering for an explicit consumer", () => {
-    const { container, rerender } = renderCard(base);
-    expect(
-      container
-        .querySelector('[data-slot="card-content"]')
-        ?.classList.contains("[content-visibility:auto]"),
-    ).toBe(false);
-
-    rerender(
-      <TranslationProvider>
-        <HackathonCard hackathon={base} deferOffscreen />
-      </TranslationProvider>,
-    );
-    expect(
-      container
-        .querySelector('[data-slot="card-content"]')
-        ?.classList.contains("[content-visibility:auto]"),
-    ).toBe(true);
-    expect(
-      container
-        .querySelector('[data-slot="card-content"]')
-        ?.classList.contains("[contain-intrinsic-size:auto_4rem]"),
-    ).toBe(true);
-  });
-
-  it("uses the smaller intrinsic estimate when deferred card has no topics", () => {
-    const { container } = render(
-      <TranslationProvider>
-        <HackathonCard
-          hackathon={{
-            ...base,
-            topics: [],
-          }}
-          deferOffscreen
-        />
-      </TranslationProvider>,
-    );
-
-    expect(
-      container
-        .querySelector('[data-slot="card-content"]')
-        ?.classList.contains("[contain-intrinsic-size:auto_1.875rem]"),
-    ).toBe(true);
-  });
-
   it("renders a fixed-ratio preview image when one is available", () => {
     renderCard({
       ...base,

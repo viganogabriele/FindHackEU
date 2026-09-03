@@ -95,12 +95,6 @@ interface HackathonCardProps {
   compact?: boolean;
   /** Replace public light-mode topic colors with admin theme tokens. */
   adminTheme?: boolean;
-  /**
-   * Lets the long public list skip browser paint/layout for cards outside
-   * the viewport. Compact cards, map popups, and calendar popovers keep
-   * their natural sizing.
-   */
-  deferOffscreen?: boolean;
   className?: string;
 }
 
@@ -118,7 +112,6 @@ export function HackathonCard({
   titleLink = false,
   compact = false,
   adminTheme = false,
-  deferOffscreen = false,
   className,
 }: HackathonCardProps) {
   const { t, formatDateRange } = useTranslation();
@@ -213,19 +206,7 @@ export function HackathonCard({
       </CardHeader>
 
       <CardContent
-        className={cn(
-          "flex-1 space-y-4",
-          // Keep the outer card's real height in layout. Only its variable
-          // metadata body is deferred, with estimates grouped by whether
-          // topic badges exist (measured medians: 30px vs 64px). This avoids
-          // the multi-hundred-pixel scroll-height corrections that occur
-          // when the whole variable-height card is size-contained.
-          deferOffscreen &&
-            (hackathon.topics?.length
-              ? "[content-visibility:auto] [contain-intrinsic-size:auto_4rem]"
-              : "[content-visibility:auto] [contain-intrinsic-size:auto_1.875rem]"),
-          compact && "space-y-2 px-4 py-2",
-        )}
+        className={cn("flex-1 space-y-4", compact && "space-y-2 px-4 py-2")}
       >
         <div className="space-y-2">
           <div
