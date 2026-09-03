@@ -62,9 +62,9 @@ describe("HackathonCard", () => {
   it("only defers off-screen rendering for an explicit consumer", () => {
     const { container, rerender } = renderCard(base);
     expect(
-      container.querySelector('[data-slot="card-content"]')?.classList.contains(
-        "[content-visibility:auto]",
-      ),
+      container
+        .querySelector('[data-slot="card-content"]')
+        ?.classList.contains("[content-visibility:auto]"),
     ).toBe(false);
 
     rerender(
@@ -73,14 +73,14 @@ describe("HackathonCard", () => {
       </TranslationProvider>,
     );
     expect(
-      container.querySelector('[data-slot="card-content"]')?.classList.contains(
-        "[content-visibility:auto]",
-      ),
+      container
+        .querySelector('[data-slot="card-content"]')
+        ?.classList.contains("[content-visibility:auto]"),
     ).toBe(true);
     expect(
-      container.querySelector('[data-slot="card-content"]')?.classList.contains(
-        "[contain-intrinsic-size:auto_4rem]",
-      ),
+      container
+        .querySelector('[data-slot="card-content"]')
+        ?.classList.contains("[contain-intrinsic-size:auto_4rem]"),
     ).toBe(true);
   });
 
@@ -98,9 +98,9 @@ describe("HackathonCard", () => {
     );
 
     expect(
-      container.querySelector('[data-slot="card-content"]')?.classList.contains(
-        "[contain-intrinsic-size:auto_1.875rem]",
-      ),
+      container
+        .querySelector('[data-slot="card-content"]')
+        ?.classList.contains("[contain-intrinsic-size:auto_1.875rem]"),
     ).toBe(true);
   });
 
