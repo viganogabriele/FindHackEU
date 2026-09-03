@@ -40,6 +40,8 @@ const DEFERRED = [
   },
 ];
 
+const FILTERS_PANEL = join("components", "filters-panel.tsx");
+
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
     const path = join(dir, entry);
@@ -68,4 +70,13 @@ describe("client bundle guard", () => {
       expect(offenders).toEqual([]);
     },
   );
+
+  it("loads the date picker only after the date filter is opened", () => {
+    const source = readFileSync(FILTERS_PANEL, "utf8");
+
+    expect(source).not.toMatch(
+      /import\s+\{\s*Calendar\s*\}\s+from\s+["']@\/components\/ui\/calendar["']/,
+    );
+    expect(source).toContain('import("@/components/ui/calendar")');
+  });
 });
