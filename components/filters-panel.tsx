@@ -14,6 +14,7 @@ import {
   Search,
 } from "lucide-react";
 import type { HackathonTopic } from "@/lib/constants/topics";
+import type { EventType } from "@/lib/event-type";
 import {
   DEFAULT_RADIUS_KM,
   countryCodeFromLocationValue,
@@ -125,6 +126,7 @@ export function FiltersPanel({
     filters.locations.length +
     Number(Boolean(filters.radius)) +
     filters.topics.length +
+    Number(filters.eventType !== "all") +
     Number(Boolean(filters.dateRange?.from || filters.dateRange?.to)) +
     Number(!filters.includeNonEnglish) +
     Number(!filters.includeOnline) +
@@ -218,6 +220,15 @@ export function FiltersPanel({
       label: topic,
       onRemove: () => toggleTopic(topic),
     })),
+    ...(filters.eventType !== "all"
+      ? [
+          {
+            id: "event-type",
+            label: t(`eventType.${filters.eventType}`),
+            onRemove: () => updateFilter("eventType", "all"),
+          },
+        ]
+      : []),
     ...(filters.dateRange?.from
       ? [
           {
@@ -304,6 +315,31 @@ export function FiltersPanel({
           </Select>
         </Field>
       </div>
+      <Field label={t("eventType")}>
+        <Select
+          value={filters.eventType}
+          onValueChange={(value: EventType | "all") =>
+            updateFilter("eventType", value)
+          }
+        >
+          <SelectTrigger aria-label={t("eventType")}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("eventType.all")}</SelectItem>
+            <SelectItem value="hackathon">
+              {t("eventType.hackathon")}
+            </SelectItem>
+            <SelectItem value="challenge">
+              {t("eventType.challenge")}
+            </SelectItem>
+            <SelectItem value="competition">
+              {t("eventType.competition")}
+            </SelectItem>
+            <SelectItem value="other">{t("eventType.other")}</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
       <Field label={t("locations")}>
         {availableLocations.length === 0 ? (
           <p

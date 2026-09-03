@@ -17,6 +17,24 @@ vi.stubGlobal(
 );
 
 describe("FiltersPanel", () => {
+  it("offers an event-type filter", () => {
+    render(
+      <TranslationProvider>
+        <FilterProvider>
+          <FiltersPanel
+            uniqueUpcomingLocations={[]}
+            uniquePastLocations={[]}
+            uniqueTopics={[]}
+          />
+        </FilterProvider>
+      </TranslationProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    expect(screen.getByText("Event type")).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "Event type" })).toBeTruthy();
+  });
+
   it("removes the hide-non-English filter when its chip is dismissed", () => {
     render(
       <TranslationProvider>

@@ -4,12 +4,14 @@ import { createContext, useContext, useState, ReactNode } from "react";
 import { DateRange } from "react-day-picker";
 import type { HackathonTopic } from "@/lib/constants/topics";
 import type { RadiusFilter } from "@/lib/location-filter";
+import type { EventType } from "@/lib/event-type";
 
 export interface FilterState {
   search: string;
   locations: string[];
   radius: RadiusFilter | null;
   topics: HackathonTopic[];
+  eventType: EventType | "all";
   dateRange: DateRange | undefined;
   status: "upcoming" | "past";
   sort: "asc" | "desc";
@@ -44,6 +46,7 @@ const initialFilters: FilterState = {
   locations: [],
   radius: null,
   topics: [],
+  eventType: "all",
   dateRange: undefined,
   status: "upcoming",
   sort: "asc",

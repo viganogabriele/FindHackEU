@@ -56,7 +56,7 @@ export async function GET(request: Request) {
     let query = supabase
       .from("hackathons")
       .select(
-        "id, name, city, country_code, latitude, longitude, location_type, venue, date_start, date_end, topics, notes, preview_image_url, url, status, is_new, source",
+        "id, name, city, country_code, latitude, longitude, location_type, venue, date_start, date_end, topics, notes, url, status, is_new, source",
       )
       .eq("status", status)
       // Issue #72: an archived hackathon (manual "Archive" action, or the
