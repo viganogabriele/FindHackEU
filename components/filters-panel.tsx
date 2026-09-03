@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import { format } from "date-fns";
 import { enGB } from "date-fns/locale";
 import {
@@ -31,7 +32,6 @@ import {
 } from "@/components/active-filter-chips";
 import { PublicSubmitForm } from "@/components/public-submit-form";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Command,
   CommandEmpty,
@@ -65,6 +65,13 @@ import {
 } from "@/components/ui/sheet";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+
+// `react-day-picker` is only needed after the visitor opens the date filter.
+// A static import here made its ~60 KB gzip chunk part of every home visit,
+// even though the enclosing Popover is closed by default.
+const Calendar = dynamic(() =>
+  import("@/components/ui/calendar").then((module) => module.Calendar),
+);
 
 const MIN_RADIUS_KM = 5;
 const MAX_RADIUS_KM = 500;
