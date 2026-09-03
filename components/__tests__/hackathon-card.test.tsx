@@ -62,7 +62,7 @@ describe("HackathonCard", () => {
   it("only defers off-screen rendering for an explicit consumer", () => {
     const { container, rerender } = renderCard(base);
     expect(
-      container.firstElementChild?.classList.contains(
+      container.querySelector('[data-slot="card-content"]')?.classList.contains(
         "[content-visibility:auto]",
       ),
     ).toBe(false);
@@ -73,24 +73,24 @@ describe("HackathonCard", () => {
       </TranslationProvider>,
     );
     expect(
-      container.firstElementChild?.classList.contains(
+      container.querySelector('[data-slot="card-content"]')?.classList.contains(
         "[content-visibility:auto]",
       ),
     ).toBe(true);
     expect(
-      container.firstElementChild?.classList.contains(
-        "[contain-intrinsic-size:auto_16.5rem]",
+      container.querySelector('[data-slot="card-content"]')?.classList.contains(
+        "[contain-intrinsic-size:auto_4rem]",
       ),
     ).toBe(true);
   });
 
-  it("uses the image-sized intrinsic estimate for deferred image cards", () => {
+  it("uses the smaller intrinsic estimate when deferred card has no topics", () => {
     const { container } = render(
       <TranslationProvider>
         <HackathonCard
           hackathon={{
             ...base,
-            preview_image_url: "https://cdn.example.com/image.jpg",
+            topics: [],
           }}
           deferOffscreen
         />
@@ -98,8 +98,8 @@ describe("HackathonCard", () => {
     );
 
     expect(
-      container.firstElementChild?.classList.contains(
-        "[contain-intrinsic-size:auto_27rem]",
+      container.querySelector('[data-slot="card-content"]')?.classList.contains(
+        "[contain-intrinsic-size:auto_1.875rem]",
       ),
     ).toBe(true);
   });

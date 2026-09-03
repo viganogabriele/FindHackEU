@@ -132,14 +132,6 @@ export function HackathonCard({
     <Card
       className={cn(
         "flex h-full flex-col border-border/80 transition-all duration-200 hover:border-border hover:shadow-md",
-        // `content-visibility` needs a size estimate before a card has been
-        // visited. These are measured public-list medians: 433px / 266px on
-        // a 390px viewport and 456px / 416px from xl upwards. Matching the
-        // card's image shape avoids moving the scrollbar as it is revealed.
-        deferOffscreen &&
-          (hackathon.preview_image_url
-            ? "[content-visibility:auto] [contain-intrinsic-size:auto_27rem] xl:[contain-intrinsic-size:auto_28.5rem]"
-            : "[content-visibility:auto] [contain-intrinsic-size:auto_16.5rem] xl:[contain-intrinsic-size:auto_26rem]"),
         compact && "gap-1 py-1",
         className,
       )}
@@ -221,7 +213,19 @@ export function HackathonCard({
       </CardHeader>
 
       <CardContent
-        className={cn("flex-1 space-y-4", compact && "space-y-2 px-4 py-2")}
+        className={cn(
+          "flex-1 space-y-4",
+          // Keep the outer card's real height in layout. Only its variable
+          // metadata body is deferred, with estimates grouped by whether
+          // topic badges exist (measured medians: 30px vs 64px). This avoids
+          // the multi-hundred-pixel scroll-height corrections that occur
+          // when the whole variable-height card is size-contained.
+          deferOffscreen &&
+            (hackathon.topics?.length
+              ? "[content-visibility:auto] [contain-intrinsic-size:auto_4rem]"
+              : "[content-visibility:auto] [contain-intrinsic-size:auto_1.875rem]"),
+          compact && "space-y-2 px-4 py-2",
+        )}
       >
         <div className="space-y-2">
           <div
