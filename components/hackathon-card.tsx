@@ -124,7 +124,12 @@ export function HackathonCard({
   return (
     <Card
       className={cn(
-        "flex h-full flex-col border-border/80 transition-all duration-200 hover:border-border hover:shadow-md",
+        // The home can contain hundreds of cards. Keep off-screen cards in
+        // the DOM (so filtering, find-in-page, and scroll position retain
+        // their current behavior), but let supporting browsers skip their
+        // paint/layout work until they approach the viewport. The fallback
+        // intrinsic height prevents the grid from collapsing while skipped.
+        "[content-visibility:auto] [contain-intrinsic-size:auto_28rem] flex h-full flex-col border-border/80 transition-all duration-200 hover:border-border hover:shadow-md",
         compact && "gap-1 py-1",
         className,
       )}

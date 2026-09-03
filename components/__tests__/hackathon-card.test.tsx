@@ -59,6 +59,16 @@ describe("HackathonCard", () => {
     expect(document.querySelector(".lucide-calendar")).toBeTruthy();
   });
 
+  it("defers off-screen paint and layout without removing the card from the DOM", () => {
+    const { container } = renderCard(base);
+    const card = container.firstElementChild;
+
+    expect(card?.classList.contains("[content-visibility:auto]")).toBe(true);
+    expect(
+      card?.classList.contains("[contain-intrinsic-size:auto_28rem]"),
+    ).toBe(true);
+  });
+
   it("renders a fixed-ratio preview image when one is available", () => {
     renderCard({
       ...base,
