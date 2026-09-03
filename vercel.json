@@ -29,5 +29,15 @@
       "source": "/hackathons",
       "destination": "/api/hackathons"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/update",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/archive-old-hackathons",
+      "schedule": "0 4 * * 1"
+    }
   ]
 }

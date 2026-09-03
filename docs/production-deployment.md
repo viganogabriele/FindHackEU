@@ -244,24 +244,26 @@ for one platform never block the others or the pipeline run.
 Two workflows in `.github/workflows/` are meant to run against your live
 deployment, not localhost:
 
-1. **`update.yml`** — triggers the daily ingestion pipeline
-   (`POST /api/update`). It needs a repository **secret** named
-   `CRON_SECRET` (Settings → Secrets and variables → Actions → New
-   repository secret) matching the value you set in Vercel.
+1. **`update.yml`** and **`archive-old-hackathons.yml`** — manual
+   triggers only (`workflow_dispatch`). They still need the repository
+   **secret** `CRON_SECRET` (Settings → Secrets and variables → Actions →
+   New repository secret) and the **variable** `APP_URL`, but nothing runs
+   them on a schedule any more.
 
-   **Flag before you rely on this:** as checked in this repo's current
-   state, `update.yml` calls a **hardcoded URL**
-   (`https://hacktrack-eu.vercel.app/api/update`), not the `APP_URL`
-   repository variable that `CLAUDE.md` describes it as using and that
-   `uptime.yml` (below) actually does use. If you're deploying to a
-   _different_ Vercel domain (a fork, a renamed project, or before a custom
-   domain is attached), **you must edit the hardcoded URL in
-   `.github/workflows/update.yml` to your real deployment URL** — the
-   workflow will otherwise silently keep hitting the old project's domain
-   and never trigger your pipeline. Consider switching it to read
-   `${{ vars.APP_URL }}` (like `uptime.yml` does) as part of your setup, so
-   both workflows share one source of truth — that's an application/infra
-   change you'd be making yourself, not something this doc changes for you.
+   **Scheduling is Vercel Cron**, declared in `vercel.json`'s `crons`
+   array, and needs no GitHub configuration at all: Vercel calls the
+   deployment directly and sends `Authorization: Bearer $CRON_SECRET`
+   itself from the project's own env var.
+
+   GitHub Actions was tried first and does not work for this — it drops
+   most scheduled runs on the free tier. Measured over 24h: `uptime.yml`
+   declares 96 runs/day and fired 7; `update.yml`'s weekday slots never
+   fired at all.
+
+   **Hobby-plan constraint:** a Vercel cron may run at most **once per
+   day**, with ±59 min precision; a more frequent expression fails at
+   deploy time. That is why `uptime.yml` (every 15 min) stays on GitHub
+   Actions.
 
 2. **`uptime.yml`** — pings `/api/health` every 15 minutes. It reads the
    **repository variable** `APP_URL` (Settings → Secrets and variables →
@@ -307,9 +309,9 @@ the deployment done:
       confirm the pipeline works end-to-end against the hosted Supabase
       project:
       `bash
-  curl -X POST https://<your-domain>/api/update \
-    -H "Authorization: Bearer $CRON_SECRET"
-  `
+curl -X POST https://<your-domain>/api/update \
+  -H "Authorization: Bearer $CRON_SECRET"
+`
       Check the JSON response body for per-source `status`, `insertedCount`,
       any `updateErrors`, and the top-level `degraded` flag — per
       `CLAUDE.md`, the route always returns a detailed diagnostic body
@@ -321,11 +323,10 @@ the deployment done:
       in step 2.
 - [ ] **The `update_runs` table has a row** for the run above, with
       `status: 'success'` (Supabase Studio → Table Editor, or SQL).
-- [ ] **Cron actually fires.** After `update.yml` is wired up (step 4),
-      either wait for its next scheduled run or trigger it manually via
-      `workflow_dispatch` from the Actions tab, and confirm it hits your
-      real deployment (check the workflow's logs for the URL it called and
-      the HTTP status it got back) rather than the old hardcoded domain.
+- [ ] **Cron actually fires.** The Vercel dashboard's Cron Jobs tab lists
+      each job with its last run and status. Remember the Hobby ±59 min
+      window before concluding a job is stuck, and note that crons only run
+      on **production** deployments, never on previews.
 - [ ] **Uptime check passes.** After `uptime.yml`'s `APP_URL` variable is
       set, trigger it manually once and confirm it succeeds against your
       domain.

@@ -1,14 +1,16 @@
 name: Auto Update Hackathons
 
+# Scheduling moved to Vercel Cron (see `crons` in vercel.json). GitHub
+# Actions was dropping most scheduled runs: the uptime check declares
+# `*/15 * * * *` (96/day) and actually fired 7 times in 24h, and this
+# workflow's own weekday slots never fired at all. Vercel invokes the
+# deployment directly, so there is no APP_URL indirection and no CRON_SECRET
+# round trip.
+#
+# Kept as a manual escape hatch - `gh workflow run update.yml`, or the Run
+# workflow button - for triggering a run on demand without waiting for the
+# daily cron.
 on:
-  schedule:
-    # FERIALI (Lun-Ven) - 3 chiamate al giorno in UTC
-    - cron: "0 8 * * 1-5" # 10:00 CET
-    - cron: "0 13 * * 1-5" # 15:00 CET
-    - cron: "0 17 * * 1-5" # 19:00 CET
-    # WEEKEND (Sab-Dom) - 2 chiamate al giorno
-    - cron: "0 10 * * 6,0" # 12:00 CET
-    - cron: "0 16 * * 6,0" # 18:00 CET
   workflow_dispatch:
 
 jobs:

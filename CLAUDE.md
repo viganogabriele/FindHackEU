@@ -58,7 +58,11 @@ Nothing runs automatically outside a real deployment + cron.
 - The `/admin` dashboard has a dev-only manual trigger button (`app/admin/trigger-update-button.tsx`) that calls `app/api/dev/trigger-update/route.ts` — 404s outside development, always forces `x-test-mode: true` so a stray click never sends real notifications.
 - Or directly: `curl -X POST http://localhost:3000/api/update -H "Authorization: Bearer $CRON_SECRET" -H "x-test-mode: true"`.
 
-The production cron (`.github/workflows/update.yml`) currently runs five times a week-day-weighted schedule — three times on weekdays (08:00/13:00/17:00 UTC) and twice at weekends (10:00/16:00 UTC) — against the deployment's `APP_URL` repository variable. The separate weekly retention sweep is `.github/workflows/archive-old-hackathons.yml`.
+Production scheduling lives in **Vercel Cron** (the `crons` array in `vercel.json`), not GitHub Actions: `/api/update` daily at 06:00 UTC, `/api/archive-old-hackathons` weekly on Mondays at 04:00 UTC. Vercel invokes the deployment directly and sends `Authorization: Bearer $CRON_SECRET` itself, so there's no `APP_URL` indirection and no secret round trip. Both routes therefore export a `GET` handler that delegates to `POST` — Vercel Cron issues GET.
+
+GitHub Actions was tried first and does not work for this: it drops most scheduled runs on the free tier (`uptime.yml` declares `*/15 * * * *`, i.e. 96/day, and fired 7 times in 24h; `update.yml`'s weekday slots never fired at all). `update.yml` and `archive-old-hackathons.yml` are kept as manual `workflow_dispatch` escape hatches only.
+
+**Hobby-plan constraint:** Vercel Cron on Hobby allows at most one run per day per job, with ±59 min precision — a more frequent expression fails at deploy time. `uptime.yml` therefore stays on GitHub Actions (a site can't usefully monitor itself anyway).
 
 ## Discovery coverage & data quality roadmap
 
