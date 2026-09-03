@@ -59,13 +59,48 @@ describe("HackathonCard", () => {
     expect(document.querySelector(".lucide-calendar")).toBeTruthy();
   });
 
-  it("defers off-screen paint and layout without removing the card from the DOM", () => {
-    const { container } = renderCard(base);
-    const card = container.firstElementChild;
-
-    expect(card?.classList.contains("[content-visibility:auto]")).toBe(true);
+  it("only defers off-screen rendering for an explicit consumer", () => {
+    const { container, rerender } = renderCard(base);
     expect(
-      card?.classList.contains("[contain-intrinsic-size:auto_28rem]"),
+      container.firstElementChild?.classList.contains(
+        "[content-visibility:auto]",
+      ),
+    ).toBe(false);
+
+    rerender(
+      <TranslationProvider>
+        <HackathonCard hackathon={base} deferOffscreen />
+      </TranslationProvider>,
+    );
+    expect(
+      container.firstElementChild?.classList.contains(
+        "[content-visibility:auto]",
+      ),
+    ).toBe(true);
+    expect(
+      container.firstElementChild?.classList.contains(
+        "[contain-intrinsic-size:auto_16.5rem]",
+      ),
+    ).toBe(true);
+  });
+
+  it("uses the image-sized intrinsic estimate for deferred image cards", () => {
+    const { container } = render(
+      <TranslationProvider>
+        <HackathonCard
+          hackathon={{
+            ...base,
+            preview_image_url: "https://cdn.example.com/image.jpg",
+          }}
+          deferOffscreen
+        />
+      </TranslationProvider>,
+    );
+
+    expect(
+      container.firstElementChild?.classList.contains(
+        "[contain-intrinsic-size:auto_27rem]",
+      ),
     ).toBe(true);
   });
 

@@ -53,6 +53,9 @@ function PublicHackathonCard({
   return (
     <HackathonCard
       hackathon={hackathon}
+      // There can be hundreds of cards in this list. Other consumers keep
+      // natural sizing because their containers have different constraints.
+      deferOffscreen
       actions={
         <>
           {status === "upcoming" && (

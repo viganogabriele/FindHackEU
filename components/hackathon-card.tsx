@@ -95,6 +95,12 @@ interface HackathonCardProps {
   compact?: boolean;
   /** Replace public light-mode topic colors with admin theme tokens. */
   adminTheme?: boolean;
+  /**
+   * Lets the long public list skip browser paint/layout for cards outside
+   * the viewport. Compact cards, map popups, and calendar popovers keep
+   * their natural sizing.
+   */
+  deferOffscreen?: boolean;
   className?: string;
 }
 
@@ -112,6 +118,7 @@ export function HackathonCard({
   titleLink = false,
   compact = false,
   adminTheme = false,
+  deferOffscreen = false,
   className,
 }: HackathonCardProps) {
   const { t, formatDateRange } = useTranslation();
@@ -124,12 +131,15 @@ export function HackathonCard({
   return (
     <Card
       className={cn(
-        // The home can contain hundreds of cards. Keep off-screen cards in
-        // the DOM (so filtering, find-in-page, and scroll position retain
-        // their current behavior), but let supporting browsers skip their
-        // paint/layout work until they approach the viewport. The fallback
-        // intrinsic height prevents the grid from collapsing while skipped.
-        "[content-visibility:auto] [contain-intrinsic-size:auto_28rem] flex h-full flex-col border-border/80 transition-all duration-200 hover:border-border hover:shadow-md",
+        "flex h-full flex-col border-border/80 transition-all duration-200 hover:border-border hover:shadow-md",
+        // `content-visibility` needs a size estimate before a card has been
+        // visited. These are measured public-list medians: 433px / 266px on
+        // a 390px viewport and 456px / 416px from xl upwards. Matching the
+        // card's image shape avoids moving the scrollbar as it is revealed.
+        deferOffscreen &&
+          (hackathon.preview_image_url
+            ? "[content-visibility:auto] [contain-intrinsic-size:auto_27rem] xl:[contain-intrinsic-size:auto_28.5rem]"
+            : "[content-visibility:auto] [contain-intrinsic-size:auto_16.5rem] xl:[contain-intrinsic-size:auto_26rem]"),
         compact && "gap-1 py-1",
         className,
       )}
