@@ -21,6 +21,7 @@ describe("filterAndSortHackathons", () => {
       locations: [],
       radius: null,
       topics: [],
+      eventType: "all" as const,
       dateRange: undefined,
       status: "upcoming" as const,
       sort: "asc" as const,
@@ -48,6 +49,7 @@ describe("filterAndSortHackathons", () => {
       locations: [],
       radius: null,
       topics: [],
+      eventType: "all" as const,
       dateRange: undefined,
       status: "upcoming" as const,
       sort: "asc" as const,
@@ -75,6 +77,7 @@ describe("filterAndSortHackathons", () => {
       locations: [],
       radius: null,
       topics: [],
+      eventType: "all" as const,
       dateRange: undefined,
       status: "upcoming" as const,
       sort: "asc" as const,
@@ -102,6 +105,7 @@ describe("filterAndSortHackathons", () => {
       locations: [],
       radius: null,
       topics: [],
+      eventType: "all" as const,
       dateRange: undefined,
       status: "upcoming" as const,
       sort: "asc" as const,
@@ -127,6 +131,7 @@ describe("filterAndSortHackathons", () => {
       locations: [],
       radius: null,
       topics: [],
+      eventType: "all" as const,
       dateRange: undefined,
       status: "upcoming" as const,
       sort: "asc" as const,
@@ -139,6 +144,31 @@ describe("filterAndSortHackathons", () => {
       filterAndSortHackathons([baseHackathon, onlineHackathon], filters, "en"),
     ).toEqual([baseHackathon]);
   });
+
+  it("filters challenge events independently from hackathons", () => {
+    const challenge = {
+      ...baseHackathon,
+      id: "challenge",
+      name: "Open Data Challenge",
+    };
+    const filters = {
+      search: "",
+      locations: [],
+      radius: null,
+      topics: [],
+      eventType: "challenge" as const,
+      dateRange: undefined,
+      status: "upcoming" as const,
+      sort: "asc" as const,
+      includeNonEnglish: true,
+      includeOnline: true,
+      showBookmarked: false,
+    };
+
+    expect(
+      filterAndSortHackathons([baseHackathon, challenge], filters, "en"),
+    ).toEqual([challenge]);
+  });
   // react-day-picker hands back both ends of a picked range at local
   // midnight. Comparing `date_start` against `to` directly dropped every
   // event on the last day the visitor picked: "1 Oct - 10 Oct" excluded a
@@ -150,6 +180,7 @@ describe("filterAndSortHackathons", () => {
       locations: [],
       radius: null,
       topics: [],
+      eventType: "all" as const,
       dateRange: { from, to },
       status: "upcoming" as const,
       sort: "asc" as const,

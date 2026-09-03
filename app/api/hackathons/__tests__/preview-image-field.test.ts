@@ -27,12 +27,11 @@ function createQueryBuilderMock(rows: unknown[]) {
 }
 
 describe("GET /api/hackathons - preview image field", () => {
-  it("includes preview_image_url in the public response", async () => {
+  it("does not select preview_image_url for the public response", async () => {
     const row = {
       id: "hackathon-1",
-      name: "Image Hack",
+      name: "No-image Hack",
       date_start: "2026-10-10T00:00:00.000Z",
-      preview_image_url: "https://cdn.example.com/preview.jpg",
     };
     const { builder, calls } = createQueryBuilderMock([row]);
 
@@ -48,9 +47,9 @@ describe("GET /api/hackathons - preview image field", () => {
 
     expect(response.status).toBe(200);
     expect(body.data).toEqual([row]);
-    expect(calls.find((call) => call.method === "select")?.args[0]).toContain(
-      "preview_image_url",
-    );
+    expect(
+      calls.find((call) => call.method === "select")?.args[0],
+    ).not.toContain("preview_image_url");
 
     vi.doUnmock("@/lib/supabase");
     vi.resetModules();

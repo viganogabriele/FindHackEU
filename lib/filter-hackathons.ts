@@ -5,6 +5,7 @@ import {
   hackathonMatchesRadiusFilter,
 } from "@/lib/location-filter";
 import { filterBookmarkedHackathons } from "@/lib/bookmarks-store";
+import { getEventType } from "@/lib/event-type";
 import type { Hackathon } from "@/types/hackathon";
 
 /** Last instant of `date`'s local calendar day. */
@@ -48,6 +49,13 @@ export function filterAndSortHackathons(
       if (!filters.topics.some((topic) => hackathonTopics.includes(topic))) {
         return false;
       }
+    }
+
+    if (
+      filters.eventType !== "all" &&
+      getEventType(hackathon.name) !== filters.eventType
+    ) {
+      return false;
     }
 
     if (
