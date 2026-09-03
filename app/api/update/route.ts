@@ -980,3 +980,17 @@ export async function POST(request: Request) {
     );
   }
 }
+
+/**
+ * Vercel Cron invokes its target with a **GET** request, and automatically
+ * sends `Authorization: Bearer $CRON_SECRET` when that env var is set - the
+ * exact header the POST handler already checks. This delegates rather than
+ * duplicating the logic.
+ *
+ * Safe to delegate: the POST handler never reads the request body, only its
+ * headers. The POST entry point stays for `npm run trigger-update` and the
+ * dev dashboard button.
+ */
+export async function GET(request: Request) {
+  return POST(request);
+}

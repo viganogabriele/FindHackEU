@@ -66,7 +66,7 @@ When verifying a fix — your own, a subagent's, or an external review tool's su
 - Do not commit `.env*` files or any Supabase/bot credentials.
 - `README.md` is a normal, hand-maintained project document — edit it directly like any other doc; the pipeline no longer auto-generates hackathon tables into it.
 - Keep commit messages focused on a single logical change.
-- `.github/workflows/update.yml` runs against the FindHackEU deployment's `APP_URL` repository variable rather than a hardcoded URL. Its current schedule is three runs on weekdays and two at weekends, not once a day — the unmerged `chore/cron-daily` branch is where reducing it to daily was started, if that is still wanted.
+- Production scheduling is **Vercel Cron** (`crons` in `vercel.json`), not GitHub Actions — the latter drops most scheduled runs on the free tier. `/api/update` runs daily, the retention sweep weekly; both routes export a `GET` handler because Vercel Cron issues GET. On the Hobby plan a cron may run at most once per day, so `uptime.yml` stays on GitHub Actions. `update.yml` and `archive-old-hackathons.yml` remain as `workflow_dispatch`-only manual triggers.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

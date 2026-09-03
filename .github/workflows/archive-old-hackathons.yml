@@ -1,17 +1,17 @@
 name: Archive Old Hackathons
 
 # Retention sweep (issue #72 follow-up): archives every `hackathons` row
-# more than a year past its end date. Its own workflow rather than a job in
-# update.yml, because a workflow's `on.schedule` applies to the whole
-# workflow, not to individual jobs - adding a weekly cron there would also
-# have fired the discovery pipeline on that schedule.
+# more than a year past its end date.
+#
+# Scheduling lives in Vercel Cron now (see `crons` in vercel.json, weekly on
+# Mondays) - GitHub Actions was dropping most scheduled runs, so this
+# workflow's own cron never fired. It stays as a manual escape hatch:
+# `gh workflow run archive-old-hackathons.yml`.
 #
 # Weekly is plenty: nothing ages into "more than a year past" between one
-# run and the next, and the endpoint is idempotent (a row already archived
-# is skipped, not re-archived).
+# run and the next, and the endpoint is idempotent - a row already archived
+# is skipped, not re-archived.
 on:
-  schedule:
-    - cron: "0 4 * * 1" # Mondays, 04:00 UTC
   workflow_dispatch:
 
 jobs:
