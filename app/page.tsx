@@ -21,7 +21,7 @@ import {
   useBookmarksHydration,
   useBookmarksStore,
 } from "@/lib/bookmarks-store";
-import { List, Map as MapIcon, CalendarDays } from "lucide-react";
+import { List, Map as MapIcon, CalendarDays, Heart } from "lucide-react";
 import type { HackathonTopic } from "@/lib/constants/topics";
 
 const HackathonMap = dynamic(() => import("@/components/hackathon-map"), {
@@ -248,12 +248,13 @@ function HomeContent({
                   <Button
                     variant={filters.showBookmarked ? "secondary" : "outline"}
                     size="sm"
-                    className="h-10 sm:h-8"
+                    className="h-10 gap-2 px-3 sm:h-8"
                     aria-pressed={filters.showBookmarked}
                     onClick={() =>
                       updateFilter("showBookmarked", !filters.showBookmarked)
                     }
                   >
+                    <Heart className="size-4" aria-hidden="true" />
                     {t("bookmark.button")}
                   </Button>
                 </div>
