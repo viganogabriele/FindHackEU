@@ -245,19 +245,21 @@ function HomeContent({
                       </span>
                     </Button>
                   </div>
-                  <Button
-                    variant={filters.showBookmarked ? "secondary" : "outline"}
-                    size="icon"
-                    className="size-[50px] sm:size-[42px]"
-                    aria-label={t("bookmark.button")}
-                    title={t("bookmark.button")}
-                    aria-pressed={filters.showBookmarked}
-                    onClick={() =>
-                      updateFilter("showBookmarked", !filters.showBookmarked)
-                    }
-                  >
-                    <Heart className="size-4" aria-hidden="true" />
-                  </Button>
+                  <div className="inline-flex rounded-md border bg-muted/30 p-1">
+                    <Button
+                      variant={filters.showBookmarked ? "secondary" : "ghost"}
+                      size="icon"
+                      className="h-10 w-10 sm:h-8 sm:w-8"
+                      aria-label={t("bookmark.button")}
+                      title={t("bookmark.button")}
+                      aria-pressed={filters.showBookmarked}
+                      onClick={() =>
+                        updateFilter("showBookmarked", !filters.showBookmarked)
+                      }
+                    >
+                      <Heart className="size-4" aria-hidden="true" />
+                    </Button>
+                  </div>
                 </div>
                 <PublicSubmitForm className="w-full sm:hidden" />
               </div>
