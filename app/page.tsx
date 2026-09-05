@@ -200,7 +200,7 @@ function HomeContent({
           <>
             {!loading && (
               <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center">
-                <div className="flex sm:ml-auto">
+                <div className="flex items-center gap-2 sm:ml-auto">
                   <div
                     className="inline-flex rounded-md border bg-muted/30 p-1"
                     role="group"
@@ -244,19 +244,20 @@ function HomeContent({
                         {t("view.calendar")}
                       </span>
                     </Button>
-                    <Button
-                      variant={filters.showBookmarked ? "secondary" : "ghost"}
-                      size="sm"
-                      className="h-10 gap-2 px-3 sm:h-8"
-                      aria-pressed={filters.showBookmarked}
-                      onClick={() =>
-                        updateFilter("showBookmarked", !filters.showBookmarked)
-                      }
-                    >
-                      <Heart className="size-4" aria-hidden="true" />
-                      {t("bookmark.button")}
-                    </Button>
                   </div>
+                  <Button
+                    variant={filters.showBookmarked ? "secondary" : "outline"}
+                    size="icon"
+                    className="size-[50px] sm:size-[42px]"
+                    aria-label={t("bookmark.button")}
+                    title={t("bookmark.button")}
+                    aria-pressed={filters.showBookmarked}
+                    onClick={() =>
+                      updateFilter("showBookmarked", !filters.showBookmarked)
+                    }
+                  >
+                    <Heart className="size-4" aria-hidden="true" />
+                  </Button>
                 </div>
                 <PublicSubmitForm className="w-full sm:hidden" />
               </div>
