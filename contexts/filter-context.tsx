@@ -11,7 +11,7 @@ export interface FilterState {
   locations: string[];
   radius: RadiusFilter | null;
   topics: HackathonTopic[];
-  eventType: EventType | "all";
+  eventTypes: EventType[];
   dateRange: DateRange | undefined;
   status: "upcoming" | "past";
   sort: "asc" | "desc";
@@ -46,7 +46,7 @@ const initialFilters: FilterState = {
   locations: [],
   radius: null,
   topics: [],
-  eventType: "all",
+  eventTypes: [],
   dateRange: undefined,
   status: "upcoming",
   sort: "asc",

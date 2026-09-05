@@ -52,8 +52,8 @@ export function filterAndSortHackathons(
     }
 
     if (
-      filters.eventType !== "all" &&
-      getEventType(hackathon.name) !== filters.eventType
+      filters.eventTypes.length > 0 &&
+      !filters.eventTypes.includes(getEventType(hackathon.name))
     ) {
       return false;
     }

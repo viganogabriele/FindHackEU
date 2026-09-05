@@ -25,28 +25,28 @@ export function SiteFooter() {
   // link alongside the existing Docs/Privacy/Terms links so the project is
   // clearly reachable back to its maintainer.
   return (
-    <footer className="mt-auto border-t bg-muted/20">
-      <div className="mx-auto flex max-w-screen-2xl flex-col gap-4 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+    <footer className="mt-auto border-t bg-black text-white">
+      <div className="mx-auto grid max-w-screen-2xl gap-5 px-4 py-7 sm:grid-cols-[1fr_auto] sm:items-center sm:px-6 lg:px-8">
         <div className="flex items-center gap-2 text-sm font-medium">
           <span className="flex size-6 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
             H
           </span>
           <span>
             FindHackEU
-            <span className="ml-2 font-normal text-muted-foreground">
+            <span className="mt-0.5 block font-normal text-white/60 sm:ml-2 sm:inline">
               © {new Date().getFullYear()} Gabriele Viganò
             </span>
           </span>
         </div>
         <nav
-          className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground"
+          className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm text-white/70 sm:flex sm:flex-wrap"
           aria-label={t("support")}
         >
           {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="transition-colors hover:text-foreground"
+              className="transition-colors hover:text-white"
             >
               {link.label}
             </Link>

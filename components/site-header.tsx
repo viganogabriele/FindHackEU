@@ -13,11 +13,18 @@ export function SiteHeader() {
   const { t } = useTranslation();
   const logoHref = useAdminHomeHref();
 
+  const scrollHomeToTop = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (logoHref !== "/" || window.location.pathname !== "/") return;
+    event.preventDefault();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
     <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex h-16 max-w-screen-2xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link
           href={logoHref}
+          onClick={scrollHomeToTop}
           className="flex shrink-0 items-center gap-2 text-base font-semibold tracking-tight transition-opacity hover:opacity-80"
         >
           <span className="flex size-7 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">

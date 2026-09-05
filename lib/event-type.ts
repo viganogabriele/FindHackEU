@@ -9,6 +9,13 @@
  */
 export type EventType = "hackathon" | "challenge" | "competition" | "other";
 
+export const EVENT_TYPES: readonly EventType[] = [
+  "hackathon",
+  "challenge",
+  "competition",
+  "other",
+];
+
 function normalizeTitle(title: string) {
   return title
     .normalize("NFKD")

@@ -32,21 +32,21 @@ export default function LanguageSelect({ className }: { className?: string }) {
   return (
     <div className={className}>
       <Select value={locale} onValueChange={(v) => setLocale(v)}>
-        {/* Fixed w-36 overflowed narrow phone headers (found live,
-            2026-09-02) - the trigger's collapsed value now shows just the
-            flag on mobile, with the language name reappearing from `sm:`
-            up. This only affects the trigger's own display (via explicit
-            SelectValue children, not the shared SelectItem markup below),
-            so the dropdown list itself still always shows full names. */}
-        <SelectTrigger size="sm" className="w-auto gap-1 px-2 sm:gap-2 sm:px-3">
+        <SelectTrigger
+          size="sm"
+          aria-label={currentLanguage.name}
+          className="w-auto rounded-full border-0 bg-muted/60 px-2 shadow-none hover:bg-accent [&>svg]:hidden"
+        >
           <SelectValue placeholder={locale === "en" ? "EN" : "IT"}>
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5">
               <ReactCountryFlag
                 countryCode={currentLanguage.flag}
                 svg
                 style={{ width: "1.2em" }}
               />
-              <span className="hidden sm:inline">{currentLanguage.name}</span>
+              <span className="text-xs font-semibold tracking-wide">
+                {currentLanguage.code.toUpperCase()}
+              </span>
             </span>
           </SelectValue>
         </SelectTrigger>

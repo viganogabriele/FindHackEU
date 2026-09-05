@@ -10,11 +10,10 @@ import {
   ChevronsUpDown,
   Filter,
   FilterX,
-  Heart,
   Search,
 } from "lucide-react";
 import type { HackathonTopic } from "@/lib/constants/topics";
-import type { EventType } from "@/lib/event-type";
+import { EVENT_TYPES, type EventType } from "@/lib/event-type";
 import {
   DEFAULT_RADIUS_KM,
   countryCodeFromLocationValue,
@@ -65,7 +64,6 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
 
 // `react-day-picker` is only needed after the visitor opens the date filter.
 // A static import here made its ~60 KB gzip chunk part of every home visit,
@@ -126,7 +124,7 @@ export function FiltersPanel({
     filters.locations.length +
     Number(Boolean(filters.radius)) +
     filters.topics.length +
-    Number(filters.eventType !== "all") +
+    filters.eventTypes.length +
     Number(Boolean(filters.dateRange?.from || filters.dateRange?.to)) +
     Number(!filters.includeNonEnglish) +
     Number(!filters.includeOnline) +
@@ -146,6 +144,14 @@ export function FiltersPanel({
       filters.topics.includes(topic)
         ? filters.topics.filter((item) => item !== topic)
         : [...filters.topics, topic],
+    );
+  };
+  const toggleEventType = (eventType: EventType) => {
+    updateFilter(
+      "eventTypes",
+      filters.eventTypes.includes(eventType)
+        ? filters.eventTypes.filter((item) => item !== eventType)
+        : [...filters.eventTypes, eventType],
     );
   };
   const selectCityWithinCountry = (countryLocation: string, city: string) => {
@@ -220,15 +226,11 @@ export function FiltersPanel({
       label: topic,
       onRemove: () => toggleTopic(topic),
     })),
-    ...(filters.eventType !== "all"
-      ? [
-          {
-            id: "event-type",
-            label: t(`eventType.${filters.eventType}`),
-            onRemove: () => updateFilter("eventType", "all"),
-          },
-        ]
-      : []),
+    ...filters.eventTypes.map((eventType) => ({
+      id: `event-type-${eventType}`,
+      label: t(`eventType.${eventType}`),
+      onRemove: () => toggleEventType(eventType),
+    })),
     ...(filters.dateRange?.from
       ? [
           {
@@ -315,30 +317,39 @@ export function FiltersPanel({
           </Select>
         </Field>
       </div>
-      <Field label={t("eventType")}>
-        <Select
-          value={filters.eventType}
-          onValueChange={(value: EventType | "all") =>
-            updateFilter("eventType", value)
-          }
-        >
-          <SelectTrigger aria-label={t("eventType")}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t("eventType.all")}</SelectItem>
-            <SelectItem value="hackathon">
-              {t("eventType.hackathon")}
-            </SelectItem>
-            <SelectItem value="challenge">
-              {t("eventType.challenge")}
-            </SelectItem>
-            <SelectItem value="competition">
-              {t("eventType.competition")}
-            </SelectItem>
-            <SelectItem value="other">{t("eventType.other")}</SelectItem>
-          </SelectContent>
-        </Select>
+      <Field label={t("filters.show")}>
+        <div className="space-y-2 rounded-md border p-3">
+          <p className="text-sm font-medium">{t("eventType")}</p>
+          <div className="grid grid-cols-2 gap-2">
+            {EVENT_TYPES.map((eventType) => (
+              <FilterCheck
+                key={eventType}
+                checked={filters.eventTypes.includes(eventType)}
+                onCheckedChange={() => toggleEventType(eventType)}
+              >
+                {t(`eventType.${eventType}`)}
+              </FilterCheck>
+            ))}
+          </div>
+          <div className="border-t pt-2">
+            <FilterCheck
+              checked={filters.includeNonEnglish}
+              onCheckedChange={(checked) =>
+                updateFilter("includeNonEnglish", checked)
+              }
+            >
+              {t("filters.includeOtherLanguages", { language: languageName })}
+            </FilterCheck>
+            <FilterCheck
+              checked={filters.includeOnline}
+              onCheckedChange={(checked) =>
+                updateFilter("includeOnline", checked)
+              }
+            >
+              {t("filters.showOnlineEvents")}
+            </FilterCheck>
+          </div>
+        </div>
       </Field>
       <Field label={t("locations")}>
         {availableLocations.length === 0 ? (
@@ -504,31 +515,18 @@ export function FiltersPanel({
               <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-            <Command>
-              <CommandInput placeholder={t("topics.searchPlaceholder")} />
-              <CommandList>
-                <CommandEmpty>{t("topics.noneFound")}</CommandEmpty>
-                <CommandGroup>
-                  {uniqueTopics.map((topic) => (
-                    <CommandItem
-                      key={topic}
-                      onSelect={() => toggleTopic(topic)}
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 size-4",
-                          filters.topics.includes(topic)
-                            ? "opacity-100"
-                            : "opacity-0",
-                        )}
-                      />
-                      {topic}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
+          <PopoverContent className="w-[--radix-popover-trigger-width] p-2">
+            <div className="grid max-h-72 grid-cols-2 gap-1 overflow-y-auto">
+              {uniqueTopics.map((topic) => (
+                <FilterCheck
+                  key={topic}
+                  checked={filters.topics.includes(topic)}
+                  onCheckedChange={() => toggleTopic(topic)}
+                >
+                  {topic}
+                </FilterCheck>
+              ))}
+            </div>
           </PopoverContent>
         </Popover>
       </Field>
@@ -560,28 +558,6 @@ export function FiltersPanel({
           </PopoverContent>
         </Popover>
       </Field>
-      <div className="flex items-center justify-between gap-6 rounded-md border p-3">
-        <Label htmlFor="include-non-english" className="leading-snug">
-          {t("filters.includeOtherLanguages", { language: languageName })}
-        </Label>
-        <Switch
-          id="include-non-english"
-          checked={filters.includeNonEnglish}
-          onCheckedChange={(checked) =>
-            updateFilter("includeNonEnglish", checked)
-          }
-        />
-      </div>
-      <div className="flex items-center justify-between gap-6 rounded-md border p-3">
-        <Label htmlFor="include-online" className="leading-snug">
-          {t("filters.showOnlineEvents")}
-        </Label>
-        <Switch
-          id="include-online"
-          checked={filters.includeOnline}
-          onCheckedChange={(checked) => updateFilter("includeOnline", checked)}
-        />
-      </div>
     </div>
   );
 
@@ -603,17 +579,6 @@ export function FiltersPanel({
         </div>
         <div className="flex flex-wrap gap-2">
           <PublicSubmitForm className="hidden sm:inline-flex" />
-          <Button
-            variant={filters.showBookmarked ? "default" : "outline"}
-            className="h-10 gap-2"
-            aria-pressed={filters.showBookmarked}
-            onClick={() =>
-              updateFilter("showBookmarked", !filters.showBookmarked)
-            }
-          >
-            <Heart className="size-4" aria-hidden="true" />
-            {t("bookmark.only")}
-          </Button>
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button
@@ -669,5 +634,38 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       <Label>{label}</Label>
       {children}
     </div>
+  );
+}
+
+function FilterCheck({
+  checked,
+  onCheckedChange,
+  children,
+}: {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={() => onCheckedChange(!checked)}
+      className="flex min-h-10 items-center gap-2 rounded-md px-2 text-left text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "grid size-4 shrink-0 place-items-center rounded-sm border",
+          checked
+            ? "border-primary bg-primary text-primary-foreground"
+            : "border-input bg-background",
+        )}
+      >
+        {checked && <Check className="size-3" />}
+      </span>
+      <span className="leading-snug">{children}</span>
+    </button>
   );
 }

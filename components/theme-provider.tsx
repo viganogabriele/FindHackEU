@@ -8,6 +8,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const themeState = useThemeStore();
 
   useEffect(() => {
+    useThemeStore.persist.rehydrate();
+  }, []);
+
+  useEffect(() => {
     // Applica il tema al mount
     const root = document.documentElement;
     applyThemeToElement(themeState, root);

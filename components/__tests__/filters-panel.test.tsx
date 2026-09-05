@@ -17,7 +17,7 @@ vi.stubGlobal(
 );
 
 describe("FiltersPanel", () => {
-  it("offers an event-type filter", () => {
+  it("offers independently selectable event-type filters", () => {
     render(
       <TranslationProvider>
         <FilterProvider>
@@ -32,7 +32,12 @@ describe("FiltersPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Filters" }));
     expect(screen.getByText("Event type")).toBeTruthy();
-    expect(screen.getByRole("combobox", { name: "Event type" })).toBeTruthy();
+    const hackathon = screen.getByRole("checkbox", { name: "Hackathon" });
+    const challenge = screen.getByRole("checkbox", { name: "Challenge" });
+    fireEvent.click(hackathon);
+    fireEvent.click(challenge);
+    expect(hackathon.getAttribute("aria-checked")).toBe("true");
+    expect(challenge.getAttribute("aria-checked")).toBe("true");
   });
 
   it("removes the hide-non-English filter when its chip is dismissed", () => {
@@ -52,7 +57,7 @@ describe("FiltersPanel", () => {
 
     // includeNonEnglish defaults to true (opt-out) - toggling it off is what
     // surfaces the "hidden" chip, matching includeOnline's existing pattern.
-    const languageSwitch = screen.getByRole("switch", {
+    const languageSwitch = screen.getByRole("checkbox", {
       name: /show non-.* hackathons/i,
     });
     expect(languageSwitch.getAttribute("aria-checked")).toBe("true");
@@ -71,7 +76,7 @@ describe("FiltersPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Filters" }));
     expect(
       screen
-        .getByRole("switch", {
+        .getByRole("checkbox", {
           name: /show non-.* hackathons/i,
         })
         .getAttribute("aria-checked"),
@@ -98,7 +103,7 @@ describe("FiltersPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Filters" }));
 
-    const onlineSwitch = screen.getByRole("switch", {
+    const onlineSwitch = screen.getByRole("checkbox", {
       name: /show online events/i,
     });
     expect(onlineSwitch.getAttribute("aria-checked")).toBe("true");
@@ -116,7 +121,7 @@ describe("FiltersPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Filters" }));
     expect(
       screen
-        .getByRole("switch", {
+        .getByRole("checkbox", {
           name: /show online events/i,
         })
         .getAttribute("aria-checked"),

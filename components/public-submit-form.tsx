@@ -89,7 +89,7 @@ export function PublicSubmitForm({ className }: { className?: string }) {
           className={cn("h-10 gap-2", className)}
         >
           <Megaphone className="size-4" aria-hidden="true" />
-          <span className="hidden sm:inline">{t("submit.button")}</span>
+          <span>{t("submit.button")}</span>
         </Button>
       </DialogTrigger>
       <DialogContent>

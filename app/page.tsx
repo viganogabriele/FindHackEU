@@ -163,7 +163,7 @@ function HomeContent({
   uniquePastLocations: string[];
   uniqueTopics: HackathonTopic[];
 }) {
-  const { filters } = useFilters();
+  const { filters, updateFilter } = useFilters();
   const { locale, t } = useTranslation();
   useBookmarksHydration();
   const bookmarkedIds = useBookmarksStore((state) => state.bookmarkedIds);
@@ -199,61 +199,65 @@ function HomeContent({
         ) : (
           <>
             {!loading && (
-              <div className="mb-6 flex items-center gap-2">
-                <PublicSubmitForm className="sm:hidden" />
-                <div
-                  className="ml-auto inline-flex rounded-md border bg-muted/30 p-1"
-                  role="group"
-                  aria-label={t("view.label")}
-                >
-                  <Button
-                    variant={view === "list" ? "secondary" : "ghost"}
-                    size="sm"
-                    // 32px clears WCAG 2.5.8's 24px minimum but is a
-                    // mean target for a thumb; 40px on touch, unchanged
-                    // from `sm:` up where a pointer is doing the aiming.
-                    className="h-10 sm:h-8"
-                    aria-pressed={view === "list"}
-                    aria-label={t("view.list")}
-                    title={t("view.list")}
-                    onClick={() => setView("list")}
+              <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="flex items-center gap-2 sm:ml-auto">
+                  <div
+                    className="inline-flex rounded-md border bg-muted/30 p-1"
+                    role="group"
+                    aria-label={t("view.label")}
                   >
-                    <List />
-                    <span className="hidden sm:inline">{t("view.list")}</span>
-                  </Button>
+                    <Button
+                      variant={view === "list" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-10 sm:h-8"
+                      aria-pressed={view === "list"}
+                      aria-label={t("view.list")}
+                      title={t("view.list")}
+                      onClick={() => setView("list")}
+                    >
+                      <List />
+                      <span className="hidden sm:inline">{t("view.list")}</span>
+                    </Button>
+                    <Button
+                      variant={view === "map" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-10 sm:h-8"
+                      aria-pressed={view === "map"}
+                      aria-label={t("view.map")}
+                      title={t("view.map")}
+                      onClick={() => setView("map")}
+                    >
+                      <MapIcon />
+                      <span className="hidden sm:inline">{t("view.map")}</span>
+                    </Button>
+                    <Button
+                      variant={view === "calendar" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-10 sm:h-8"
+                      aria-pressed={view === "calendar"}
+                      aria-label={t("view.calendar")}
+                      title={t("view.calendar")}
+                      onClick={() => setView("calendar")}
+                    >
+                      <CalendarDays />
+                      <span className="hidden sm:inline">
+                        {t("view.calendar")}
+                      </span>
+                    </Button>
+                  </div>
                   <Button
-                    variant={view === "map" ? "secondary" : "ghost"}
+                    variant={filters.showBookmarked ? "secondary" : "outline"}
                     size="sm"
-                    // 32px clears WCAG 2.5.8's 24px minimum but is a
-                    // mean target for a thumb; 40px on touch, unchanged
-                    // from `sm:` up where a pointer is doing the aiming.
                     className="h-10 sm:h-8"
-                    aria-pressed={view === "map"}
-                    aria-label={t("view.map")}
-                    title={t("view.map")}
-                    onClick={() => setView("map")}
+                    aria-pressed={filters.showBookmarked}
+                    onClick={() =>
+                      updateFilter("showBookmarked", !filters.showBookmarked)
+                    }
                   >
-                    <MapIcon />
-                    <span className="hidden sm:inline">{t("view.map")}</span>
-                  </Button>
-                  <Button
-                    variant={view === "calendar" ? "secondary" : "ghost"}
-                    size="sm"
-                    // 32px clears WCAG 2.5.8's 24px minimum but is a
-                    // mean target for a thumb; 40px on touch, unchanged
-                    // from `sm:` up where a pointer is doing the aiming.
-                    className="h-10 sm:h-8"
-                    aria-pressed={view === "calendar"}
-                    aria-label={t("view.calendar")}
-                    title={t("view.calendar")}
-                    onClick={() => setView("calendar")}
-                  >
-                    <CalendarDays />
-                    <span className="hidden sm:inline">
-                      {t("view.calendar")}
-                    </span>
+                    {t("bookmark.button")}
                   </Button>
                 </div>
+                <PublicSubmitForm className="w-full sm:hidden" />
               </div>
             )}
 

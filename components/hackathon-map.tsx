@@ -159,9 +159,17 @@ export default function HackathonMap({
   hackathons: Hackathon[];
 }) {
   const { t } = useTranslation();
-  const mappedHackathons = mapHackathons(hackathons);
+  // Keep the marker and bounds arrays referentially stable. Previously every
+  // render rebuilt both arrays, causing MapViewport to call fitBounds again
+  // when an unrelated UI state changed; that is particularly jarring and
+  // expensive on mobile GPUs.
+  const mappedHackathons = useMemo(
+    () => mapHackathons(hackathons),
+    [hackathons],
+  );
   const { currentMode } = useThemeStore();
   const isDark = currentMode === "dark";
+  const coarsePointer = useCoarsePointer();
 
   return (
     <div className="relative z-0 overflow-hidden rounded-lg border bg-muted/20">
@@ -169,12 +177,16 @@ export default function HackathonMap({
         center={EUROPE_CENTER}
         zoom={4}
         scrollWheelZoom
+        preferCanvas
+        zoomAnimation={!coarsePointer}
+        fadeAnimation={!coarsePointer}
+        markerZoomAnimation={!coarsePointer}
         // `dvh`, not `vh`: mobile browsers resolve `vh` against the
         // largest viewport (URL bar hidden), so `70vh` was taller than 70%
         // of what a visitor can actually see. The old `min-h-[24rem]`
         // (384px) floor also exceeded the whole viewport on a phone in
         // landscape, leaving no page to scroll around the map.
-        className="h-[min(70dvh,42rem)] min-h-[18rem] w-full sm:min-h-[30rem]"
+        className="h-[clamp(18rem,55dvh,32rem)] w-full sm:h-[min(70dvh,42rem)] sm:min-h-[30rem]"
         zoomControl
       >
         <TileLayer
@@ -188,6 +200,8 @@ export default function HackathonMap({
         <MarkerClusterGroup
           chunkedLoading
           maxClusterRadius={MAX_CLUSTER_RADIUS}
+          animate={!coarsePointer}
+          animateAddingMarkers={false}
         >
           {mappedHackathons.map(({ hackathon, coordinates, approximate }) => (
             <Marker

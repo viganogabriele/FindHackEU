@@ -93,25 +93,14 @@ const getDefaultTheme = () => {
   return defaultTheme;
 };
 
-// Funzione per determinare la modalità iniziale
-const getInitialMode = (): "light" | "dark" => {
-  if (typeof window === "undefined") return "dark";
-
-  // Prima controlla localStorage
-  const stored = localStorage.getItem("theme-mode");
-  if (stored === "light" || stored === "dark") {
-    return stored;
-  }
-
-  // Default: dark mode
-  return "dark";
-};
-
 export const useThemeStore = create<ThemeStore>()(
   persist(
     (set) => ({
       styles: getDefaultTheme().styles,
-      currentMode: getInitialMode(),
+      // Match the server's default during hydration. Persisted preferences
+      // rehydrate after mount in ThemeProvider, rather than touching
+      // localStorage while React is constructing the initial client tree.
+      currentMode: "dark",
       themeId: DEFAULT_THEME_ID,
 
       setThemeById: (themeId: string) => {
@@ -179,6 +168,7 @@ export const useThemeStore = create<ThemeStore>()(
         currentMode: state.currentMode,
         themeId: state.themeId,
       }),
+      skipHydration: true,
     },
   ),
 );
