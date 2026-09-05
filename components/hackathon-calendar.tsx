@@ -32,9 +32,24 @@ export default function HackathonCalendar({
   const [cursor, setCursor] = useState(
     () => new Date(today.getFullYear(), today.getMonth(), 1),
   );
-  // The day currently expanded for detail (mobile agenda list and the
-  // desktop popover both key off this so only one day is ever open).
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  // The day currently expanded for detail. Kept as two separate pieces of
+  // state - one per layout - rather than a single shared key: the desktop
+  // grid's Popover is only visually hidden on mobile (`hidden sm:block`),
+  // not unmounted, so a shared key meant tapping a day in the mobile
+  // agenda also flipped `open` to true on the corresponding (still
+  // mounted, just display:none) desktop day cell's Popover. Radix portals
+  // PopoverContent to document.body regardless of the trigger's own
+  // visibility, and floating-ui falls back to anchoring at (0,0) when the
+  // trigger has a zero-size rect (as a display:none element does) - so
+  // that hidden Popover rendered as a fixed, top-left-pinned card over the
+  // whole page. Found live, 2026-09-05: tapping a mobile agenda day showed
+  // a duplicate, floating copy of that day's event list.
+  const [selectedDesktopKey, setSelectedDesktopKey] = useState<string | null>(
+    null,
+  );
+  const [selectedMobileKey, setSelectedMobileKey] = useState<string | null>(
+    null,
+  );
 
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
@@ -74,7 +89,9 @@ export default function HackathonCalendar({
     setCursor((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
   const goToToday = () => {
     setCursor(new Date(today.getFullYear(), today.getMonth(), 1));
-    setSelectedKey(toDayKey(today));
+    const todayKey = toDayKey(today);
+    setSelectedDesktopKey(todayKey);
+    setSelectedMobileKey(todayKey);
   };
 
   return (
@@ -139,7 +156,7 @@ export default function HackathonCalendar({
                   const dayHackathons = byDay.get(day.key) ?? [];
                   const visible = dayHackathons.slice(0, MAX_VISIBLE_PER_CELL);
                   const overflow = dayHackathons.length - visible.length;
-                  const isOpen = selectedKey === day.key;
+                  const isOpen = selectedDesktopKey === day.key;
 
                   return (
                     <td
@@ -149,7 +166,7 @@ export default function HackathonCalendar({
                       <Popover
                         open={isOpen}
                         onOpenChange={(open) =>
-                          setSelectedKey(open ? day.key : null)
+                          setSelectedDesktopKey(open ? day.key : null)
                         }
                       >
                         <PopoverTrigger asChild>
@@ -222,12 +239,12 @@ export default function HackathonCalendar({
           .map((day) => {
             const dayHackathons = byDay.get(day.key) ?? [];
             if (dayHackathons.length === 0) return null;
-            const isOpen = selectedKey === day.key;
+            const isOpen = selectedMobileKey === day.key;
             return (
               <div key={day.key} className="rounded-lg border">
                 <button
                   type="button"
-                  onClick={() => setSelectedKey(isOpen ? null : day.key)}
+                  onClick={() => setSelectedMobileKey(isOpen ? null : day.key)}
                   aria-expanded={isOpen}
                   className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                 >
