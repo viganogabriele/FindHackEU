@@ -195,67 +195,67 @@ function HomeContent({
           uniqueTopics={uniqueTopics}
           viewToggle={
             !loading ? (
-              <>
-                <div
-                  className="inline-flex items-center rounded-md border bg-muted/30 p-1"
-                  role="group"
-                  aria-label={t("view.label")}
+              <div
+                className="inline-flex items-center rounded-md border bg-muted/30 p-1"
+                role="group"
+                aria-label={t("view.label")}
+              >
+                <Button
+                  variant={view === "list" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-10 sm:h-8"
+                  aria-pressed={view === "list"}
+                  aria-label={t("view.list")}
+                  title={t("view.list")}
+                  onClick={() => setView("list")}
                 >
-                  <Button
-                    variant={view === "list" ? "secondary" : "ghost"}
-                    size="sm"
-                    className="h-10 sm:h-8"
-                    aria-pressed={view === "list"}
-                    aria-label={t("view.list")}
-                    title={t("view.list")}
-                    onClick={() => setView("list")}
-                  >
-                    <List />
-                    <span className="hidden sm:inline">{t("view.list")}</span>
-                  </Button>
-                  <Button
-                    variant={view === "map" ? "secondary" : "ghost"}
-                    size="sm"
-                    className="h-10 sm:h-8"
-                    aria-pressed={view === "map"}
-                    aria-label={t("view.map")}
-                    title={t("view.map")}
-                    onClick={() => setView("map")}
-                  >
-                    <MapIcon />
-                    <span className="hidden sm:inline">{t("view.map")}</span>
-                  </Button>
-                  <Button
-                    variant={view === "calendar" ? "secondary" : "ghost"}
-                    size="sm"
-                    className="h-10 sm:h-8"
-                    aria-pressed={view === "calendar"}
-                    aria-label={t("view.calendar")}
-                    title={t("view.calendar")}
-                    onClick={() => setView("calendar")}
-                  >
-                    <CalendarDays />
-                    <span className="hidden sm:inline">
-                      {t("view.calendar")}
-                    </span>
-                  </Button>
-                </div>
-                <div className="inline-flex items-center rounded-md border bg-muted/30 p-1">
-                  <Button
-                    variant={filters.showBookmarked ? "secondary" : "ghost"}
-                    size="icon"
-                    className="h-10 w-10 sm:h-8 sm:w-8"
-                    aria-label={t("bookmark.button")}
-                    title={t("bookmark.button")}
-                    aria-pressed={filters.showBookmarked}
-                    onClick={() =>
-                      updateFilter("showBookmarked", !filters.showBookmarked)
-                    }
-                  >
-                    <Heart className="size-4" aria-hidden="true" />
-                  </Button>
-                </div>
-              </>
+                  <List />
+                  <span className="hidden sm:inline">{t("view.list")}</span>
+                </Button>
+                <Button
+                  variant={view === "map" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-10 sm:h-8"
+                  aria-pressed={view === "map"}
+                  aria-label={t("view.map")}
+                  title={t("view.map")}
+                  onClick={() => setView("map")}
+                >
+                  <MapIcon />
+                  <span className="hidden sm:inline">{t("view.map")}</span>
+                </Button>
+                <Button
+                  variant={view === "calendar" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-10 sm:h-8"
+                  aria-pressed={view === "calendar"}
+                  aria-label={t("view.calendar")}
+                  title={t("view.calendar")}
+                  onClick={() => setView("calendar")}
+                >
+                  <CalendarDays />
+                  <span className="hidden sm:inline">{t("view.calendar")}</span>
+                </Button>
+              </div>
+            ) : null
+          }
+          bookmarkToggle={
+            !loading ? (
+              <div className="inline-flex items-center rounded-md border bg-muted/30 p-1">
+                <Button
+                  variant={filters.showBookmarked ? "secondary" : "ghost"}
+                  size="icon"
+                  className="h-10 w-10 sm:h-8 sm:w-8"
+                  aria-label={t("bookmark.button")}
+                  title={t("bookmark.button")}
+                  aria-pressed={filters.showBookmarked}
+                  onClick={() =>
+                    updateFilter("showBookmarked", !filters.showBookmarked)
+                  }
+                >
+                  <Heart className="size-4" aria-hidden="true" />
+                </Button>
+              </div>
             ) : null
           }
         />
