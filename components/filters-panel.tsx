@@ -97,11 +97,13 @@ export function FiltersPanel({
   uniquePastLocations,
   uniqueTopics,
   viewToggle,
+  bookmarkToggle,
 }: {
   uniqueUpcomingLocations: string[];
   uniquePastLocations: string[];
   uniqueTopics: HackathonTopic[];
   viewToggle?: ReactNode;
+  bookmarkToggle?: ReactNode;
 }) {
   const { filters, updateFilter, clearFilters } = useFilters();
   const { locale, t } = useTranslation();
@@ -580,48 +582,59 @@ export function FiltersPanel({
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {viewToggle}
-          <PublicSubmitForm className="hidden sm:inline-flex" />
-          <div className="inline-flex items-center rounded-md border bg-muted/30 p-1">
-            <Sheet open={open} onOpenChange={setOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-10 gap-2 sm:h-8">
-                  <Filter className="size-4" aria-hidden="true" />
-                  {t("filters")}
-                  {activeCount > 0 && (
-                    <span className="grid size-5 place-items-center rounded-full bg-primary text-xs text-primary-foreground">
-                      {activeCount}
-                    </span>
-                  )}
-                </Button>
-              </SheetTrigger>
-              <SheetContent
-                side="right"
-                className="w-full overflow-y-auto p-0 sm:max-w-md"
-              >
-                <SheetHeader className="border-b p-6 text-left">
-                  <SheetTitle>{t("filters")}</SheetTitle>
-                  <SheetDescription>{t("subtitle")}</SheetDescription>
-                </SheetHeader>
-                <div className="space-y-6 p-6">
-                  {filterControls}
-                  <Separator />
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-sm text-muted-foreground">
-                      {activeCount > 0
-                        ? `${activeCount} ${t("locations.selected")}`
-                        : t("filters")}
-                    </span>
+          {bookmarkToggle}
+          <div className="flex flex-1 justify-center">{viewToggle}</div>
+          <div className="flex items-center gap-2">
+            <PublicSubmitForm className="hidden sm:inline-flex" />
+            <div className="inline-flex items-center rounded-md border bg-muted/30 p-1">
+              <Sheet open={open} onOpenChange={setOpen}>
+                <SheetTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-10 gap-2 sm:h-8"
+                  >
+                    <Filter className="size-4" aria-hidden="true" />
+                    {t("filters")}
                     {activeCount > 0 && (
-                      <Button variant="ghost" size="sm" onClick={clearFilters}>
-                        <FilterX className="size-4" aria-hidden="true" />{" "}
-                        {t("filters.clearAll")}
-                      </Button>
+                      <span className="grid size-5 place-items-center rounded-full bg-primary text-xs text-primary-foreground">
+                        {activeCount}
+                      </span>
                     )}
+                  </Button>
+                </SheetTrigger>
+                <SheetContent
+                  side="right"
+                  className="w-full overflow-y-auto p-0 sm:max-w-md"
+                >
+                  <SheetHeader className="border-b p-6 text-left">
+                    <SheetTitle>{t("filters")}</SheetTitle>
+                    <SheetDescription>{t("subtitle")}</SheetDescription>
+                  </SheetHeader>
+                  <div className="space-y-6 p-6">
+                    {filterControls}
+                    <Separator />
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-sm text-muted-foreground">
+                        {activeCount > 0
+                          ? `${activeCount} ${t("locations.selected")}`
+                          : t("filters")}
+                      </span>
+                      {activeCount > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={clearFilters}
+                        >
+                          <FilterX className="size-4" aria-hidden="true" />{" "}
+                          {t("filters.clearAll")}
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </SheetContent>
-            </Sheet>
+                </SheetContent>
+              </Sheet>
+            </div>
           </div>
         </div>
       </div>
