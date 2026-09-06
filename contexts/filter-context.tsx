@@ -4,7 +4,7 @@ import { createContext, useContext, useState, ReactNode } from "react";
 import { DateRange } from "react-day-picker";
 import type { HackathonTopic } from "@/lib/constants/topics";
 import type { RadiusFilter } from "@/lib/location-filter";
-import type { EventType } from "@/lib/event-type";
+import { EVENT_TYPES, type EventType } from "@/lib/event-type";
 
 export interface FilterState {
   search: string;
@@ -46,7 +46,12 @@ const initialFilters: FilterState = {
   locations: [],
   radius: null,
   topics: [],
-  eventTypes: [],
+  // All 4 checked by default rather than none - an empty array and "every
+  // type selected" both show every hackathon (lib/filter-hackathons.ts's
+  // eventTypes check short-circuits on length === 0), but unchecked
+  // checkboxes read as "nothing selected" to a visitor even though nothing
+  // is actually being filtered out.
+  eventTypes: [...EVENT_TYPES],
   dateRange: undefined,
   status: "upcoming",
   sort: "asc",

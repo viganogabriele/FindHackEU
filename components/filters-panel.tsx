@@ -128,7 +128,14 @@ export function FiltersPanel({
     filters.locations.length +
     Number(Boolean(filters.radius)) +
     filters.topics.length +
-    filters.eventTypes.length +
+    // All 4 types selected is the default ("show everything"), same as an
+    // empty selection (see lib/filter-hackathons.ts's eventTypes check) -
+    // only a genuine subset means the visitor is actually filtering
+    // something out, so that's the only case worth counting as active.
+    Number(
+      filters.eventTypes.length > 0 &&
+        filters.eventTypes.length < EVENT_TYPES.length,
+    ) +
     Number(Boolean(filters.dateRange?.from || filters.dateRange?.to)) +
     Number(!filters.includeNonEnglish) +
     Number(!filters.includeOnline) +
@@ -230,11 +237,17 @@ export function FiltersPanel({
       label: topic,
       onRemove: () => toggleTopic(topic),
     })),
-    ...filters.eventTypes.map((eventType) => ({
-      id: `event-type-${eventType}`,
-      label: t(`eventType.${eventType}`),
-      onRemove: () => toggleEventType(eventType),
-    })),
+    // Same "all 4 selected is the unfiltered default" reasoning as
+    // activeCount above - a chip per type only once the selection is a
+    // genuine subset, not for the all-checked starting state.
+    ...(filters.eventTypes.length > 0 &&
+    filters.eventTypes.length < EVENT_TYPES.length
+      ? filters.eventTypes.map((eventType) => ({
+          id: `event-type-${eventType}`,
+          label: t(`eventType.${eventType}`),
+          onRemove: () => toggleEventType(eventType),
+        }))
+      : []),
     ...(filters.dateRange?.from
       ? [
           {

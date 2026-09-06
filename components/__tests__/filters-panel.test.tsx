@@ -17,7 +17,7 @@ vi.stubGlobal(
 );
 
 describe("FiltersPanel", () => {
-  it("offers independently selectable event-type filters", () => {
+  it("offers independently selectable event-type filters, all checked by default", () => {
     render(
       <TranslationProvider>
         <FilterProvider>
@@ -34,9 +34,14 @@ describe("FiltersPanel", () => {
     expect(screen.getByText("Event type")).toBeTruthy();
     const hackathon = screen.getByRole("checkbox", { name: "Hackathon" });
     const challenge = screen.getByRole("checkbox", { name: "Challenge" });
-    fireEvent.click(hackathon);
-    fireEvent.click(challenge);
+    // All 4 types start selected - unchecked-by-default read as "nothing
+    // selected" to a visitor even though nothing was actually being
+    // filtered out (see contexts/filter-context.tsx's initialFilters).
     expect(hackathon.getAttribute("aria-checked")).toBe("true");
+    expect(challenge.getAttribute("aria-checked")).toBe("true");
+
+    fireEvent.click(hackathon);
+    expect(hackathon.getAttribute("aria-checked")).toBe("false");
     expect(challenge.getAttribute("aria-checked")).toBe("true");
   });
 

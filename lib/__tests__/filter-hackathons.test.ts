@@ -232,5 +232,32 @@ describe("filterAndSortHackathons", () => {
         ),
       ).toEqual([]);
     });
+
+    // baseHackathon runs 2026-10-10T09:00Z .. 2026-10-11T17:00Z.
+    // lib/calendar-hackathons.ts's hackathonDayKeys buckets it onto both
+    // 10 and 11 Oct, and the calendar view's "click a day" filter sets an
+    // exact from===to single-day range - this must match the same days
+    // the calendar counted the event on, not just its date_start day.
+    it("includes a multi-day event on a single-day range for a day it's still running on, not just its start day", () => {
+      const secondDay = new Date(2026, 9, 11);
+      expect(
+        filterAndSortHackathons(
+          [baseHackathon],
+          rangeFilters(secondDay, secondDay),
+          "en",
+        ),
+      ).toEqual([baseHackathon]);
+    });
+
+    it("excludes a multi-day event on a single-day range for a day outside its start..end span", () => {
+      const dayAfter = new Date(2026, 9, 12);
+      expect(
+        filterAndSortHackathons(
+          [baseHackathon],
+          rangeFilters(dayAfter, dayAfter),
+          "en",
+        ),
+      ).toEqual([]);
+    });
   });
 });
