@@ -194,6 +194,14 @@ function HomeContent({
       setCalendarDayOrigin({ view, dateRange: filters.dateRange, day });
       updateFilter("dateRange", { from: day, to: day });
       setView("list");
+      // Switching view re-renders in place rather than navigating, so the
+      // page keeps whatever scroll position the calendar was at - on the
+      // mobile agenda that's often far down the page (each day with events
+      // is its own row), landing the resulting list mid-page instead of at
+      // its top. Found live, 2026-09-06: tapping a day well into the month
+      // on mobile opened the list scrolled to roughly where that day's row
+      // had been, not to the top.
+      window.scrollTo({ top: 0, behavior: "smooth" });
     },
     [view, filters.dateRange, updateFilter],
   );
@@ -203,6 +211,7 @@ function HomeContent({
     updateFilter("dateRange", calendarDayOrigin.dateRange);
     setView(calendarDayOrigin.view);
     setCalendarDayOrigin(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, [calendarDayOrigin, updateFilter]);
 
   // Only offer "back to calendar" while the filter it would undo is still
