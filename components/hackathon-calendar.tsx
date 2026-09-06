@@ -22,6 +22,13 @@ import type { Hackathon } from "@/types/hackathon";
  * rest collapse into a "+N" overflow chip, on the desktop grid layout. */
 const MAX_VISIBLE_PER_CELL = 3;
 
+/** Number of full cards shown in a day's detail (popover or mobile agenda)
+ * before the rest collapse behind a "show more" button - some days carry
+ * 40-50+ overlapping events (very broad-date-range "online" hackathons
+ * touching nearly every day of a month), which rendered as a wall of
+ * cards with no way to collapse it back down. */
+const DAY_DETAIL_INITIAL_LIMIT = 8;
+
 export default function HackathonCalendar({
   hackathons,
 }: {
@@ -273,16 +280,8 @@ export default function HackathonCalendar({
                   </span>
                 </button>
                 {isOpen && (
-                  <div className="space-y-3 border-t px-3 py-3">
-                    {dayHackathons.map((h) => (
-                      <HackathonCard
-                        key={h.id}
-                        hackathon={h}
-                        compact
-                        titleLink
-                        className="border-0 shadow-none"
-                      />
-                    ))}
+                  <div className="border-t px-3 py-3">
+                    <LimitedHackathonList hackathons={dayHackathons} />
                   </div>
                 )}
               </div>
@@ -320,17 +319,48 @@ function DayDetail({
   return (
     <div className="space-y-3">
       <p className="text-sm font-semibold">{label}</p>
-      <div className="space-y-3">
-        {hackathons.map((h) => (
-          <HackathonCard
-            key={h.id}
-            hackathon={h}
-            compact
-            titleLink
-            className="border-0 shadow-none"
-          />
-        ))}
-      </div>
+      <LimitedHackathonList hackathons={hackathons} />
+    </div>
+  );
+}
+
+/**
+ * A day's full card list, capped at `DAY_DETAIL_INITIAL_LIMIT` with a
+ * "show more" button revealing the rest - used by both the desktop grid's
+ * popover and the mobile agenda's expanded day, so a day with 40-50+
+ * overlapping events (see the constant's doc comment) doesn't render as an
+ * unbroken wall of cards.
+ */
+function LimitedHackathonList({ hackathons }: { hackathons: Hackathon[] }) {
+  const { t } = useTranslation();
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll
+    ? hackathons
+    : hackathons.slice(0, DAY_DETAIL_INITIAL_LIMIT);
+  const remaining = hackathons.length - visible.length;
+
+  return (
+    <div className="space-y-3">
+      {visible.map((h) => (
+        <HackathonCard
+          key={h.id}
+          hackathon={h}
+          compact
+          titleLink
+          className="border-0 shadow-none"
+        />
+      ))}
+      {remaining > 0 && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={() => setShowAll(true)}
+        >
+          {t("calendarView.moreEvents", { count: remaining })}
+        </Button>
+      )}
     </div>
   );
 }

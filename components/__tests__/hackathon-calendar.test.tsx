@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import HackathonCalendar from "@/components/hackathon-calendar";
 import { TranslationProvider } from "@/contexts/translation-context";
 import type { Hackathon } from "@/types/hackathon";
@@ -106,5 +112,48 @@ describe("HackathonCalendar", () => {
       name: /Thursday 10 September/,
     });
     expect(desktopDayButton.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  /**
+   * Some real days carry 40-50+ overlapping events (very broad-date-range
+   * "online" hackathons touching nearly every day of a month), which used
+   * to render as an unbroken wall of full cards in the day detail.
+   */
+  it("caps a busy day's detail behind a show-more button", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-15T12:00:00Z"));
+
+    const busyDay = Array.from({ length: 10 }, (_, i) => ({
+      id: `busy-${i}`,
+      name: `Busy Hackathon ${i}`,
+      url: `https://example.org/busy-${i}`,
+      city: "Berlin",
+      country_code: "DE",
+      date_start: "2026-09-10T09:00:00Z",
+      date_end: null,
+      topics: [],
+      location_type: "physical",
+    })) as unknown as Hackathon[];
+
+    render(
+      <TranslationProvider>
+        <HackathonCalendar hackathons={busyDay} />
+      </TranslationProvider>,
+    );
+
+    const dayButton = screen.getByRole("button", { name: /Thu 10 Sept/ });
+    fireEvent.click(dayButton);
+    const agendaCard = dayButton.closest(".rounded-lg.border") as HTMLElement;
+
+    expect(within(agendaCard).getByText("Busy Hackathon 0")).toBeTruthy();
+    expect(within(agendaCard).getByText("Busy Hackathon 7")).toBeTruthy();
+    expect(within(agendaCard).queryByText("Busy Hackathon 8")).toBeNull();
+    expect(within(agendaCard).queryByText("Busy Hackathon 9")).toBeNull();
+
+    fireEvent.click(
+      within(agendaCard).getByRole("button", { name: /\+2 more/ }),
+    );
+    expect(within(agendaCard).getByText("Busy Hackathon 8")).toBeTruthy();
+    expect(within(agendaCard).getByText("Busy Hackathon 9")).toBeTruthy();
   });
 });
