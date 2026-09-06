@@ -131,5 +131,6 @@
   "calendarView.gridCaption": "Calendar pentru {month}",
   "calendarView.moreEvents": "+{count} altele",
   "calendarView.eventCount": "{count} evenimente",
-  "calendarView.empty": "Niciun hackathon în această lună"
+  "calendarView.empty": "Niciun hackathon în această lună",
+  "calendarView.backToCalendar": "Înapoi la calendar"
 }

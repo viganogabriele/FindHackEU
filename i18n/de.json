@@ -131,5 +131,6 @@
   "calendarView.gridCaption": "Kalender für {month}",
   "calendarView.moreEvents": "+{count} weitere",
   "calendarView.eventCount": "{count} Veranstaltungen",
-  "calendarView.empty": "Keine Hackathons in diesem Monat"
+  "calendarView.empty": "Keine Hackathons in diesem Monat",
+  "calendarView.backToCalendar": "Zurück zum Kalender"
 }

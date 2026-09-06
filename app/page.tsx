@@ -5,6 +5,7 @@ import HackathonList from "@/components/hackathon-list";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState, useMemo, useCallback } from "react";
+import type { DateRange } from "react-day-picker";
 import { Hackathon } from "@/types/hackathon";
 import { FilterProvider } from "@/contexts/filter-context";
 import { buildLocationOptions } from "@/lib/location-filter";
@@ -21,7 +22,13 @@ import {
   useBookmarksHydration,
   useBookmarksStore,
 } from "@/lib/bookmarks-store";
-import { List, Map as MapIcon, CalendarDays, Heart } from "lucide-react";
+import {
+  List,
+  Map as MapIcon,
+  CalendarDays,
+  Heart,
+  ArrowLeft,
+} from "lucide-react";
 import type { HackathonTopic } from "@/lib/constants/topics";
 
 const HackathonMap = dynamic(() => import("@/components/hackathon-map"), {
@@ -172,6 +179,42 @@ function HomeContent({
     ? bookmarkedIds
     : NO_BOOKMARKS;
   const [view, setView] = useState<"list" | "map" | "calendar">("list");
+  // Set when a calendar day cell is clicked, so the resulting single-day
+  // filter can be undone by "back to calendar" without losing whatever
+  // filters (topics, location, ...) were already active before that click -
+  // only the day filter and the view itself get restored, nothing else.
+  const [calendarDayOrigin, setCalendarDayOrigin] = useState<{
+    view: "list" | "map" | "calendar";
+    dateRange: DateRange | undefined;
+    day: Date;
+  } | null>(null);
+
+  const handleSelectCalendarDay = useCallback(
+    (day: Date) => {
+      setCalendarDayOrigin({ view, dateRange: filters.dateRange, day });
+      updateFilter("dateRange", { from: day, to: day });
+      setView("list");
+    },
+    [view, filters.dateRange, updateFilter],
+  );
+
+  const handleBackToCalendar = useCallback(() => {
+    if (!calendarDayOrigin) return;
+    updateFilter("dateRange", calendarDayOrigin.dateRange);
+    setView(calendarDayOrigin.view);
+    setCalendarDayOrigin(null);
+  }, [calendarDayOrigin, updateFilter]);
+
+  // Only offer "back to calendar" while the filter it would undo is still
+  // exactly the one that click applied - if the visitor has since changed
+  // the date filter (or anything else that resets it) by hand, there is
+  // nothing day-specific left to undo.
+  const showBackToCalendar =
+    calendarDayOrigin !== null &&
+    view === "list" &&
+    filters.dateRange?.from?.getTime() === calendarDayOrigin.day.getTime() &&
+    filters.dateRange?.to?.getTime() === calendarDayOrigin.day.getTime();
+
   const filteredHackathons = useMemo(
     () =>
       filterAndSortHackathons(
@@ -268,14 +311,31 @@ function HomeContent({
             {view === "map" && !loading ? (
               <HackathonMap hackathons={filteredHackathons} />
             ) : view === "calendar" && !loading ? (
-              <HackathonCalendar hackathons={filteredHackathons} />
-            ) : (
-              <HackathonList
-                upcoming={upcoming}
-                past={past}
-                loading={loading}
-                filteredHackathons={filteredHackathons}
+              <HackathonCalendar
+                hackathons={filteredHackathons}
+                onSelectDay={handleSelectCalendarDay}
               />
+            ) : (
+              <>
+                {showBackToCalendar && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mb-4"
+                    onClick={handleBackToCalendar}
+                  >
+                    <ArrowLeft />
+                    {t("calendarView.backToCalendar")}
+                  </Button>
+                )}
+                <HackathonList
+                  upcoming={upcoming}
+                  past={past}
+                  loading={loading}
+                  filteredHackathons={filteredHackathons}
+                />
+              </>
             )}
           </>
         )}

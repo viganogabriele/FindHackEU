@@ -1,12 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import HackathonCalendar from "@/components/hackathon-calendar";
 import { TranslationProvider } from "@/contexts/translation-context";
 import type { Hackathon } from "@/types/hackathon";
@@ -49,7 +43,7 @@ describe("HackathonCalendar", () => {
   it("offers the Today shortcut at every screen size", () => {
     render(
       <TranslationProvider>
-        <HackathonCalendar hackathons={HACKATHONS} />
+        <HackathonCalendar hackathons={HACKATHONS} onSelectDay={() => {}} />
       </TranslationProvider>,
     );
 
@@ -63,7 +57,7 @@ describe("HackathonCalendar", () => {
 
     render(
       <TranslationProvider>
-        <HackathonCalendar hackathons={HACKATHONS} />
+        <HackathonCalendar hackathons={HACKATHONS} onSelectDay={() => {}} />
       </TranslationProvider>,
     );
 
@@ -78,82 +72,39 @@ describe("HackathonCalendar", () => {
   });
 
   /**
-   * The desktop grid's per-day Popover and the mobile agenda's per-day
-   * accordion used to share one `selectedKey` state. Radix mounts a
-   * Popover's content to a document.body portal whenever its `open` prop
-   * is true, regardless of whether the trigger itself is visible - so
-   * expanding a day on mobile also flipped `open` to true on the
-   * (CSS-hidden, not unmounted) desktop grid's Popover for that same day,
-   * rendering a second, floating copy of the day's events pinned to the
-   * top-left of the viewport. Found live, 2026-09-05.
+   * A day cell has no room to render a full event list itself - clicking it
+   * (desktop grid or mobile agenda) hands the day up to the caller, which is
+   * responsible for filtering to it and switching to a view that can show
+   * it (see app/page.tsx).
    */
-  it("keeps the mobile agenda's expanded day independent of the desktop grid's popover", () => {
+  it("reports the clicked day's local midnight Date on both the desktop grid and the mobile agenda", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-15T12:00:00Z"));
 
+    const onSelectDay = vi.fn();
     render(
       <TranslationProvider>
-        <HackathonCalendar hackathons={HACKATHONS} />
+        <HackathonCalendar hackathons={HACKATHONS} onSelectDay={onSelectDay} />
       </TranslationProvider>,
     );
 
-    // The mobile agenda's day button carries no aria-label - its
-    // accessible name comes from its visible text, in the short
-    // "Thu 10 Sept" format. The desktop grid's day button is given an
-    // explicit aria-label in the longer "Thursday 10 September" format.
-    // (The desktop grid cell also always renders a small name preview
-    // for the day regardless of popover state, so "Berlin AI Hackathon"
-    // legitimately appears more than once - the regression this guards
-    // against is the desktop day's *Popover* also opening, not the text
-    // occurrence count.)
+    // The mobile agenda's day button carries no aria-label - its accessible
+    // name comes from its visible text, in the short "Thu 10 Sept" format.
     fireEvent.click(screen.getByRole("button", { name: /Thu 10 Sept/ }));
 
-    const desktopDayButton = screen.getByRole("button", {
-      name: /Thursday 10 September/,
-    });
-    expect(desktopDayButton.getAttribute("aria-expanded")).toBe("false");
-  });
-
-  /**
-   * Some real days carry 40-50+ overlapping events (very broad-date-range
-   * "online" hackathons touching nearly every day of a month), which used
-   * to render as an unbroken wall of full cards in the day detail.
-   */
-  it("caps a busy day's detail behind a show-more button", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-09-15T12:00:00Z"));
-
-    const busyDay = Array.from({ length: 10 }, (_, i) => ({
-      id: `busy-${i}`,
-      name: `Busy Hackathon ${i}`,
-      url: `https://example.org/busy-${i}`,
-      city: "Berlin",
-      country_code: "DE",
-      date_start: "2026-09-10T09:00:00Z",
-      date_end: null,
-      topics: [],
-      location_type: "physical",
-    })) as unknown as Hackathon[];
-
-    render(
-      <TranslationProvider>
-        <HackathonCalendar hackathons={busyDay} />
-      </TranslationProvider>,
-    );
-
-    const dayButton = screen.getByRole("button", { name: /Thu 10 Sept/ });
-    fireEvent.click(dayButton);
-    const agendaCard = dayButton.closest(".rounded-lg.border") as HTMLElement;
-
-    expect(within(agendaCard).getByText("Busy Hackathon 0")).toBeTruthy();
-    expect(within(agendaCard).getByText("Busy Hackathon 7")).toBeTruthy();
-    expect(within(agendaCard).queryByText("Busy Hackathon 8")).toBeNull();
-    expect(within(agendaCard).queryByText("Busy Hackathon 9")).toBeNull();
-
+    // The desktop grid's day button is given an explicit aria-label in the
+    // longer "Thursday 10 September" format.
     fireEvent.click(
-      within(agendaCard).getByRole("button", { name: /\+2 more/ }),
+      screen.getByRole("button", { name: /Thursday 10 September/ }),
     );
-    expect(within(agendaCard).getByText("Busy Hackathon 8")).toBeTruthy();
-    expect(within(agendaCard).getByText("Busy Hackathon 9")).toBeTruthy();
+
+    expect(onSelectDay).toHaveBeenCalledTimes(2);
+    for (const call of onSelectDay.mock.calls) {
+      const day = call[0] as Date;
+      expect(day.getFullYear()).toBe(2026);
+      expect(day.getMonth()).toBe(8); // September, 0-indexed
+      expect(day.getDate()).toBe(10);
+      expect(day.getHours()).toBe(0);
+    }
   });
 });

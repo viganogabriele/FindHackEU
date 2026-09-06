@@ -131,5 +131,6 @@
   "calendarView.gridCaption": "Kalender voor {month}",
   "calendarView.moreEvents": "+{count} meer",
   "calendarView.eventCount": "{count} evenementen",
-  "calendarView.empty": "Geen hackathons deze maand"
+  "calendarView.empty": "Geen hackathons deze maand",
+  "calendarView.backToCalendar": "Terug naar kalender"
 }

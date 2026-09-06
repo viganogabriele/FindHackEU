@@ -4,17 +4,10 @@ import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { useTranslation } from "@/contexts/translation-context";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { HackathonCard } from "@/components/hackathon-card";
 import { cn } from "@/lib/utils";
 import {
   bucketHackathonsByDay,
   buildMonthGrid,
-  toDayKey,
 } from "@/lib/calendar-hackathons";
 import type { Hackathon } from "@/types/hackathon";
 
@@ -22,40 +15,21 @@ import type { Hackathon } from "@/types/hackathon";
  * rest collapse into a "+N" overflow chip, on the desktop grid layout. */
 const MAX_VISIBLE_PER_CELL = 3;
 
-/** Number of full cards shown in a day's detail (popover or mobile agenda)
- * before the rest collapse behind a "show more" button - some days carry
- * 40-50+ overlapping events (very broad-date-range "online" hackathons
- * touching nearly every day of a month), which rendered as a wall of
- * cards with no way to collapse it back down. */
-const DAY_DETAIL_INITIAL_LIMIT = 8;
-
 export default function HackathonCalendar({
   hackathons,
+  onSelectDay,
 }: {
   hackathons: Hackathon[];
+  /** Called with a day's local midnight `Date` when that day is clicked
+   * (desktop grid cell or mobile agenda row) - the caller is responsible
+   * for applying it as a filter and switching to a view that shows it,
+   * since a calendar day cell has no room to render a full list itself. */
+  onSelectDay: (date: Date) => void;
 }) {
   const { t, locale } = useTranslation();
   const today = useMemo(() => new Date(), []);
   const [cursor, setCursor] = useState(
     () => new Date(today.getFullYear(), today.getMonth(), 1),
-  );
-  // The day currently expanded for detail. Kept as two separate pieces of
-  // state - one per layout - rather than a single shared key: the desktop
-  // grid's Popover is only visually hidden on mobile (`hidden sm:block`),
-  // not unmounted, so a shared key meant tapping a day in the mobile
-  // agenda also flipped `open` to true on the corresponding (still
-  // mounted, just display:none) desktop day cell's Popover. Radix portals
-  // PopoverContent to document.body regardless of the trigger's own
-  // visibility, and floating-ui falls back to anchoring at (0,0) when the
-  // trigger has a zero-size rect (as a display:none element does) - so
-  // that hidden Popover rendered as a fixed, top-left-pinned card over the
-  // whole page. Found live, 2026-09-05: tapping a mobile agenda day showed
-  // a duplicate, floating copy of that day's event list.
-  const [selectedDesktopKey, setSelectedDesktopKey] = useState<string | null>(
-    null,
-  );
-  const [selectedMobileKey, setSelectedMobileKey] = useState<string | null>(
-    null,
   );
 
   const year = cursor.getFullYear();
@@ -94,12 +68,8 @@ export default function HackathonCalendar({
     setCursor((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
   const goToNextMonth = () =>
     setCursor((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
-  const goToToday = () => {
+  const goToToday = () =>
     setCursor(new Date(today.getFullYear(), today.getMonth(), 1));
-    const todayKey = toDayKey(today);
-    setSelectedDesktopKey(todayKey);
-    setSelectedMobileKey(todayKey);
-  };
 
   return (
     <div className="w-full">
@@ -163,72 +133,51 @@ export default function HackathonCalendar({
                   const dayHackathons = byDay.get(day.key) ?? [];
                   const visible = dayHackathons.slice(0, MAX_VISIBLE_PER_CELL);
                   const overflow = dayHackathons.length - visible.length;
-                  const isOpen = selectedDesktopKey === day.key;
 
                   return (
                     <td
                       key={day.key}
                       className="h-28 border-b border-r p-0 align-top last:border-r-0"
                     >
-                      <Popover
-                        open={isOpen}
-                        onOpenChange={(open) =>
-                          setSelectedDesktopKey(open ? day.key : null)
-                        }
-                      >
-                        <PopoverTrigger asChild>
-                          <button
-                            type="button"
-                            className={cn(
-                              "flex h-full w-full flex-col items-stretch gap-1 p-1.5 text-left transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-                              !day.inCurrentMonth && "text-muted-foreground/50",
-                            )}
-                            aria-label={dayAriaLabel(
-                              day.date,
-                              dayHackathons.length,
-                              t,
-                            )}
-                          >
-                            <span
-                              className={cn(
-                                "flex size-6 items-center justify-center self-start rounded-full text-xs font-medium",
-                                day.isToday &&
-                                  "bg-primary text-primary-foreground",
-                              )}
-                            >
-                              {day.date.getDate()}
-                            </span>
-                            <span className="flex flex-1 flex-col gap-0.5 overflow-hidden">
-                              {visible.map((h) => (
-                                <span
-                                  key={h.id}
-                                  className="truncate rounded-sm bg-muted px-1 py-0.5 text-[0.6875rem] leading-tight text-muted-foreground"
-                                >
-                                  {h.name}
-                                </span>
-                              ))}
-                              {overflow > 0 && (
-                                <span className="text-[0.6875rem] font-medium text-muted-foreground">
-                                  {t("calendarView.moreEvents", {
-                                    count: overflow,
-                                  })}
-                                </span>
-                              )}
-                            </span>
-                          </button>
-                        </PopoverTrigger>
-                        {dayHackathons.length > 0 && (
-                          <PopoverContent
-                            align="start"
-                            className="max-h-[70vh] w-[min(24rem,90vw)] overflow-y-auto p-2"
-                          >
-                            <DayDetail
-                              date={day.date}
-                              hackathons={dayHackathons}
-                            />
-                          </PopoverContent>
+                      <button
+                        type="button"
+                        onClick={() => onSelectDay(day.date)}
+                        className={cn(
+                          "flex h-full w-full flex-col items-stretch gap-1 p-1.5 text-left transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                          !day.inCurrentMonth && "text-muted-foreground/50",
                         )}
-                      </Popover>
+                        aria-label={dayAriaLabel(
+                          day.date,
+                          dayHackathons.length,
+                          t,
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "flex size-6 items-center justify-center self-start rounded-full text-xs font-medium",
+                            day.isToday && "bg-primary text-primary-foreground",
+                          )}
+                        >
+                          {day.date.getDate()}
+                        </span>
+                        <span className="flex flex-1 flex-col gap-0.5 overflow-hidden">
+                          {visible.map((h) => (
+                            <span
+                              key={h.id}
+                              className="truncate rounded-sm bg-muted px-1 py-0.5 text-[0.6875rem] leading-tight text-muted-foreground"
+                            >
+                              {h.name}
+                            </span>
+                          ))}
+                          {overflow > 0 && (
+                            <span className="text-[0.6875rem] font-medium text-muted-foreground">
+                              {t("calendarView.moreEvents", {
+                                count: overflow,
+                              })}
+                            </span>
+                          )}
+                        </span>
+                      </button>
                     </td>
                   );
                 })}
@@ -246,45 +195,37 @@ export default function HackathonCalendar({
           .map((day) => {
             const dayHackathons = byDay.get(day.key) ?? [];
             if (dayHackathons.length === 0) return null;
-            const isOpen = selectedMobileKey === day.key;
             return (
-              <div key={day.key} className="rounded-lg border">
-                <button
-                  type="button"
-                  onClick={() => setSelectedMobileKey(isOpen ? null : day.key)}
-                  aria-expanded={isOpen}
-                  className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-                >
-                  <span className="flex items-center gap-2">
-                    <span
-                      className={cn(
-                        "flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-medium",
-                        day.isToday
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-foreground",
-                      )}
-                    >
-                      {day.date.getDate()}
-                    </span>
-                    <span className="text-sm font-medium">
-                      {new Intl.DateTimeFormat(
-                        locale === "en" ? "en-GB" : locale,
-                        { weekday: "short", day: "numeric", month: "short" },
-                      ).format(day.date)}
-                    </span>
+              <button
+                key={day.key}
+                type="button"
+                onClick={() => onSelectDay(day.date)}
+                className="flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-left transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+              >
+                <span className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-medium",
+                      day.isToday
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-foreground",
+                    )}
+                  >
+                    {day.date.getDate()}
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    {t("calendarView.eventCount", {
-                      count: dayHackathons.length,
-                    })}
+                  <span className="text-sm font-medium">
+                    {new Intl.DateTimeFormat(
+                      locale === "en" ? "en-GB" : locale,
+                      { weekday: "short", day: "numeric", month: "short" },
+                    ).format(day.date)}
                   </span>
-                </button>
-                {isOpen && (
-                  <div className="border-t px-3 py-3">
-                    <LimitedHackathonList hackathons={dayHackathons} />
-                  </div>
-                )}
-              </div>
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {t("calendarView.eventCount", {
+                    count: dayHackathons.length,
+                  })}
+                </span>
+              </button>
             );
           })}
         {!monthHasEvents && <EmptyMonth />}
@@ -296,70 +237,6 @@ export default function HackathonCalendar({
         <div className="hidden sm:block">
           <EmptyMonth />
         </div>
-      )}
-    </div>
-  );
-}
-
-function DayDetail({
-  date,
-  hackathons,
-}: {
-  date: Date;
-  hackathons: Hackathon[];
-}) {
-  const { locale } = useTranslation();
-  const label = new Intl.DateTimeFormat(locale === "en" ? "en-GB" : locale, {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(date);
-
-  return (
-    <div className="space-y-3">
-      <p className="text-sm font-semibold">{label}</p>
-      <LimitedHackathonList hackathons={hackathons} />
-    </div>
-  );
-}
-
-/**
- * A day's full card list, capped at `DAY_DETAIL_INITIAL_LIMIT` with a
- * "show more" button revealing the rest - used by both the desktop grid's
- * popover and the mobile agenda's expanded day, so a day with 40-50+
- * overlapping events (see the constant's doc comment) doesn't render as an
- * unbroken wall of cards.
- */
-function LimitedHackathonList({ hackathons }: { hackathons: Hackathon[] }) {
-  const { t } = useTranslation();
-  const [showAll, setShowAll] = useState(false);
-  const visible = showAll
-    ? hackathons
-    : hackathons.slice(0, DAY_DETAIL_INITIAL_LIMIT);
-  const remaining = hackathons.length - visible.length;
-
-  return (
-    <div className="space-y-3">
-      {visible.map((h) => (
-        <HackathonCard
-          key={h.id}
-          hackathon={h}
-          compact
-          titleLink
-          className="border-0 shadow-none"
-        />
-      ))}
-      {remaining > 0 && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="w-full"
-          onClick={() => setShowAll(true)}
-        >
-          {t("calendarView.moreEvents", { count: remaining })}
-        </Button>
       )}
     </div>
   );
